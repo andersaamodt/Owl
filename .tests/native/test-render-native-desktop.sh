@@ -93,6 +93,26 @@ swift_unified_simplex_email_ui_exists() {
   grep -q 'TransportPill(message: message)' generated/macos/Sources/App/App.swift
 }
 
+swift_new_and_inbox_use_card_stack_layout() {
+  cd "$repo_dir"
+  grep -q 'CardStackFrame' generated/macos/Sources/App/App.swift
+  grep -q 'NewSenderStackCard' generated/macos/Sources/App/App.swift
+  grep -q 'NewSenderMessageStackCard' generated/macos/Sources/App/App.swift
+  grep -q 'InboxStackCard' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct NewSendersView/ { in_view = 1 }
+    /private struct MailView/ { in_view = 0 }
+    in_view && /List[[:space:]]*[(]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct InboxView/ { in_view = 1 }
+    /private struct MailboxView/ { in_view = 0 }
+    in_view && /List[[:space:]]*[(]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -114,6 +134,7 @@ run_case "Swift actions cover IR" swift_actions_cover_ir
 run_case "Linux actions cover IR" linux_actions_cover_ir
 run_case "Swift uses native desktop idiom" swift_uses_native_desktop_idiom
 run_case "Swift has unified SimpleX/email UI" swift_unified_simplex_email_ui_exists
+run_case "Swift New Senders and Inbox use card-stack layout" swift_new_and_inbox_use_card_stack_layout
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -121,4 +142,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "7/7 native render tests passed"
+printf '%s\n' "8/8 native render tests passed"

@@ -1602,8 +1602,89 @@ private struct MainContentView: View {
   }
 }
 
+private enum NewSendersFlowStage {
+  case senders
+  case messages
+  case reader
+}
+
+private struct CardStackFrame<Content: View>: View {
+  let depth: Int
+  let badge: String?
+  let tint: Color
+  let isSelected: Bool
+  let content: Content
+
+  init(
+    depth: Int = 1,
+    badge: String? = nil,
+    tint: Color = .accentColor,
+    isSelected: Bool = false,
+    @ViewBuilder content: () -> Content
+  ) {
+    self.depth = depth
+    self.badge = badge
+    self.tint = tint
+    self.isSelected = isSelected
+    self.content = content()
+  }
+
+  private var backCount: Int {
+    min(max(depth - 1, 0), 4)
+  }
+
+  var body: some View {
+    content
+      .padding(14)
+      .background(
+        RoundedRectangle(cornerRadius: 8)
+          .fill(Color(nsColor: .controlBackgroundColor))
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 8)
+          .stroke(tint.opacity(isSelected ? 0.42 : 0.18), lineWidth: isSelected ? 1.4 : 1)
+      )
+      .background {
+        ZStack {
+          ForEach(0..<backCount, id: \.self) { index in
+            RoundedRectangle(cornerRadius: 8)
+              .fill(Color(nsColor: .controlBackgroundColor).opacity(0.96))
+              .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                  .stroke(tint.opacity(0.12), lineWidth: 1)
+              )
+              .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+              .offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 2.2)
+              .rotationEffect(.degrees(stackRotation(index)))
+          }
+        }
+      }
+      .overlay(alignment: .topTrailing) {
+        if let badge, !badge.isEmpty {
+          Text(badge)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(tint.opacity(0.16)))
+            .offset(x: 8, y: -8)
+        }
+      }
+      .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 3)
+  }
+
+  private func stackRotation(_ index: Int) -> Double {
+    [-3.2, 2.8, -2.2, 1.7][index % 4]
+  }
+
+  private func stackOffsetX(_ index: Int) -> CGFloat {
+    [-3.0, 2.0, -1.5, 1.0][index % 4]
+  }
+}
+
 private struct NewSendersView: View {
   @EnvironmentObject private var session: OwlSession
+  @State private var stage: NewSendersFlowStage = .senders
 
   var selectedMessage: MessageItem? {
     if let id = session.selectedMessageID, let match = session.newSenderMessages.first(where: { $0.id == id }) {
@@ -1613,51 +1694,255 @@ private struct NewSendersView: View {
   }
 
   var body: some View {
-    HStack(spacing: 0) {
-      VStack(alignment: .leading, spacing: 0) {
-        HeaderView(title: "New Senders", subtitle: "\(session.newSenderThreads.count) senders")
-        Divider()
-        List(selection: $session.selectedNewSenderID) {
+    VStack(alignment: .leading, spacing: 0) {
+      newSendersHeader
+      Divider()
+      Group {
+        switch stage {
+        case .senders:
+          NewSenderStackSurface(stage: $stage)
+        case .messages:
+          NewSenderMessageStackSurface(stage: $stage)
+        case .reader:
+          NewSenderReaderSurface(message: selectedMessage)
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+  }
+
+  private var newSendersHeader: some View {
+    HStack(alignment: .center, spacing: 12) {
+      if stage != .senders {
+        Button {
+          stage = stage == .reader ? .messages : .senders
+        } label: {
+          Label("Back", systemImage: "chevron.left")
+        }
+        .fixedSize()
+      }
+      VStack(alignment: .leading, spacing: 4) {
+        Text(headerTitle)
+          .font(.title2.weight(.semibold))
+        Text(headerSubtitle)
+          .font(.callout)
+          .foregroundStyle(.secondary)
+      }
+      Spacer()
+      if stage != .senders, session.selectedNewSender != nil {
+        Button { session.moveSelectedNewSender(to: "accepted") } label: {
+          Label("Accept", systemImage: "checkmark.circle")
+        }
+        .fixedSize()
+        Button { session.moveSelectedNewSender(to: "spam") } label: {
+          Label("Spam", systemImage: "exclamationmark.octagon")
+        }
+        .fixedSize()
+        Button { session.moveSelectedNewSender(to: "banned") } label: {
+          Label("Ban", systemImage: "hand.raised")
+        }
+        .fixedSize()
+      }
+    }
+    .padding(.horizontal, 18)
+    .padding(.vertical, 14)
+  }
+
+  private var headerTitle: String {
+    switch stage {
+    case .senders:
+      return "New Senders"
+    case .messages:
+      return session.selectedNewSender?.displayName ?? "Messages"
+    case .reader:
+      return selectedMessage?.subject.isEmpty == false ? selectedMessage?.subject ?? "Message" : "Message"
+    }
+  }
+
+  private var headerSubtitle: String {
+    switch stage {
+    case .senders:
+      return "\(session.newSenderThreads.count) sender\(session.newSenderThreads.count == 1 ? "" : "s")"
+    case .messages:
+      return "\(session.newSenderMessages.count) quarantined message\(session.newSenderMessages.count == 1 ? "" : "s")"
+    case .reader:
+      return selectedMessage.map { "\($0.contact_name) - \($0.received_at)" } ?? "No message selected"
+    }
+  }
+}
+
+private struct NewSenderStackSurface: View {
+  @EnvironmentObject private var session: OwlSession
+  @Binding var stage: NewSendersFlowStage
+
+  var body: some View {
+    ScrollView {
+      if session.newSenderThreads.isEmpty {
+        EmptyStateView(title: "No New Senders", subtitle: "New sender cards will appear here.")
+          .frame(maxWidth: .infinity, minHeight: 360)
+      } else {
+        LazyVStack(spacing: 18) {
           ForEach(session.newSenderThreads) { thread in
-            SidebarThreadRow(thread: thread)
-              .tag(thread.id)
-              .onTapGesture { session.selectNewSender(thread) }
+            NewSenderStackCard(thread: thread, isSelected: session.selectedNewSenderID == thread.id) {
+              session.selectNewSender(thread)
+              stage = .messages
+            }
+            .frame(maxWidth: 560)
           }
         }
-        .listStyle(.inset)
+        .frame(maxWidth: .infinity)
+        .padding(24)
       }
-      .frame(minWidth: 240, idealWidth: 280, maxWidth: 340)
-      Divider()
-      VStack(alignment: .leading, spacing: 0) {
-        if let sender = session.selectedNewSender {
-          HeaderView(title: sender.displayName, subtitle: "\(session.newSenderMessages.count) quarantined messages")
+    }
+  }
+}
+
+private struct NewSenderStackCard: View {
+  let thread: ThreadItem
+  let isSelected: Bool
+  let action: () -> Void
+
+  private var quarantineMessages: [MessageItem] {
+    thread.messages.filter { $0.list == "quarantine" }
+  }
+
+  var body: some View {
+    Button(action: action) {
+      CardStackFrame(
+        depth: max(1, quarantineMessages.count),
+        badge: quarantineMessages.isEmpty ? nil : String(quarantineMessages.count),
+        tint: .orange,
+        isSelected: isSelected
+      ) {
+        VStack(alignment: .leading, spacing: 10) {
+          HStack(alignment: .firstTextBaseline, spacing: 9) {
+            Image(systemName: thread.kind == "group" ? "person.3.fill" : "person.crop.circle.badge.questionmark")
+              .foregroundStyle(.orange)
+            Text(thread.displayName)
+              .font(.headline)
+            Spacer()
+            Text(thread.latest_at)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          if let latest = quarantineMessages.sorted(by: { $0.received_at > $1.received_at }).first {
+            Text(latest.subject.isEmpty ? "(no subject)" : latest.subject)
+              .font(.subheadline.weight(.semibold))
+              .lineLimit(1)
+            Text(latest.displayBody.isEmpty ? latest.preview : latest.displayBody)
+              .font(.callout)
+              .foregroundStyle(.secondary)
+              .lineLimit(2)
+          }
+          HStack(spacing: 8) {
+            Label("\(quarantineMessages.count) pending", systemImage: "tray")
+            if thread.hasEmailPath {
+              Label("Email", systemImage: "lock.open")
+            }
+            if thread.hasSimpleXPath {
+              Label("SimpleX", systemImage: "lock.fill")
+            }
+          }
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(.secondary)
+        }
+      }
+    }
+    .buttonStyle(.plain)
+  }
+}
+
+private struct NewSenderMessageStackSurface: View {
+  @EnvironmentObject private var session: OwlSession
+  @Binding var stage: NewSendersFlowStage
+
+  var body: some View {
+    ScrollViewReader { proxy in
+      ScrollView {
+        if session.newSenderMessages.isEmpty {
+          EmptyStateView(title: "No Messages", subtitle: "This sender has no pending messages.")
+            .frame(maxWidth: .infinity, minHeight: 360)
         } else {
-          HeaderView(title: "Messages", subtitle: "No sender selected")
-        }
-        Divider()
-        List(session.newSenderMessages) { message in
-          MessageListRow(message: message)
-            .onTapGesture { session.selectMessage(message) }
-        }
-        .listStyle(.inset)
-        Divider()
-        HStack(spacing: 8) {
-          Button { session.moveSelectedNewSender(to: "accepted") } label: {
-            Label("Accept", systemImage: "checkmark.circle")
+          LazyVStack(spacing: 18) {
+            ForEach(session.newSenderMessages) { message in
+              NewSenderMessageStackCard(message: message, isSelected: session.selectedMessageID == message.id) {
+                session.selectMessage(message)
+                stage = .reader
+              }
+              .id(message.id)
+              .frame(maxWidth: 640)
+            }
           }
-          Button { session.moveSelectedNewSender(to: "spam") } label: {
-            Label("Spam", systemImage: "exclamationmark.octagon")
-          }
-          Button { session.moveSelectedNewSender(to: "banned") } label: {
-            Label("Ban", systemImage: "hand.raised")
-          }
+          .frame(maxWidth: .infinity)
+          .padding(24)
         }
-        .padding(12)
       }
-      .frame(minWidth: 280, idealWidth: 360, maxWidth: 460)
-      Divider()
-      MessageReaderView(message: selectedMessage, emptyTitle: "No Message Selected")
-        .frame(minWidth: 420)
+      .onAppear {
+        if let target = session.selectedMessageID {
+          proxy.scrollTo(target, anchor: .center)
+        }
+      }
+    }
+  }
+}
+
+private struct NewSenderMessageStackCard: View {
+  let message: MessageItem
+  let isSelected: Bool
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      CardStackFrame(depth: 1, tint: message.isSimpleX ? .green : .red, isSelected: isSelected) {
+        VStack(alignment: .leading, spacing: 10) {
+          HStack(alignment: .firstTextBaseline, spacing: 8) {
+            TransportMark(message: message)
+            Text(message.subject.isEmpty ? "(no subject)" : message.subject)
+              .font(.headline)
+              .lineLimit(1)
+            Spacer()
+            Text(message.received_at)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          Text(message.contact_name)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+          Text(message.displayBody.isEmpty ? "No preview" : message.displayBody)
+            .font(.body)
+            .lineLimit(message.isLongBlock ? 5 : 3)
+          HStack {
+            TransportPill(message: message)
+            if message.attachments > 0 {
+              Label("\(message.attachments)", systemImage: "paperclip")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+          }
+        }
+      }
+    }
+    .buttonStyle(.plain)
+    .contextMenu { MessageContextMenu(message: message) }
+  }
+}
+
+private struct NewSenderReaderSurface: View {
+  let message: MessageItem?
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 16) {
+        if let message {
+          MessageReaderCard(message: message)
+            .frame(maxWidth: 760)
+        } else {
+          EmptyStateView(title: "No Message Selected", subtitle: "Choose a message card.")
+            .frame(maxWidth: .infinity, minHeight: 360)
+        }
+      }
+      .frame(maxWidth: .infinity)
+      .padding(24)
     }
   }
 }
@@ -1804,37 +2089,48 @@ private struct MessageReaderView: View {
 private struct InboxView: View {
   @EnvironmentObject private var session: OwlSession
 
-  var selectedMessage: MessageItem? {
-    if let id = session.selectedMessageID, let match = session.snapshot.inbox.first(where: { $0.id == id }) {
-      return match
-    }
-    return session.snapshot.inbox.first
-  }
-
   var body: some View {
-    HStack(spacing: 0) {
-      VStack(alignment: .leading, spacing: 0) {
-        HeaderView(title: "Inbox", subtitle: "\(session.snapshot.inbox.count) items")
-        Divider()
-        ScrollViewReader { proxy in
-          List(session.snapshot.inbox) { message in
-            MessageListRow(message: message)
-              .id(message.id)
-              .onTapGesture { session.selectMessage(message) }
-              .contextMenu { MessageContextMenu(message: message) }
-          }
-          .listStyle(.inset)
-          .onChange(of: session.focusedMessageID) { target in
-            if let target {
-              withAnimation { proxy.scrollTo(target, anchor: .center) }
+    VStack(alignment: .leading, spacing: 0) {
+      HeaderView(title: "Inbox", subtitle: "\(session.snapshot.inbox.count) item\(session.snapshot.inbox.count == 1 ? "" : "s")")
+      Divider()
+      ScrollViewReader { proxy in
+        ScrollView {
+          if session.snapshot.inbox.isEmpty {
+            EmptyStateView(title: "Inbox Is Clear", subtitle: "Inbox cards will appear here.")
+              .frame(maxWidth: .infinity, minHeight: 420)
+          } else {
+            LazyVStack(spacing: 20) {
+              ForEach(session.snapshot.inbox) { message in
+                InboxStackCard(
+                  message: message,
+                  stackDepth: inboxStackDepth(for: message),
+                  isFocused: session.focusedMessageID == message.id
+                )
+                .id(message.id)
+                .frame(maxWidth: 680)
+              }
             }
+            .frame(maxWidth: .infinity)
+            .padding(24)
+          }
+        }
+        .onAppear {
+          if let target = session.focusedMessageID {
+            proxy.scrollTo(target, anchor: .center)
+          }
+        }
+        .onChange(of: session.focusedMessageID) { target in
+          if let target {
+            withAnimation { proxy.scrollTo(target, anchor: .center) }
           }
         }
       }
-      .frame(minWidth: 320, idealWidth: 390, maxWidth: 480)
-      Divider()
-      MessageReaderView(message: selectedMessage, emptyTitle: "Inbox Is Clear")
     }
+  }
+
+  private func inboxStackDepth(for message: MessageItem) -> Int {
+    let peerCount = session.snapshot.inbox.filter { $0.thread_id == message.thread_id }.count
+    return max(1, peerCount)
   }
 }
 
@@ -1949,14 +2245,12 @@ private struct EventsView: View {
   }
 }
 
-private struct InboxCard: View {
+private struct MessageReaderCard: View {
   @EnvironmentObject private var session: OwlSession
   let message: MessageItem
 
   var body: some View {
-    Button {
-      session.openTimeline(for: message)
-    } label: {
+    CardStackFrame(depth: 1, tint: message.isSimpleX ? .green : .red, isSelected: true) {
       VStack(alignment: .leading, spacing: 8) {
         HStack(alignment: .firstTextBaseline) {
           TransportMark(message: message)
@@ -1989,11 +2283,69 @@ private struct InboxCard: View {
             .buttonStyle(.borderless)
         }
       }
-      .padding(14)
-      .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
-      .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.18)))
     }
-    .buttonStyle(.plain)
+    .contextMenu { MessageContextMenu(message: message) }
+  }
+}
+
+private struct InboxStackCard: View {
+  @EnvironmentObject private var session: OwlSession
+  let message: MessageItem
+  let stackDepth: Int
+  let isFocused: Bool
+
+  var body: some View {
+    CardStackFrame(
+      depth: stackDepth,
+      badge: stackDepth > 1 ? String(stackDepth) : nil,
+      tint: message.isSimpleX ? .green : .red,
+      isSelected: isFocused
+    ) {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          TransportMark(message: message)
+          Text(message.contact_name)
+            .font(.headline)
+          if message.starred {
+            Image(systemName: "star.fill")
+              .font(.caption)
+              .foregroundStyle(.yellow)
+          }
+          Spacer()
+          Text(message.received_at)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        if !message.subject.isEmpty {
+          Text(message.subject)
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(2)
+        }
+        Text(message.displayBody.isEmpty ? "No preview" : message.displayBody)
+          .font(message.isLongBlock ? .body : .callout)
+          .foregroundStyle(.primary)
+          .lineLimit(message.isLongBlock ? 6 : 3)
+        HStack(spacing: 8) {
+          TransportPill(message: message)
+          if message.attachments > 0 {
+            Label("\(message.attachments)", systemImage: "paperclip")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          Spacer()
+          Button { session.markRead(message, read: !message.read) } label: {
+            Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+          }
+          .buttonStyle(.borderless)
+          Button { session.archive(message) } label: {
+            Label("Remove From Inbox", systemImage: "archivebox")
+          }
+          .buttonStyle(.borderless)
+        }
+      }
+    }
+    .contentShape(RoundedRectangle(cornerRadius: 8))
+    .onTapGesture { session.openTimeline(for: message) }
     .contextMenu { MessageContextMenu(message: message) }
   }
 }
