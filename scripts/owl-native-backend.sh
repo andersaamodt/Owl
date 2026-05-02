@@ -137,6 +137,30 @@ simplex_current_binary() {
   printf '%s\n' "$(simplex_current_dir)/simplex-chat"
 }
 
+wizardry_simplex_root() {
+  if [ -n "${OWL_NATIVE_WIZARDRY_SIMPLEX_ROOT-}" ]; then
+    printf '%s\n' "$OWL_NATIVE_WIZARDRY_SIMPLEX_ROOT"
+    return 0
+  fi
+  if [ -n "${WIZARDRY_SIMPLEX_ROOT-}" ]; then
+    printf '%s\n' "$WIZARDRY_SIMPLEX_ROOT"
+    return 0
+  fi
+  printf '%s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/wizardry/simplex"
+}
+
+wizardry_simplex_install_file() {
+  printf '%s\n' "$(wizardry_simplex_root)/install.conf"
+}
+
+wizardry_simplex_current_binary() {
+  printf '%s\n' "$(wizardry_simplex_root)/current/simplex-chat"
+}
+
+simplex_user_bin_path() {
+  printf '%s\n' "${XDG_BIN_HOME:-$HOME/.local/bin}/simplex-chat"
+}
+
 simplex_transport_root() {
   printf '%s\n' "$ROOT/.transport/simplex"
 }
@@ -776,15 +800,69 @@ sha256_file() {
   sha256sum "$file" | awk '{print $1}'
 }
 
+simplex_binary_candidate() {
+  candidate=${1-}
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  return 1
+}
+
 simplex_binary_resolved() {
   binary=$(config_get "$(simplex_install_file)" binary_path 2>/dev/null || printf '')
-  if [ -n "$binary" ] && [ -x "$binary" ]; then
-    printf '%s\n' "$binary"
+  if simplex_binary_candidate "$binary"; then
     return 0
   fi
   current=$(simplex_current_binary)
-  if [ -x "$current" ]; then
-    printf '%s\n' "$current"
+  if simplex_binary_candidate "$current"; then
+    return 0
+  fi
+  binary=$(config_get "$(wizardry_simplex_install_file)" binary_path 2>/dev/null || printf '')
+  if simplex_binary_candidate "$binary"; then
+    return 0
+  fi
+  current=$(wizardry_simplex_current_binary)
+  if simplex_binary_candidate "$current"; then
+    return 0
+  fi
+  if simplex_binary_candidate "$(simplex_user_bin_path)"; then
+    return 0
+  fi
+  path_binary=$(command -v simplex-chat 2>/dev/null || printf '')
+  if simplex_binary_candidate "$path_binary"; then
+    return 0
+  fi
+  for candidate in /usr/local/bin/simplex-chat /opt/homebrew/bin/simplex-chat /usr/bin/simplex-chat; do
+    if simplex_binary_candidate "$candidate"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+simplex_install_file_for_binary() {
+  binary=${1-}
+  app_file=$(simplex_install_file)
+  app_binary=$(config_get "$app_file" binary_path 2>/dev/null || printf '')
+  if [ -n "$binary" ] && { [ "$binary" = "$app_binary" ] || [ "$binary" = "$(simplex_current_binary)" ]; }; then
+    printf '%s\n' "$app_file"
+    return 0
+  fi
+
+  wizardry_file=$(wizardry_simplex_install_file)
+  wizardry_binary=$(config_get "$wizardry_file" binary_path 2>/dev/null || printf '')
+  if [ -n "$binary" ] && { [ "$binary" = "$wizardry_binary" ] || [ "$binary" = "$(wizardry_simplex_current_binary)" ] || [ "$binary" = "$(simplex_user_bin_path)" ]; }; then
+    printf '%s\n' "$wizardry_file"
+    return 0
+  fi
+
+  if [ -f "$app_file" ]; then
+    printf '%s\n' "$app_file"
+    return 0
+  fi
+  if [ -f "$wizardry_file" ]; then
+    printf '%s\n' "$wizardry_file"
     return 0
   fi
   return 1
@@ -813,7 +891,8 @@ simplex_install_state() {
     return 0
   fi
   if binary=$(simplex_binary_resolved 2>/dev/null); then
-    validation=$(config_get "$(simplex_install_file)" validation_state 2>/dev/null || printf ready)
+    install_file=$(simplex_install_file_for_binary "$binary" 2>/dev/null || printf '')
+    validation=$(config_get "$install_file" validation_state 2>/dev/null || printf ready)
     if [ "$validation" = error ]; then
       printf '%s\n' broken
     else
@@ -821,11 +900,84 @@ simplex_install_state() {
     fi
     return 0
   fi
-  if [ -f "$(simplex_install_file)" ]; then
+  if [ -f "$(simplex_install_file)" ] || [ -f "$(wizardry_simplex_install_file)" ]; then
     printf '%s\n' broken
   else
     printf '%s\n' missing
   fi
+}
+
+simplex_install_source() {
+  install_file=${1-}
+  if [ -z "$install_file" ]; then
+    printf '%s\n' path
+    return 0
+  fi
+  if [ "$install_file" = "$(simplex_install_file)" ]; then
+    printf '%s\n' owl-native
+    return 0
+  fi
+  if [ "$install_file" = "$(wizardry_simplex_install_file)" ]; then
+    printf '%s\n' wizardry
+    return 0
+  fi
+  printf '%s\n' path
+}
+
+append_path_dir() {
+  path_dir=${1-}
+  [ -d "$path_dir" ] || return 0
+  case ":${wizardry_path_prefix-}:" in
+    *":$path_dir:"*) return 0 ;;
+  esac
+  if [ -n "${wizardry_path_prefix-}" ]; then
+    wizardry_path_prefix="$wizardry_path_prefix:$path_dir"
+  else
+    wizardry_path_prefix="$path_dir"
+  fi
+}
+
+wizardry_command_path() {
+  wizardry_dir=${WIZARDRY_DIR:-$HOME/.wizardry}
+  wizardry_path_prefix=
+  append_path_dir "$wizardry_dir/spells"
+  append_path_dir "$wizardry_dir/spells/.imps"
+  for path_dir in "$wizardry_dir"/spells/.imps/*; do
+    append_path_dir "$path_dir"
+    for nested_dir in "$path_dir"/*; do
+      append_path_dir "$nested_dir"
+    done
+  done
+  for path_dir in "$wizardry_dir"/spells/.arcana/* "$wizardry_dir"/spells/*; do
+    append_path_dir "$path_dir"
+  done
+  if [ -n "$wizardry_path_prefix" ]; then
+    printf '%s:%s\n' "$wizardry_path_prefix" "${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}"
+  else
+    printf '%s\n' "${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}"
+  fi
+}
+
+wizardry_simplex_installer() {
+  if [ -n "${OWL_NATIVE_SIMPLEX_INSTALLER-}" ] && [ -f "$OWL_NATIVE_SIMPLEX_INSTALLER" ]; then
+    printf '%s\n' "$OWL_NATIVE_SIMPLEX_INSTALLER"
+    return 0
+  fi
+  installer=$(command -v install-simplex-chat 2>/dev/null || printf '')
+  if [ -n "$installer" ] && [ -f "$installer" ]; then
+    printf '%s\n' "$installer"
+    return 0
+  fi
+  for installer in \
+    "${WIZARDRY_DIR:-$HOME/.wizardry}/spells/.arcana/simplex-chat/install-simplex-chat" \
+    "$HOME/.wizardry/spells/.arcana/simplex-chat/install-simplex-chat"
+  do
+    if [ -f "$installer" ]; then
+      printf '%s\n' "$installer"
+      return 0
+    fi
+  done
+  return 1
 }
 
 simplex_profile_ready_prefix() {
@@ -845,8 +997,10 @@ bootstrap_status_action() {
   state=$(simplex_install_state)
   asset=$(simplex_asset_name 2>/dev/null || printf '')
   binary=$(simplex_binary_resolved 2>/dev/null || printf '')
-  version=$(config_get "$(simplex_install_file)" version 2>/dev/null || printf '')
-  error=$(config_get "$(simplex_install_file)" last_error 2>/dev/null || printf '')
+  install_file=$(simplex_install_file_for_binary "$binary" 2>/dev/null || printf '')
+  version=$(config_get "$install_file" version 2>/dev/null || printf '')
+  error=$(config_get "$install_file" last_error 2>/dev/null || printf '')
+  source=$(simplex_install_source "$install_file")
   profile_prefix=$(simplex_profile_prefix "$ident")
   if simplex_profile_ready "$ident"; then
     profile_ready=true
@@ -861,17 +1015,43 @@ bootstrap_status_action() {
     --arg asset_name "$asset" \
     --arg version "$version" \
     --arg binary_path "$binary" \
+    --arg install_source "$source" \
     --arg profile_prefix "$profile_prefix" \
     --arg last_error "$error" \
     --arg platform_os "$(simplex_platform_os)" \
     --arg platform_arch "$(simplex_platform_arch)" \
     --argjson supported "$supported" \
     --argjson profile_ready "$profile_ready" \
-    '{ok:true,identity:$identity,supported:$supported,install_state:$install_state,asset_name:$asset_name,version:$version,binary_path:$binary_path,profile_prefix:$profile_prefix,profile_ready:$profile_ready,last_error:$last_error,platform_os:$platform_os,platform_arch:$platform_arch}'
+    '{ok:true,identity:$identity,supported:$supported,install_state:$install_state,install_source:$install_source,asset_name:$asset_name,version:$version,binary_path:$binary_path,profile_prefix:$profile_prefix,profile_ready:$profile_ready,last_error:$last_error,platform_os:$platform_os,platform_arch:$platform_arch}'
 }
 
 install_simplex_cli_action() {
   require_cmd jq
+  wizardry_installer=$(wizardry_simplex_installer 2>/dev/null || printf '')
+  if [ -n "$wizardry_installer" ]; then
+    install_log=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex-wizardry-install.XXXXXX")
+    if PATH=$(wizardry_command_path) sh "$wizardry_installer" >"$install_log" 2>&1; then
+      binary=$(simplex_binary_resolved 2>/dev/null || printf '')
+      [ -n "$binary" ] || {
+        rm -f "$install_log"
+        fail "Wizardry SimpleX installer completed without exposing simplex-chat"
+      }
+      install_file=$(simplex_install_file_for_binary "$binary" 2>/dev/null || printf '')
+      version=$(config_get "$install_file" version 2>/dev/null || printf '')
+      asset=$(config_get "$install_file" asset_name 2>/dev/null || simplex_asset_name 2>/dev/null || printf '')
+      rm -f "$install_log"
+      jq -n \
+        --arg version "$version" \
+        --arg asset_name "$asset" \
+        --arg binary_path "$binary" \
+        '{ok:true,action:"install-simplex-cli",install_source:"wizardry",version:$version,asset_name:$asset_name,binary_path:$binary_path}'
+      return 0
+    fi
+    error=$(head -n 6 "$install_log" | paste -sd ' ' -)
+    rm -f "$install_log"
+    fail "Wizardry SimpleX installer failed: $error"
+  fi
+
   asset=$(simplex_asset_name 2>/dev/null || true)
   [ -n "$asset" ] || usage_error "unsupported platform for SimpleX CLI: $(simplex_platform_os)/$(simplex_platform_arch)"
   tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/owl-native-simplex-install.XXXXXX")
@@ -925,7 +1105,7 @@ install_simplex_cli_action() {
   config_set "$install_conf" last_error ''
   simplex_validate_binary "$current" || true
   rm -rf "$tmp_dir"
-  jq -n --arg version "$tag" --arg asset_name "$asset" --arg binary_path "$current" '{ok:true,action:"install-simplex-cli",version:$version,asset_name:$asset_name,binary_path:$binary_path}'
+  jq -n --arg version "$tag" --arg asset_name "$asset" --arg binary_path "$current" '{ok:true,action:"install-simplex-cli",install_source:"owl-native",version:$version,asset_name:$asset_name,binary_path:$binary_path}'
 }
 
 simplex_initialize_profile() {

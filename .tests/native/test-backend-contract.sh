@@ -31,6 +31,16 @@ b64() {
   printf '%s' "$1" | base64 | tr -d '\n'
 }
 
+write_fake_simplex_binary() {
+  binary=$1
+  cat >"$binary" <<'SH'
+#!/bin/sh
+[ "${1-}" = "-h" ] && exit 0
+exit 0
+SH
+  chmod +x "$binary"
+}
+
 doctor_is_read_only() {
   root="$tmpdir/doctor/mail"
   mkdir -p "$tmpdir/home"
@@ -117,6 +127,62 @@ bootstrap_status_is_structured() {
   printf '%s\n' "$output" | jq -e '.ok == true and (.install_state | type) == "string" and (.profile_prefix | contains("/.transport/simplex/default/profile"))' >/dev/null
 }
 
+bootstrap_status_detects_wizardry_simplex_install() {
+  root="$tmpdir/bootstrap-wizardry/mail"
+  global="$tmpdir/state/wizardry/simplex"
+  mkdir -p "$tmpdir/home" "$global/current"
+  write_fake_simplex_binary "$global/current/simplex-chat"
+  cat >"$global/install.conf" <<EOF
+version=vtest
+asset_name=test-asset
+binary_path=$global/current/simplex-chat
+validation_state=ready
+last_error=
+EOF
+  output=$(backend bootstrap-status "$root" default)
+  printf '%s\n' "$output" | jq -e \
+    --arg binary "$global/current/simplex-chat" \
+    '.ok == true and .install_state == "installed" and .install_source == "wizardry" and .version == "vtest" and .binary_path == $binary' >/dev/null
+}
+
+install_simplex_cli_delegates_to_wizardry_installer() {
+  root="$tmpdir/install-wizardry/mail"
+  fake_dir="$tmpdir/fake-wizardry"
+  mkdir -p "$tmpdir/home" "$fake_dir"
+  installer="$fake_dir/install-simplex-chat"
+  cat >"$installer" <<'SH'
+#!/bin/sh
+set -eu
+root="${WIZARDRY_SIMPLEX_ROOT:-${XDG_STATE_HOME:-$HOME/.local/state}/wizardry/simplex}"
+mkdir -p "$root/current"
+cat >"$root/current/simplex-chat" <<'BIN'
+#!/bin/sh
+[ "${1-}" = "-h" ] && exit 0
+exit 0
+BIN
+chmod +x "$root/current/simplex-chat"
+cat >"$root/install.conf" <<EOF
+version=vtest
+asset_name=test-asset
+binary_path=$root/current/simplex-chat
+validation_state=ready
+last_error=
+EOF
+printf '%s\n' "installed fake SimpleX"
+SH
+  chmod +x "$installer"
+  output=$(
+    HOME="$tmpdir/home" \
+    XDG_STATE_HOME="$tmpdir/state" \
+    XDG_CONFIG_HOME="$tmpdir/config" \
+    OWL_NATIVE_SIMPLEX_INSTALLER="$installer" \
+    sh "$repo_dir/scripts/owl-native-backend.sh" install-simplex-cli "$root"
+  )
+  printf '%s\n' "$output" | jq -e \
+    --arg binary "$tmpdir/state/wizardry/simplex/current/simplex-chat" \
+    '.ok == true and .install_source == "wizardry" and .version == "vtest" and .binary_path == $binary' >/dev/null
+}
+
 invalid_action_fails() {
   root="$tmpdir/invalid/mail"
   mkdir -p "$tmpdir/home"
@@ -132,6 +198,8 @@ run_case "SimpleX messages share one timeline and inbox" simplex_messages_share_
 run_case "SimpleX send queues without email fallback" simplex_send_queues_without_email_fallback
 run_case "SimpleX inbox state does not move timeline messages" simplex_inbox_state_is_metadata_not_thread_movement
 run_case "bootstrap status is structured" bootstrap_status_is_structured
+run_case "bootstrap status detects Wizardry SimpleX install" bootstrap_status_detects_wizardry_simplex_install
+run_case "install SimpleX CLI delegates to Wizardry installable" install_simplex_cli_delegates_to_wizardry_installer
 run_case "invalid action fails" invalid_action_fails
 
 if [ "$failures" -ne 0 ]; then
@@ -139,4 +207,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "7/7 backend contract tests passed"
+printf '%s\n' "9/9 backend contract tests passed"
