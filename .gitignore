@@ -1,0 +1,11 @@
+.log
+dist/
+build/
+.build/
+DerivedData/
+*.app/
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.AppImage
