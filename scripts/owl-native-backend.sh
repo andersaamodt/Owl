@@ -9,18 +9,67 @@ Actions:
   doctor [ROOT]
   prepare ROOT
   get-paths ROOT
+  get-ui-prefs ROOT
+  set-ui-pref ROOT KEY VALUE
   snapshot ROOT
+  overview ROOT
+  settings-controls ROOT
+  settings-browse-root ROOT [START_PATH]
+  settings-set-test-recipient ROOT ADDRESS
+  settings-verify-domain ROOT DOMAIN
+  settings-set-domain ROOT DOMAIN
+  settings-ssl-prereq-status ROOT
+  settings-ssl-wizard-status ROOT
+  settings-setup-ssl ROOT [MODE] [HOST] [SSH_KEY_PATH] [SSH_KEY_PASSWORD] [SSH_PORT]
+  settings-set-daemon-installed ROOT on|off
+  settings-set-daemon-running ROOT on|off
+  settings-set-daemon-startup ROOT on|off
+  settings-setup-folders ROOT
+  settings-remote-set-target ROOT HOST SSH_KEY_PATH [SSH_PORT]
+  settings-remote-set-auth ROOT SSH_KEY_HAS_PASSWORD SSH_KEY_SAVE_CHOICE SSH_KEY_PASSWORD [HOST] [SSH_KEY_PATH] [SSH_PORT]
+  settings-remote-deploy ROOT [HOST] [SSH_KEY_PATH] [SSH_KEY_PASSWORD] [SSH_PORT]
+  settings-remote-verify ROOT [HOST] [SSH_KEY_PATH] [SSH_KEY_PASSWORD] [SSH_PORT]
+  settings-remote-send-test ROOT [HOST] [SSH_KEY_PATH] [SSH_KEY_PASSWORD] [SSH_PORT]
+  settings-remote-sync ROOT [HOST] [SSH_KEY_PATH] [SSH_KEY_PASSWORD] [SSH_PORT]
+  settings-llm-controls ROOT
+  settings-llm-set ROOT ENABLED AUTO_INSTALL MODEL
+  settings-llm-install-ollama ROOT
+  settings-llm-set-daemon ROOT on|off
+  settings-llm-install-model ROOT MODEL
+  settings-llm-uninstall-model ROOT MODEL
+  spam-classify ROOT [LIST] [SENDER] [LIMIT] [ALLOW_INSTALL]
+  event-feed ROOT [LIMIT]
   bind-contact ROOT THREAD_ID NAME KIND EMAIL SIMPLEX_ADDRESS FAVORITE
+  contact-get ROOT IDENTITY [FALLBACK_LABEL] [CONTACT_KEY]
+  contact-save ROOT IDENTITY CONTACT_KEY NAME EMAIL PHONE ADDRESS URL NOTE
   import-simplex ROOT THREAD_ID BODY_B64 [FROM_SELF] [IN_INBOX] [SUBJECT]
   mark-inbox ROOT MESSAGE_ID in|out
   mark-read ROOT MESSAGE_ID true|false
   send-message ROOT THREAD_ID simplex|email SUBJECT BODY_B64
+  message-detail ROOT MESSAGE_ID
   archive-message ROOT MESSAGE_ID
   delete-message ROOT MESSAGE_ID
   toggle-star ROOT MESSAGE_ID true|false
+  list-senders ROOT LIST
+  list-archive-bundle ROOT
+  list-inbox-bundle-fast ROOT
+  list-messages-fast ROOT LIST [SENDER]
+  list-messages ROOT LIST [SENDER]
+  get-message ROOT MESSAGE_ID
+  get-message ROOT LIST SENDER ULID
+  set-flag ROOT LIST SENDER ULID FIELD VALUE
+  move-message ROOT FROM TO SENDER ULID
+  move-sender ROOT FROM TO SENDER
+  draft-list ROOT
+  draft-get ROOT ULID
+  draft-save ROOT ULID FROM TO_CSV CC_CSV BCC_CSV SUBJECT REPLY_TO BODY_B64
+  draft-delete ROOT ULID
+  draft-send ROOT ULID
   bootstrap-status ROOT [IDENTITY]
   install-simplex-cli ROOT
   provision-simplex-identity ROOT [IDENTITY] [DISPLAY_NAME] [FULL_NAME]
+  set-simplex-transport-hook ROOT IDENTITY HOOK_PATH
+  simplex-transport-status ROOT [IDENTITY]
   tick-simplex ROOT
 
 Owl Native shares Owl's mail root. ROOT defaults to ~/mail.
@@ -91,6 +140,14 @@ safe_output_value "$ROOT"
 
 metadata_root() {
   printf '%s\n' "$ROOT/.owl-native"
+}
+
+ui_config_dir() {
+  printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/wizardry-apps/owl-native"
+}
+
+ui_prefs_file() {
+  printf '%s\n' "$(ui_config_dir)/prefs.conf"
 }
 
 native_contacts_dir() {
@@ -174,6 +231,10 @@ simplex_profile_prefix() {
   printf '%s\n' "$(simplex_identity_dir "${1:-default}")/profile"
 }
 
+simplex_profile_conf() {
+  printf '%s\n' "$(simplex_identity_dir "${1:-default}")/profile.conf"
+}
+
 ensure_roots() {
   mkdir -p "$ROOT" "$(metadata_root)" "$(native_contacts_dir)"
   mkdir -p "$(simplex_threads_dir)" "$(simplex_incoming_dir)" "$(simplex_outbox_dir)" "$(simplex_processed_dir)"
@@ -237,6 +298,42 @@ config_set() {
   mv "$tmp" "$file"
 }
 
+ui_pref_value() {
+  key=$1
+  case "$key" in
+    mail_root)
+      config_get "$(ui_prefs_file)" mail_root 2>/dev/null || printf '%s\n' "$ROOT"
+      ;;
+    selected_route)
+      config_get "$(ui_prefs_file)" selected_route 2>/dev/null || printf '%s\n' inbox
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+ui_prefs_action() {
+  jq -n \
+    --arg mail_root "$(ui_pref_value mail_root)" \
+    --arg selected_route "$(ui_pref_value selected_route)" \
+    '{ok:true,mail_root:$mail_root,selected_route:$selected_route}'
+}
+
+set_ui_pref_action() {
+  key=${1-}
+  value=${2-}
+  case "$key" in
+    mail_root|selected_route) ;;
+    *) usage_error "unsupported UI preference: $key" ;;
+  esac
+  case "$value" in
+    *"$nl"*|*"$cr"*) usage_error "UI preference values must be single-line" ;;
+  esac
+  config_set "$(ui_prefs_file)" "$key" "$value"
+  ui_prefs_action
+}
+
 decode_b64_to_file() {
   payload=${1-}
   output=$2
@@ -277,6 +374,16 @@ owl_backend_json() {
   script=$(resolve_owl_backend_script || true)
   [ -n "$script" ] || return 127
   sh "$script" "$owl_action" "$ROOT" "$@"
+}
+
+owl_backend_json_or_empty() {
+  owl_backend_json "$@" 2>/dev/null || jq -n '{ok:false,unavailable:true}'
+}
+
+owl_backend_array_field_or_empty() {
+  field=$1
+  shift
+  owl_backend_json "$@" 2>/dev/null | jq -c --arg field "$field" '.[$field] // []' 2>/dev/null || printf '[]\n'
 }
 
 empty_owl_messages() {
@@ -444,15 +551,48 @@ rewrite_simplex_message_field() {
 }
 
 collect_email_messages_jsonl() {
-  for list in accepted quarantine archive sent trash; do
+  for list in accepted quarantine spam banned archive sent trash outbox spam-review; do
     owl_messages_for_list "$list" | jq -c --arg list "$list" '.messages[]? | . + {native_source_list:$list}'
   done
+}
+
+mailbox_summary_json() {
+  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-mailboxes.XXXXXX")
+  for list in accepted quarantine spam banned archive sent outbox trash spam-review; do
+    messages=$(owl_messages_for_list "$list")
+    printf '%s\n' "$messages" | jq -c --arg id "$list" '
+      def title:
+        {
+          accepted:"Accepted",
+          quarantine:"Quarantine",
+          spam:"Spam",
+          banned:"Banned",
+          archive:"Archive",
+          sent:"Sent",
+          outbox:"Outbox",
+          trash:"Trash",
+          "spam-review":"Spam Review"
+        }[$id] // $id;
+      {
+        id:$id,
+        title:title,
+        count:(.messages | length),
+        unread:(.messages | map(select((.read // false) | not)) | length)
+      }' >>"$tmp"
+  done
+  jq -s '.' "$tmp"
+  rm -f "$tmp"
 }
 
 snapshot_action() {
   ensure_roots
   contacts_json=$(contacts_json_array)
   overview_json=$(owl_overview)
+  mailboxes_json=$(mailbox_summary_json)
+  drafts_json=$(owl_backend_array_field_or_empty drafts draft-list)
+  events_json=$(owl_backend_array_field_or_empty events event-feed 80)
+  settings_json=$(owl_backend_json_or_empty settings-controls)
+  prefs_json=$(ui_prefs_action)
   tmp_email=$(mktemp "${TMPDIR:-/tmp}/owl-native-email.XXXXXX")
   tmp_simplex=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex.XXXXXX")
   collect_email_messages_jsonl >"$tmp_email"
@@ -461,6 +601,12 @@ snapshot_action() {
     --arg root "$ROOT" \
     --argjson contacts "$contacts_json" \
     --argjson overview "$overview_json" \
+    --argjson mailboxes "$mailboxes_json" \
+    --argjson drafts "$drafts_json" \
+    --argjson events "$events_json" \
+    --argjson settings "$settings_json" \
+    --argjson prefs "$prefs_json" \
+    --arg simplex_install_state "$(simplex_install_state)" \
     --slurpfile email_raw "$tmp_email" \
     --slurpfile simplex_raw "$tmp_simplex" '
     def clean_email:
@@ -507,7 +653,8 @@ snapshot_action() {
           in_inbox: ($list == "accepted" or $list == "quarantine"),
           read: (($m.read // false) == true),
           starred: (($m.starred // false) == true),
-          attachments: (($m.attachments // 0) | tonumber? // 0)
+          attachments: (($m.attachments // 0) | tonumber? // 0),
+          status: $list
         };
     def simplex_msg:
       . as $m
@@ -539,7 +686,8 @@ snapshot_action() {
           in_inbox: (($m.in_inbox // false) == true),
           read: (($m.read // false) == true),
           starred: false,
-          attachments: 0
+          attachments: 0,
+          status: (($m.status // "queued") | tostring)
         };
     def thread_from_contact:
       {
@@ -578,9 +726,14 @@ snapshot_action() {
     | {
         ok: true,
         root: $root,
+        prefs: $prefs,
         overview: $overview,
+        settings: $settings,
+        mailboxes: $mailboxes,
+        drafts: $drafts,
+        events: $events,
         simplex: {
-          install_state: "unknown",
+          install_state: $simplex_install_state,
           system_root: ($root + "/.system/simplex"),
           incoming_dir: ($root + "/.owl-native/simplex/incoming"),
           outbox_dir: ($root + "/.owl-native/simplex/outbox")
@@ -670,6 +823,44 @@ email_message_lookup() {
     | select(("email:" + (.list // $fallback_list) + ":" + ((.sender // "") | slug) + ":" + (.ulid // "")) == $id)
     | [(.list // $fallback_list), (.sender // ""), (.ulid // "")] | @tsv
   ' | head -n 1
+}
+
+simplex_message_lookup() {
+  message_id_value=$1
+  dir=$(simplex_threads_dir)
+  [ -d "$dir" ] || return 1
+  for file in "$dir"/*.jsonl; do
+    [ -f "$file" ] || continue
+    row=$(jq -c --arg id "$message_id_value" 'select(.id == $id)' "$file" 2>/dev/null | head -n 1)
+    if [ -n "$row" ]; then
+      printf '%s\n' "$row"
+      return 0
+    fi
+  done
+  return 1
+}
+
+message_detail_action() {
+  id=${1-}
+  [ -n "$id" ] || usage_error "message-detail requires MESSAGE_ID"
+  case "$id" in
+    simplex:*)
+      row=$(simplex_message_lookup "$id" || true)
+      [ -n "$row" ] || usage_error "SimpleX message not found: $id"
+      printf '%s\n' "$row" | jq --arg id "$id" '. + {ok:true,id:$id,transport:"simplex"}'
+      ;;
+    email:*)
+      row=$(email_message_lookup "$id")
+      [ -n "$row" ] || usage_error "email message not found: $id"
+      list=$(printf '%s\n' "$row" | awk -F '\t' '{print $1}')
+      sender=$(printf '%s\n' "$row" | awk -F '\t' '{print $2}')
+      ulid=$(printf '%s\n' "$row" | awk -F '\t' '{print $3}')
+      owl_backend_json get-message "$list" "$sender" "$ulid" | jq --arg id "$id" '. + {ok:true,id:$id,transport:"email"}'
+      ;;
+    *)
+      usage_error "unsupported message id: $id"
+      ;;
+  esac
 }
 
 archive_message_action() {
@@ -1163,23 +1354,112 @@ provision_simplex_identity_action() {
   jq -n --arg identity "$ident" --arg profile_prefix "$prefix" --arg binary_path "$binary" --argjson profile_ready "$ready" '{ok:true,action:"provision-simplex-identity",identity:$identity,profile_prefix:$profile_prefix,binary_path:$binary_path,profile_ready:$profile_ready}'
 }
 
+simplex_transport_hook_path() {
+  ident=$(safe_slug "${1:-default}")
+  if [ -n "${OWL_NATIVE_SIMPLEX_TRANSPORT_HOOK-}" ]; then
+    printf '%s\n' "$OWL_NATIVE_SIMPLEX_TRANSPORT_HOOK"
+    return 0
+  fi
+  config_get "$(simplex_profile_conf "$ident")" transport_hook 2>/dev/null || return 1
+}
+
+set_simplex_transport_hook_action() {
+  ident=$(safe_slug "${1:-default}")
+  hook_path=${2-}
+  case "$hook_path" in
+    *"$nl"*|*"$cr"*) usage_error "SimpleX hook path must be a single line" ;;
+  esac
+  if [ -n "$hook_path" ] && [ ! -x "$hook_path" ]; then
+    usage_error "SimpleX hook is not executable: $hook_path"
+  fi
+  config_set "$(simplex_profile_conf "$ident")" transport_hook "$hook_path"
+  simplex_transport_status_action "$ident"
+}
+
+simplex_transport_status_action() {
+  ident=$(safe_slug "${1:-default}")
+  hook=$(simplex_transport_hook_path "$ident" 2>/dev/null || printf '')
+  if [ -n "$hook" ] && [ -x "$hook" ]; then
+    hook_ready=true
+  else
+    hook_ready=false
+  fi
+  jq -n \
+    --arg identity "$ident" \
+    --arg hook_path "$hook" \
+    --arg incoming_dir "$(simplex_incoming_dir)" \
+    --arg outbox_dir "$(simplex_outbox_dir)" \
+    --argjson hook_ready "$hook_ready" \
+    '{ok:true,identity:$identity,hook_path:$hook_path,hook_ready:$hook_ready,incoming_dir:$incoming_dir,outbox_dir:$outbox_dir}'
+}
+
+run_simplex_poll_hook() {
+  ident=$(safe_slug "${1:-default}")
+  hook=$(simplex_transport_hook_path "$ident" 2>/dev/null || printf '')
+  [ -n "$hook" ] && [ -x "$hook" ] || return 0
+  "$hook" poll "$ident" "$ROOT" "$(simplex_incoming_dir)"
+}
+
+process_simplex_outbox() {
+  ident=$(safe_slug "${1:-default}")
+  hook=$(simplex_transport_hook_path "$ident" 2>/dev/null || printf '')
+  processed_root="$(simplex_processed_dir)/outbox"
+  mkdir -p "$processed_root"
+  sent=0
+  waiting=0
+  failed=0
+  for simplex_outbox_file in "$(simplex_outbox_dir)"/*.json; do
+    [ -f "$simplex_outbox_file" ] || continue
+    id=$(jq -r '.id // ""' "$simplex_outbox_file" 2>/dev/null | head -n 1)
+    [ -n "$id" ] || {
+      failed=$((failed + 1))
+      continue
+    }
+    if [ -z "$hook" ] || [ ! -x "$hook" ]; then
+      rewrite_simplex_message_field "$id" status waiting-adapter 2>/dev/null || true
+      waiting=$((waiting + 1))
+      continue
+    fi
+    if "$hook" send "$ident" "$ROOT" "$simplex_outbox_file"; then
+      rewrite_simplex_message_field "$id" status sent 2>/dev/null || true
+      mv "$simplex_outbox_file" "$processed_root/$(basename "$simplex_outbox_file").sent.$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_outbox_file"
+      sent=$((sent + 1))
+    else
+      rewrite_simplex_message_field "$id" status error 2>/dev/null || true
+      failed=$((failed + 1))
+    fi
+  done
+  jq -n --argjson sent "$sent" --argjson waiting "$waiting" --argjson failed "$failed" '{sent:$sent,waiting:$waiting,failed:$failed}'
+}
+
 tick_simplex_action() {
   ensure_roots
+  ident=${1:-default}
+  poll_error=
+  if ! run_simplex_poll_hook "$ident" 2>"$(simplex_processed_dir)/last-poll-error.log"; then
+    poll_error=$(cat "$(simplex_processed_dir)/last-poll-error.log" 2>/dev/null | head -n 3 | paste -sd ' ' -)
+  fi
+  outbox_json=$(process_simplex_outbox "$ident")
   imported=0
-  for file in "$(simplex_incoming_dir)"/*.json "$ROOT/.transport/incoming"/*.json; do
-    [ -f "$file" ] || continue
-    thread_id=$(jq -r '.thread_id // .contact_key // .contact // "unknown"' "$file" 2>/dev/null | head -n 1)
-    body=$(jq -r '.body // .text // .message // ""' "$file" 2>/dev/null | head -n 1)
-    subject=$(jq -r '.subject // ""' "$file" 2>/dev/null | head -n 1)
-    from_self=$(jq -r '.from_self // false' "$file" 2>/dev/null | head -n 1)
-    in_inbox=$(jq -r '.in_inbox // true' "$file" 2>/dev/null | head -n 1)
+  for simplex_incoming_file in "$(simplex_incoming_dir)"/*.json "$ROOT/.transport/incoming"/*.json; do
+    [ -f "$simplex_incoming_file" ] || continue
+    thread_id=$(jq -r '.thread_id // .contact_key // .contact // "unknown"' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    body=$(jq -r '.body // .text // .message // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    subject=$(jq -r '.subject // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    from_self=$(jq -r '.from_self // false' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    in_inbox=$(jq -r '.in_inbox // true' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     [ -n "$body" ] || continue
     append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" >/dev/null
     mkdir -p "$(simplex_processed_dir)"
-    mv "$file" "$(simplex_processed_dir)/$(basename "$file").$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$file"
+    mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
     imported=$((imported + 1))
   done
-  jq -n --argjson imported "$imported" '{ok:true,action:"tick-simplex",imported:$imported}'
+  jq -n \
+    --arg identity "$ident" \
+    --arg poll_error "$poll_error" \
+    --argjson imported "$imported" \
+    --argjson outbox "$outbox_json" \
+    '{ok:true,action:"tick-simplex",identity:$identity,imported:$imported,outbox:$outbox,poll_error:$poll_error}'
 }
 
 [ -n "$action" ] || usage_error "ACTION is required"
@@ -1210,8 +1490,17 @@ case "$action" in
       --arg simplex_system "$(simplex_system_root)" \
       '{ok:true,root:$root,metadata_root:$metadata_root,native_contacts:$native_contacts,simplex_threads:$simplex_threads,simplex_incoming:$simplex_incoming,simplex_outbox:$simplex_outbox,simplex_system:$simplex_system}'
     ;;
+  get-ui-prefs)
+    ui_prefs_action
+    ;;
+  set-ui-pref)
+    set_ui_pref_action "${1-}" "${2-}"
+    ;;
   snapshot)
     snapshot_action
+    ;;
+  health|overview|settings-controls|settings-browse-root|settings-set-test-recipient|settings-verify-domain|settings-set-domain|settings-ssl-prereq-status|settings-ssl-wizard-status|settings-setup-ssl|settings-set-daemon-installed|settings-set-daemon-running|settings-set-daemon-startup|settings-setup-folders|settings-remote-set-target|settings-remote-set-auth|settings-remote-deploy|settings-remote-verify|settings-remote-send-test|settings-remote-sync|settings-llm-controls|settings-llm-set|settings-llm-install-ollama|settings-llm-set-daemon|settings-llm-install-model|settings-llm-uninstall-model|spam-classify|event-feed|contact-get|contact-save|list-senders|list-archive-bundle|list-inbox-bundle-fast|list-messages-fast|list-messages|set-flag|move-message|move-sender|draft-list|draft-get|draft-save|draft-delete|draft-send)
+    owl_backend_json "$action" "$@"
     ;;
   bind-contact)
     ensure_roots
@@ -1286,11 +1575,25 @@ case "$action" in
     ensure_roots
     send_message_action "${1-}" "${2-}" "${3-}" "${4-}"
     ;;
+  message-detail)
+    message_detail_action "${1-}"
+    ;;
   archive-message)
     archive_message_action "${1-}"
     ;;
   delete-message)
-    delete_message_action "${1-}"
+    if [ "$#" -ge 3 ]; then
+      owl_backend_json delete-message "$@"
+    else
+      delete_message_action "${1-}"
+    fi
+    ;;
+  get-message)
+    if [ "$#" -ge 3 ]; then
+      owl_backend_json get-message "$@"
+    else
+      message_detail_action "${1-}"
+    fi
     ;;
   toggle-star)
     toggle_star_action "${1-}" "${2-false}"
@@ -1306,8 +1609,16 @@ case "$action" in
     ensure_roots
     provision_simplex_identity_action "${1:-default}" "${2:-Owl}" "${3:-Owl Native}"
     ;;
+  set-simplex-transport-hook)
+    ensure_roots
+    set_simplex_transport_hook_action "${1:-default}" "${2-}"
+    ;;
+  simplex-transport-status)
+    ensure_roots
+    simplex_transport_status_action "${1:-default}"
+    ;;
   tick-simplex|tick-transport)
-    tick_simplex_action
+    tick_simplex_action "${1:-default}"
     ;;
   *)
     usage_error "unsupported action: $action"
