@@ -225,6 +225,18 @@ snapshot_includes_owl_mailboxes_drafts_events_settings() {
   ' >/dev/null
 }
 
+snapshot_lines_exposes_native_gtk_feed() {
+  root="$tmpdir/snapshot-lines/mail"
+  fake="$tmpdir/fake-owl-lines.sh"
+  mkdir -p "$tmpdir/home"
+  write_fake_owl_backend "$fake"
+  backend_with_owl "$fake" prepare "$root" >/dev/null
+  lines=$(backend_with_owl "$fake" snapshot-lines "$root")
+  printf '%s\n' "$lines" | grep -q '^mailbox	accepted	Accepted	1	1$' &&
+    printf '%s\n' "$lines" | grep -q '^inbox	.*	Alice	email	Hello	Email preview	2026-04-20T10:00:00Z$' &&
+    printf '%s\n' "$lines" | grep -q '^draft	draft-1	alice@example.org	Draft note'
+}
+
 owl_actions_are_hard_allowlisted_and_passthrough() {
   root="$tmpdir/passthrough/mail"
   fake="$tmpdir/fake-owl-passthrough.sh"
@@ -361,6 +373,7 @@ run_case "SimpleX inbox state does not move timeline messages" simplex_inbox_sta
 run_case "bootstrap status is structured" bootstrap_status_is_structured
 run_case "bootstrap status detects Wizardry SimpleX install" bootstrap_status_detects_wizardry_simplex_install
 run_case "snapshot includes Owl mailboxes, drafts, events, and settings" snapshot_includes_owl_mailboxes_drafts_events_settings
+run_case "snapshot lines exposes native GTK feed" snapshot_lines_exposes_native_gtk_feed
 run_case "Owl actions are hard allowlisted and pass through" owl_actions_are_hard_allowlisted_and_passthrough
 run_case "UI prefs are plaintext XDG state" ui_prefs_are_plaintext_xdg_state
 run_case "message detail returns SimpleX and email messages" message_detail_returns_simplex_and_email_messages
@@ -373,4 +386,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "14/14 backend contract tests passed"
+printf '%s\n' "15/15 backend contract tests passed"

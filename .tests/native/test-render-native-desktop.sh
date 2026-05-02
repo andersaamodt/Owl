@@ -70,7 +70,12 @@ swift_uses_native_desktop_idiom() {
   grep -q 'setActivationPolicy(.regular)' generated/macos/Sources/App/App.swift
   grep -q 'Process()' generated/macos/Sources/App/App.swift
   grep -q 'process.arguments = \\[script.path, action, root\\] + args' generated/macos/Sources/App/App.swift
+  grep -q 'NSApp.windowsMenu = windowMenu' generated/macos/Sources/App/App.swift
+  grep -q 'let editMenu = NSMenu(title: "Edit")' generated/macos/Sources/App/App.swift
+  grep -q 'let messageMenu = NSMenu(title: "Message")' generated/macos/Sources/App/App.swift
+  grep -q 'set-ui-pref' generated/macos/Sources/App/App.swift
   ! grep -q 'WKWebView' generated/macos/Sources/App/App.swift
+  ! grep -q 'UserDefaults' generated/macos/Sources/App/App.swift
 }
 
 swift_unified_simplex_email_ui_exists() {
@@ -92,6 +97,9 @@ linux_uses_native_gtk_and_argv_backend() {
   grep -q 'g_spawn_sync' generated/linux/src/main.c
   grep -q 'g_ptr_array_add(argv, (char *)"/bin/sh");' generated/linux/src/main.c
   grep -q 'g_ptr_array_add(argv, script_path);' generated/linux/src/main.c
+  grep -q 'run_backend(context, "snapshot-lines", NULL, NULL)' generated/linux/src/main.c
+  grep -q 'populate_snapshot_lines' generated/linux/src/main.c
+  grep -q 'context->mailbox_list = gtk_list_box_new' generated/linux/src/main.c
   ! grep -q '/bin/sh -c' generated/linux/src/main.c
 }
 

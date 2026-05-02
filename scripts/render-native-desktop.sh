@@ -42,7 +42,7 @@ while IFS= read -r action_id; do
   printf '  add_app_action(app, context, "%s");\n' "$linux_action_id" >>"$linux_setup_tmp"
   case "$linux_action_id" in
     refresh-snapshot)
-      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_backend_status(context, "Loaded unified Owl snapshot.", "snapshot", NULL, NULL); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { refresh_from_backend(context); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
       ;;
     tick-simplex)
       printf '  if (g_strcmp0(action_name, "%s") == 0) { set_backend_status(context, "Checked SimpleX incoming queue.", "tick-simplex", NULL, NULL); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"

@@ -441,11 +441,11 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
 
     let settingsView = SettingsView()
       .environmentObject(session)
-      .frame(width: 540)
+      .frame(width: 720)
       .padding(20)
     let hostingView = NSHostingView(rootView: settingsView)
     let settingsWindow = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 620, height: 520),
+      contentRect: NSRect(x: 0, y: 0, width: 780, height: 680),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered,
       defer: false
@@ -473,19 +473,60 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     appMenuItem.submenu = appMenu
     mainMenu.addItem(appMenuItem)
 
-    let owlMenuItem = NSMenuItem()
-    let owlMenu = NSMenu(title: "Owl")
-    owlMenu.addItem(actionItem("Refresh", action: "refresh_snapshot", key: "r", modifiers: [.command]))
-    owlMenu.addItem(actionItem("Check SimpleX", action: "tick_simplex"))
-    owlMenuItem.submenu = owlMenu
-    mainMenu.addItem(owlMenuItem)
+    let fileMenuItem = NSMenuItem()
+    let fileMenu = NSMenu(title: "File")
+    fileMenu.addItem(actionItem("Send Message", action: "send_message", key: "\r", modifiers: [.command]))
+    fileMenu.addItem(.separator())
+    fileMenu.addItem(actionItem("Choose Mail Root...", action: "choose_mail_root"))
+    fileMenu.addItem(actionItem("Setup Mail Folders", action: "setup_folders"))
+    fileMenuItem.submenu = fileMenu
+    mainMenu.addItem(fileMenuItem)
+
+    let editMenuItem = NSMenuItem()
+    let editMenu = NSMenu(title: "Edit")
+    editMenu.addItem(standardItem("Undo", selector: Selector(("undo:")), key: "z"))
+    editMenu.addItem(standardItem("Redo", selector: Selector(("redo:")), key: "Z"))
+    editMenu.addItem(.separator())
+    editMenu.addItem(standardItem("Cut", selector: #selector(NSText.cut(_:)), key: "x"))
+    editMenu.addItem(standardItem("Copy", selector: #selector(NSText.copy(_:)), key: "c"))
+    editMenu.addItem(standardItem("Paste", selector: #selector(NSText.paste(_:)), key: "v"))
+    editMenu.addItem(.separator())
+    editMenu.addItem(standardItem("Select All", selector: #selector(NSText.selectAll(_:)), key: "a"))
+    editMenuItem.submenu = editMenu
+    mainMenu.addItem(editMenuItem)
+
+    let viewMenuItem = NSMenuItem()
+    let viewMenu = NSMenu(title: "View")
+    viewMenu.addItem(actionItem("Refresh", action: "refresh_snapshot", key: "r", modifiers: [.command]))
+    viewMenu.addItem(.separator())
+    viewMenu.addItem(actionItem("Inbox", action: "focus_inbox", key: "1", modifiers: [.command]))
+    viewMenu.addItem(actionItem("Drafts", action: "focus_drafts", key: "2", modifiers: [.command]))
+    viewMenu.addItem(actionItem("Events", action: "focus_events", key: "3", modifiers: [.command]))
+    viewMenu.addItem(actionItem("Settings", action: "focus_settings", key: "4", modifiers: [.command]))
+    viewMenuItem.submenu = viewMenu
+    mainMenu.addItem(viewMenuItem)
+
+    let messageMenuItem = NSMenuItem()
+    let messageMenu = NSMenu(title: "Message")
+    messageMenu.addItem(actionItem("Remove From Inbox", action: "archive_selected", key: "e", modifiers: [.command]))
+    messageMenu.addItem(actionItem("Delete", action: "delete_selected", key: "\u{8}", modifiers: []))
+    messageMenu.addItem(actionItem("Star", action: "star_selected", key: "l", modifiers: [.command]))
+    messageMenu.addItem(.separator())
+    messageMenu.addItem(actionItem("Mark Read", action: "mark_selected_read", key: "u", modifiers: [.command, .shift]))
+    messageMenu.addItem(actionItem("Mark Unread", action: "mark_selected_unread", key: "u", modifiers: [.command]))
+    messageMenuItem.submenu = messageMenu
+    mainMenu.addItem(messageMenuItem)
 
     let mailboxMenuItem = NSMenuItem()
     let mailboxMenu = NSMenu(title: "Mailbox")
-    mailboxMenu.addItem(actionItem("Inbox", action: "focus_inbox", key: "1", modifiers: [.command]))
-    mailboxMenu.addItem(actionItem("Favorites", action: "focus_favorites", key: "2", modifiers: [.command]))
-    mailboxMenu.addItem(actionItem("People", action: "focus_people", key: "3", modifiers: [.command]))
-    mailboxMenu.addItem(actionItem("Groups", action: "focus_groups", key: "4", modifiers: [.command]))
+    mailboxMenu.addItem(actionItem("Accepted", action: "focus_mailbox_accepted"))
+    mailboxMenu.addItem(actionItem("Quarantine", action: "focus_mailbox_quarantine"))
+    mailboxMenu.addItem(actionItem("Spam", action: "focus_mailbox_spam"))
+    mailboxMenu.addItem(actionItem("Banned", action: "focus_mailbox_banned"))
+    mailboxMenu.addItem(actionItem("Archive", action: "focus_mailbox_archive"))
+    mailboxMenu.addItem(actionItem("Sent", action: "focus_mailbox_sent"))
+    mailboxMenu.addItem(actionItem("Outbox", action: "focus_mailbox_outbox"))
+    mailboxMenu.addItem(actionItem("Trash", action: "focus_mailbox_trash"))
     mailboxMenuItem.submenu = mailboxMenu
     mainMenu.addItem(mailboxMenuItem)
 
@@ -493,8 +534,29 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let transportMenu = NSMenu(title: "Transport")
     transportMenu.addItem(actionItem("Use SimpleX", action: "compose_simplex"))
     transportMenu.addItem(actionItem("Use Email", action: "compose_email"))
+    transportMenu.addItem(.separator())
+    transportMenu.addItem(actionItem("Install SimpleX CLI", action: "install_simplex_cli"))
+    transportMenu.addItem(actionItem("Provision SimpleX Identity", action: "provision_simplex_identity"))
+    transportMenu.addItem(actionItem("Check SimpleX", action: "tick_simplex"))
     transportMenuItem.submenu = transportMenu
     mainMenu.addItem(transportMenuItem)
+
+    let windowMenuItem = NSMenuItem()
+    let windowMenu = NSMenu(title: "Window")
+    windowMenu.addItem(standardItem("Minimize", selector: #selector(NSWindow.miniaturize(_:)), key: "m"))
+    windowMenu.addItem(standardItem("Zoom", selector: #selector(NSWindow.performZoom(_:)), key: ""))
+    windowMenu.addItem(.separator())
+    windowMenu.addItem(NSMenuItem(title: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: ""))
+    windowMenuItem.submenu = windowMenu
+    mainMenu.addItem(windowMenuItem)
+    NSApp.windowsMenu = windowMenu
+
+    let helpMenuItem = NSMenuItem()
+    let helpMenu = NSMenu(title: "Help")
+    helpMenu.addItem(actionItem("Show Events", action: "focus_events"))
+    helpMenuItem.submenu = helpMenu
+    mainMenu.addItem(helpMenuItem)
+    NSApp.helpMenu = helpMenu
 
     return mainMenu
   }
@@ -503,6 +565,12 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let item = NSMenuItem(title: title, action: #selector(performMenuAction(_:)), keyEquivalent: key)
     item.target = self
     item.representedObject = action
+    item.keyEquivalentModifierMask = modifiers
+    return item
+  }
+
+  private func standardItem(_ title: String, selector: Selector, key: String, modifiers: NSEvent.ModifierFlags = [.command]) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: selector, keyEquivalent: key)
     item.keyEquivalentModifierMask = modifiers
     return item
   }
@@ -546,7 +614,12 @@ private struct Snapshot: Decodable, Sendable {
   var groups: [ThreadItem]
   var threads: [ThreadItem]
   var messages: [MessageItem]
+  var mailboxes: [MailboxItem]
+  var drafts: [DraftItem]
+  var events: [EventItem]
   var overview: Overview
+  var prefs: UIPrefs
+  var settings: SettingsSnapshot
   var simplex: SimpleXSnapshot
 
   init(
@@ -558,7 +631,12 @@ private struct Snapshot: Decodable, Sendable {
     groups: [ThreadItem] = [],
     threads: [ThreadItem] = [],
     messages: [MessageItem] = [],
+    mailboxes: [MailboxItem] = [],
+    drafts: [DraftItem] = [],
+    events: [EventItem] = [],
     overview: Overview = Overview(),
+    prefs: UIPrefs = UIPrefs(),
+    settings: SettingsSnapshot = SettingsSnapshot(),
     simplex: SimpleXSnapshot = SimpleXSnapshot()
   ) {
     self.ok = ok
@@ -569,12 +647,17 @@ private struct Snapshot: Decodable, Sendable {
     self.groups = groups
     self.threads = threads
     self.messages = messages
+    self.mailboxes = mailboxes
+    self.drafts = drafts
+    self.events = events
     self.overview = overview
+    self.prefs = prefs
+    self.settings = settings
     self.simplex = simplex
   }
 
   private enum CodingKeys: String, CodingKey {
-    case ok, root, inbox, favorites, individuals, groups, threads, messages, overview, simplex
+    case ok, root, inbox, favorites, individuals, groups, threads, messages, mailboxes, drafts, events, overview, prefs, settings, simplex
   }
 
   init(from decoder: Decoder) throws {
@@ -587,7 +670,12 @@ private struct Snapshot: Decodable, Sendable {
     groups = try values.decodeIfPresent([ThreadItem].self, forKey: .groups) ?? []
     threads = try values.decodeIfPresent([ThreadItem].self, forKey: .threads) ?? []
     messages = try values.decodeIfPresent([MessageItem].self, forKey: .messages) ?? []
+    mailboxes = try values.decodeIfPresent([MailboxItem].self, forKey: .mailboxes) ?? []
+    drafts = try values.decodeIfPresent([DraftItem].self, forKey: .drafts) ?? []
+    events = try values.decodeIfPresent([EventItem].self, forKey: .events) ?? []
     overview = try values.decodeIfPresent(Overview.self, forKey: .overview) ?? Overview()
+    prefs = try values.decodeIfPresent(UIPrefs.self, forKey: .prefs) ?? UIPrefs()
+    settings = try values.decodeIfPresent(SettingsSnapshot.self, forKey: .settings) ?? SettingsSnapshot()
     simplex = try values.decodeIfPresent(SimpleXSnapshot.self, forKey: .simplex) ?? SimpleXSnapshot()
   }
 }
@@ -614,6 +702,132 @@ private struct OverviewCounts: Decodable, Sendable {
   var trash_messages: Int = 0
   var drafts: Int = 0
   var sent: Int = 0
+}
+
+private struct SettingsSnapshot: Decodable, Sendable {
+  var ok: Bool
+  var test_recipient: String
+  var email_domain: String
+  var domain_configured: Bool
+  var ssl_ready: Bool
+  var folders_ready: Bool
+  var daemon: DaemonSettings
+  var remote: RemoteSettings
+
+  init(
+    ok: Bool = false,
+    test_recipient: String = "",
+    email_domain: String = "",
+    domain_configured: Bool = false,
+    ssl_ready: Bool = false,
+    folders_ready: Bool = false,
+    daemon: DaemonSettings = DaemonSettings(),
+    remote: RemoteSettings = RemoteSettings()
+  ) {
+    self.ok = ok
+    self.test_recipient = test_recipient
+    self.email_domain = email_domain
+    self.domain_configured = domain_configured
+    self.ssl_ready = ssl_ready
+    self.folders_ready = folders_ready
+    self.daemon = daemon
+    self.remote = remote
+  }
+}
+
+private struct DaemonSettings: Decodable, Sendable {
+  var available: Bool = false
+  var manager: String = ""
+  var installed: Bool = false
+  var running: Bool = false
+  var startup_enabled: Bool = false
+}
+
+private struct RemoteSettings: Decodable, Sendable {
+  var host: String = ""
+  var key_path: String = ""
+  var port: String = ""
+  var last_deploy_status: String = ""
+  var last_verify_status: String = ""
+  var last_test_status: String = ""
+  var last_sync_status: String = ""
+}
+
+private struct UIPrefs: Decodable, Sendable {
+  var mail_root: String
+  var selected_route: String
+
+  init(mail_root: String = "", selected_route: String = "inbox") {
+    self.mail_root = mail_root
+    self.selected_route = selected_route
+  }
+}
+
+private struct MailboxItem: Identifiable, Decodable, Hashable, Sendable {
+  var id: String
+  var title: String
+  var count: Int
+  var unread: Int
+
+  init(id: String, title: String, count: Int = 0, unread: Int = 0) {
+    self.id = id
+    self.title = title
+    self.count = count
+    self.unread = unread
+  }
+}
+
+private struct DraftItem: Identifiable, Decodable, Hashable, Sendable {
+  var id: String { ulid }
+  var ulid: String
+  var to: String
+  var subject: String
+  var updated_at: String
+
+  init(ulid: String = "", to: String = "", subject: String = "", updated_at: String = "") {
+    self.ulid = ulid
+    self.to = to
+    self.subject = subject
+    self.updated_at = updated_at
+  }
+
+  private enum CodingKeys: String, CodingKey { case ulid, to, subject, updated_at }
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    ulid = try values.decodeIfPresent(String.self, forKey: .ulid) ?? UUID().uuidString
+    to = try values.decodeIfPresent(String.self, forKey: .to) ?? ""
+    subject = try values.decodeIfPresent(String.self, forKey: .subject) ?? ""
+    updated_at = try values.decodeIfPresent(String.self, forKey: .updated_at) ?? ""
+  }
+}
+
+private struct EventItem: Identifiable, Decodable, Hashable, Sendable {
+  var id: String
+  var kind: String
+  var message: String
+  var created_at: String
+
+  init(id: String = UUID().uuidString, kind: String = "", message: String = "", created_at: String = "") {
+    self.id = id
+    self.kind = kind
+    self.message = message
+    self.created_at = created_at
+  }
+
+  private enum CodingKeys: String, CodingKey { case id, kind, message, created_at, at, label }
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    id = try values.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+    let decodedKind = try values.decodeIfPresent(String.self, forKey: .kind)
+    let decodedLabel = try values.decodeIfPresent(String.self, forKey: .label)
+    kind = decodedKind ?? decodedLabel ?? ""
+    message = try values.decodeIfPresent(String.self, forKey: .message) ?? ""
+    let decodedCreatedAt = try values.decodeIfPresent(String.self, forKey: .created_at)
+    let decodedAt = try values.decodeIfPresent(String.self, forKey: .at)
+    created_at = decodedCreatedAt ?? decodedAt ?? ""
+  }
 }
 
 private struct SimpleXSnapshot: Decodable, Sendable {
@@ -742,6 +956,7 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
   var read: Bool
   var starred: Bool
   var attachments: Int
+  var status: String
 
   var isSimpleX: Bool { transport == "simplex" }
   var isEmail: Bool { transport == "email" }
@@ -769,7 +984,8 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
     in_inbox: Bool = false,
     read: Bool = false,
     starred: Bool = false,
-    attachments: Int = 0
+    attachments: Int = 0,
+    status: String = ""
   ) {
     self.id = id
     self.backend_kind = backend_kind
@@ -792,11 +1008,12 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
     self.read = read
     self.starred = starred
     self.attachments = attachments
+    self.status = status
   }
 
   private enum CodingKeys: String, CodingKey {
     case id, backend_kind, transport, lock, thread_id, contact_name, contact_kind, email, simplex_address
-    case list, sender, ulid, subject, body, preview, received_at, from_self, in_inbox, read, starred, attachments
+    case list, sender, ulid, subject, body, preview, received_at, from_self, in_inbox, read, starred, attachments, status
   }
 
   init(from decoder: Decoder) throws {
@@ -822,7 +1039,12 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
     read = try values.decodeIfPresent(Bool.self, forKey: .read) ?? false
     starred = try values.decodeIfPresent(Bool.self, forKey: .starred) ?? false
     attachments = try values.decodeIfPresent(Int.self, forKey: .attachments) ?? 0
+    status = try values.decodeIfPresent(String.self, forKey: .status) ?? ""
   }
+}
+
+private func defaultMailRoot() -> String {
+  FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("mail").path
 }
 
 @MainActor
@@ -830,7 +1052,8 @@ private final class OwlSession: ObservableObject {
   @Published var snapshot: Snapshot = SeedData.snapshot
   @Published var selectedRoute: String = "inbox"
   @Published var focusedMessageID: String?
-  @Published var mailRoot: String = OwlPreferences.mailRoot
+  @Published var selectedMessageID: String?
+  @Published var mailRoot: String = defaultMailRoot()
   @Published var selectedTransport: Transport = .simplex
   @Published var composeSubject: String = ""
   @Published var composeBody: String = ""
@@ -841,13 +1064,18 @@ private final class OwlSession: ObservableObject {
   @Published var contactDraftEmail: String = ""
   @Published var contactDraftSimpleX: String = ""
   @Published var contactDraftFavorite: Bool = false
+  @Published var settingsDomainDraft: String = ""
+  @Published var settingsTestRecipientDraft: String = ""
+  @Published var remoteHostDraft: String = ""
+  @Published var remoteKeyPathDraft: String = ""
+  @Published var remotePortDraft: String = ""
 
   init() {
     snapshot = SeedData.snapshot
-    mailRoot = OwlPreferences.mailRoot
+    mailRoot = defaultMailRoot()
     selectedRoute = "inbox"
     selectedTransport = .simplex
-    Task { refresh() }
+    Task { await loadPreferencesThenRefresh() }
   }
 
   var inboxUnreadCount: Int {
@@ -864,8 +1092,35 @@ private final class OwlSession: ObservableObject {
     return snapshot.threads.first(where: { $0.id == id })
   }
 
+  var selectedMailboxID: String? {
+    guard selectedRoute.hasPrefix("mailbox:") else { return nil }
+    return String(selectedRoute.dropFirst("mailbox:".count))
+  }
+
+  var selectedMailbox: MailboxItem? {
+    guard let id = selectedMailboxID else { return nil }
+    return snapshot.mailboxes.first(where: { $0.id == id })
+  }
+
+  var mailboxMessages: [MessageItem] {
+    guard let id = selectedMailboxID else { return [] }
+    return snapshot.messages
+      .filter { $0.list == id || $0.status == id }
+      .sorted { $0.received_at > $1.received_at }
+  }
+
   var timelineMessages: [MessageItem] {
     selectedThread?.messages ?? []
+  }
+
+  var activeMessage: MessageItem? {
+    if let selectedMessageID {
+      return snapshot.messages.first(where: { $0.id == selectedMessageID })
+    }
+    if let focusedMessageID {
+      return snapshot.messages.first(where: { $0.id == focusedMessageID })
+    }
+    return nil
   }
 
   var canSend: Bool {
@@ -877,6 +1132,19 @@ private final class OwlSession: ObservableObject {
     case .email:
       return thread.hasEmailPath
     }
+  }
+
+  func loadPreferencesThenRefresh() async {
+    do {
+      let prefs = try await OwlBackend.uiPrefs(root: mailRoot)
+      if !prefs.mail_root.isEmpty {
+        mailRoot = prefs.mail_root
+      }
+      selectedRoute = prefs.selected_route.isEmpty ? "inbox" : prefs.selected_route
+    } catch {
+      statusText = "Preferences unavailable: \(error.localizedDescription)"
+    }
+    refresh()
   }
 
   func refresh() {
@@ -912,35 +1180,88 @@ private final class OwlSession: ObservableObject {
   func apply(snapshot next: Snapshot) {
     snapshot = next
     mailRoot = next.root
-    OwlPreferences.mailRoot = next.root
-    if selectedRoute != "inbox", selectedThread == nil {
+    if selectedRoute.hasPrefix("thread:"), selectedThread == nil {
+      selectedRoute = "inbox"
+    }
+    if selectedRoute.hasPrefix("mailbox:"), selectedMailbox == nil {
       selectedRoute = "inbox"
     }
     if let thread = selectedThread {
       syncTransportDefault(for: thread)
       loadContactDraft(from: thread)
     }
+    settingsDomainDraft = next.settings.email_domain
+    settingsTestRecipientDraft = next.settings.test_recipient
+    remoteHostDraft = next.settings.remote.host
+    remoteKeyPathDraft = next.settings.remote.key_path
+    remotePortDraft = next.settings.remote.port
   }
 
   func selectThread(_ thread: ThreadItem) {
     selectedRoute = "thread:\(thread.id)"
     focusedMessageID = nil
+    selectedMessageID = nil
     syncTransportDefault(for: thread)
     loadContactDraft(from: thread)
+    persistSelectedRoute()
   }
 
   func openTimeline(for message: MessageItem) {
     selectedRoute = "thread:\(message.thread_id)"
     focusedMessageID = message.id
+    selectedMessageID = message.id
     if let thread = selectedThread {
       syncTransportDefault(for: thread)
       loadContactDraft(from: thread)
     }
+    persistSelectedRoute()
   }
 
   func openInbox(focusing messageID: String?) {
     selectedRoute = "inbox"
     focusedMessageID = messageID
+    selectedMessageID = messageID
+    persistSelectedRoute()
+  }
+
+  func openMailbox(_ mailbox: MailboxItem) {
+    selectedRoute = "mailbox:\(mailbox.id)"
+    focusedMessageID = nil
+    selectedMessageID = nil
+    persistSelectedRoute()
+  }
+
+  func openDrafts() {
+    selectedRoute = "drafts"
+    focusedMessageID = nil
+    selectedMessageID = nil
+    persistSelectedRoute()
+  }
+
+  func openEvents() {
+    selectedRoute = "events"
+    focusedMessageID = nil
+    selectedMessageID = nil
+    persistSelectedRoute()
+  }
+
+  func openSettingsRoute() {
+    selectedRoute = "settings"
+    focusedMessageID = nil
+    selectedMessageID = nil
+    persistSelectedRoute()
+  }
+
+  func selectMessage(_ message: MessageItem) {
+    selectedMessageID = message.id
+  }
+
+  func persistSelectedRoute() {
+    let route = selectedRoute
+    let root = mailRoot
+    Task {
+      try? await OwlBackend.setUIPref(root: root, key: "selected_route", value: route)
+    }
   }
 
   func syncTransportDefault(for thread: ThreadItem) {
@@ -991,11 +1312,38 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  func toggleStar(_ message: MessageItem) {
+    let root = mailRoot
+    runMessageAction(status: message.starred ? "Unstarred" : "Starred") {
+      try await OwlBackend.runJSON(action: "toggle-star", root: root, args: [message.id, message.starred ? "false" : "true"])
+    }
+  }
+
   func markRead(_ message: MessageItem, read: Bool) {
     let root = mailRoot
     runMessageAction(status: read ? "Marked read" : "Marked unread") {
       try await OwlBackend.runJSON(action: "mark-read", root: root, args: [message.id, read ? "true" : "false"])
     }
+  }
+
+  func archiveSelectedMessage() {
+    if let message = activeMessage { archive(message) }
+  }
+
+  func deleteSelectedMessage() {
+    if let message = activeMessage { delete(message) }
+  }
+
+  func toggleSelectedStar() {
+    if let message = activeMessage { toggleStar(message) }
+  }
+
+  func markSelectedRead() {
+    if let message = activeMessage { markRead(message, read: true) }
+  }
+
+  func markSelectedUnread() {
+    if let message = activeMessage { markRead(message, read: false) }
   }
 
   func runMessageAction(status: String, action: @escaping () async throws -> Data) {
@@ -1010,6 +1358,13 @@ private final class OwlSession: ObservableObject {
         self.statusText = error.localizedDescription
         self.isBusy = false
       }
+    }
+  }
+
+  func runBackendAction(_ action: String, args: [String] = [], status: String) {
+    let root = mailRoot
+    runMessageAction(status: status) {
+      try await OwlBackend.runJSON(action: action, root: root, args: args)
     }
   }
 
@@ -1030,6 +1385,46 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  func saveEmailDomain() {
+    runBackendAction("settings-set-domain", args: [settingsDomainDraft], status: "Email domain saved")
+  }
+
+  func verifyEmailDomain() {
+    runBackendAction("settings-verify-domain", args: [settingsDomainDraft], status: "Email domain verified")
+  }
+
+  func saveTestRecipient() {
+    runBackendAction("settings-set-test-recipient", args: [settingsTestRecipientDraft], status: "Test recipient saved")
+  }
+
+  func setDaemonRunning(_ running: Bool) {
+    runBackendAction("settings-set-daemon-running", args: [running ? "on" : "off"], status: running ? "Daemon started" : "Daemon stopped")
+  }
+
+  func setDaemonStartup(_ enabled: Bool) {
+    runBackendAction("settings-set-daemon-startup", args: [enabled ? "on" : "off"], status: enabled ? "Startup enabled" : "Startup disabled")
+  }
+
+  func saveRemoteTarget() {
+    var args = [remoteHostDraft, remoteKeyPathDraft]
+    if !remotePortDraft.isEmpty {
+      args.append(remotePortDraft)
+    }
+    runBackendAction("settings-remote-set-target", args: args, status: "Remote target saved")
+  }
+
+  func verifyRemote() {
+    runBackendAction("settings-remote-verify", args: [], status: "Remote verification finished")
+  }
+
+  func syncRemote() {
+    runBackendAction("settings-remote-sync", args: [], status: "Remote sync finished")
+  }
+
+  func classifySpam() {
+    runBackendAction("spam-classify", args: ["quarantine", "", "25", "0"], status: "Spam classification finished")
+  }
+
   func chooseMailRoot() {
     let panel = NSOpenPanel()
     panel.canChooseFiles = false
@@ -1039,7 +1434,9 @@ private final class OwlSession: ObservableObject {
     panel.prompt = "Use Mail Root"
     if panel.runModal() == .OK, let url = panel.url {
       mailRoot = url.path
-      OwlPreferences.mailRoot = url.path
+      Task {
+        try? await OwlBackend.setUIPref(root: url.path, key: "mail_root", value: url.path)
+      }
       refresh()
     }
   }
@@ -1115,23 +1512,49 @@ private final class OwlSession: ObservableObject {
       case "refresh_snapshot":
         refresh()
       case "focus_inbox":
-        selectedRoute = "inbox"
+        openInbox(focusing: nil)
+      case "focus_drafts":
+        openDrafts()
+      case "focus_events":
+        openEvents()
+      case "focus_settings":
+        openSettingsRoute()
       case "focus_favorites":
         if let first = snapshot.favorites.first { selectThread(first) }
       case "focus_people":
         if let first = snapshot.individuals.first { selectThread(first) }
       case "focus_groups":
         if let first = snapshot.groups.first { selectThread(first) }
+      case let mailboxAction where mailboxAction.hasPrefix("focus_mailbox_"):
+        let suffix = String(mailboxAction.dropFirst("focus_mailbox_".count)).replacingOccurrences(of: "_", with: "-")
+        if let mailbox = snapshot.mailboxes.first(where: { $0.id == suffix }) {
+          openMailbox(mailbox)
+        } else {
+          selectedRoute = "mailbox:\(suffix)"
+          persistSelectedRoute()
+        }
       case "open_settings":
         (NSApp.delegate as? OwlNativeAppDelegate)?.showSettingsWindow(nil)
       case "choose_mail_root":
         chooseMailRoot()
+      case "setup_folders":
+        runBackendAction("settings-setup-folders", status: "Mail folders checked")
       case "compose_simplex":
         selectedTransport = .simplex
       case "compose_email":
         selectedTransport = .email
       case "send_message":
         sendComposedMessage()
+      case "archive_selected":
+        archiveSelectedMessage()
+      case "delete_selected":
+        deleteSelectedMessage()
+      case "star_selected":
+        toggleSelectedStar()
+      case "mark_selected_read":
+        markSelectedRead()
+      case "mark_selected_unread":
+        markSelectedUnread()
       case "install_simplex_cli":
         installSimpleX()
       case "provision_simplex_identity":
@@ -1149,6 +1572,15 @@ private final class OwlSession: ObservableObject {
 }
 
 private enum OwlBackend {
+  static func uiPrefs(root: String) async throws -> UIPrefs {
+    let data = try await runJSON(action: "get-ui-prefs", root: root, args: [])
+    return try JSONDecoder().decode(UIPrefs.self, from: data)
+  }
+
+  static func setUIPref(root: String, key: String, value: String) async throws {
+    _ = try await runJSON(action: "set-ui-pref", root: root, args: [key, value])
+  }
+
   static func snapshot(root: String) async throws -> Snapshot {
     let data = try await runJSON(action: "snapshot", root: root, args: [])
     return try JSONDecoder().decode(Snapshot.self, from: data)
@@ -1226,17 +1658,6 @@ private enum OwlBackend {
   }
 }
 
-private enum OwlPreferences {
-  static var mailRoot: String {
-    get {
-      UserDefaults.standard.string(forKey: "mailRoot") ?? "\(FileManager.default.homeDirectoryForCurrentUser.path)/mail"
-    }
-    set {
-      UserDefaults.standard.set(newValue, forKey: "mailRoot")
-    }
-  }
-}
-
 private struct RootView: View {
   @EnvironmentObject private var session: OwlSession
 
@@ -1269,6 +1690,19 @@ private struct SidebarView: View {
         SidebarInboxRow()
           .tag("inbox")
       }
+      Section("Mailboxes") {
+        ForEach(session.snapshot.mailboxes) { mailbox in
+          SidebarMailboxRow(mailbox: mailbox)
+            .tag("mailbox:\(mailbox.id)")
+            .onTapGesture { session.openMailbox(mailbox) }
+        }
+        SidebarUtilityRow(title: "Drafts", systemImage: "square.and.pencil", count: session.snapshot.drafts.count)
+          .tag("drafts")
+          .onTapGesture { session.openDrafts() }
+        SidebarUtilityRow(title: "Events", systemImage: "waveform.path.ecg", count: session.snapshot.events.count)
+          .tag("events")
+          .onTapGesture { session.openEvents() }
+      }
       if !session.snapshot.favorites.isEmpty {
         Section("Favorites") {
           ForEach(session.snapshot.favorites) { thread in
@@ -1294,6 +1728,11 @@ private struct SidebarView: View {
             .tag("thread:\(thread.id)")
             .onTapGesture { session.selectThread(thread) }
         }
+      }
+      Section {
+        SidebarUtilityRow(title: "Settings", systemImage: "gearshape", count: 0)
+          .tag("settings")
+          .onTapGesture { session.openSettingsRoute() }
       }
     }
     .listStyle(.sidebar)
@@ -1349,6 +1788,56 @@ private struct SidebarThreadRow: View {
   }
 }
 
+private struct SidebarMailboxRow: View {
+  let mailbox: MailboxItem
+
+  var body: some View {
+    HStack(spacing: 9) {
+      Image(systemName: mailboxIcon)
+        .foregroundStyle(.secondary)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(mailbox.title)
+          .lineLimit(1)
+        Text("\(mailbox.count) message\(mailbox.count == 1 ? "" : "s")")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+      }
+      Spacer()
+      CountBadge(count: mailbox.unread)
+    }
+  }
+
+  private var mailboxIcon: String {
+    switch mailbox.id {
+    case "accepted": return "tray"
+    case "quarantine": return "tray.and.arrow.down"
+    case "spam": return "exclamationmark.octagon"
+    case "banned": return "hand.raised"
+    case "archive": return "archivebox"
+    case "sent": return "paperplane"
+    case "outbox": return "tray.and.arrow.up"
+    case "trash": return "trash"
+    default: return "folder"
+    }
+  }
+}
+
+private struct SidebarUtilityRow: View {
+  let title: String
+  let systemImage: String
+  let count: Int
+
+  var body: some View {
+    HStack(spacing: 9) {
+      Image(systemName: systemImage)
+        .foregroundStyle(.secondary)
+      Text(title)
+      Spacer()
+      CountBadge(count: count)
+    }
+  }
+}
+
 private struct CountBadge: View {
   let count: Int
 
@@ -1371,10 +1860,19 @@ private struct MainContentView: View {
     Group {
       if session.selectedRoute == "inbox" {
         InboxView()
+      } else if session.selectedRoute == "drafts" {
+        DraftsView()
+      } else if session.selectedRoute == "events" {
+        EventsView()
+      } else if session.selectedRoute == "settings" {
+        SettingsView()
+          .padding(20)
+      } else if session.selectedMailbox != nil || session.selectedMailboxID != nil {
+        MailboxView()
       } else if session.selectedThread != nil {
         TimelineView()
       } else {
-        EmptyStateView(title: "No Conversation Selected", subtitle: "Choose Inbox, an individual, or a group.")
+        EmptyStateView(title: "No Selection", subtitle: "Choose a mailbox or conversation.")
       }
     }
   }
@@ -1385,13 +1883,13 @@ private struct InboxView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      HeaderView(title: "Inbox", subtitle: "\(session.snapshot.inbox.count) cards across email and SimpleX")
+      HeaderView(title: "Inbox", subtitle: "\(session.snapshot.inbox.count) items")
       Divider()
       ScrollViewReader { proxy in
         ScrollView {
           LazyVStack(alignment: .leading, spacing: 10) {
             if session.snapshot.inbox.isEmpty {
-              EmptyStateView(title: "Inbox Is Clear", subtitle: "Inbox cards stay here while also remaining in their contact or group timelines.")
+              EmptyStateView(title: "Inbox Is Clear", subtitle: "No inbox items.")
                 .padding(.top, 80)
             } else {
               ForEach(session.snapshot.inbox) { message in
@@ -1408,6 +1906,117 @@ private struct InboxView: View {
           }
         }
       }
+    }
+  }
+}
+
+private struct MailboxView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HeaderView(title: session.selectedMailbox?.title ?? session.selectedMailboxID?.capitalized ?? "Mailbox", subtitle: "\(session.mailboxMessages.count) messages")
+      Divider()
+      List(session.mailboxMessages) { message in
+        MailboxMessageRow(message: message)
+          .tag(message.id)
+      }
+      .listStyle(.inset)
+    }
+  }
+}
+
+private struct MailboxMessageRow: View {
+  @EnvironmentObject private var session: OwlSession
+  let message: MessageItem
+
+  var body: some View {
+    Button {
+      session.selectMessage(message)
+      session.openTimeline(for: message)
+    } label: {
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        TransportMark(message: message)
+        VStack(alignment: .leading, spacing: 4) {
+          HStack {
+            Text(message.contact_name)
+              .font(.body.weight(message.read ? .regular : .semibold))
+            if message.starred {
+              Image(systemName: "star.fill")
+                .foregroundStyle(.yellow)
+            }
+            Spacer()
+            Text(message.received_at)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          Text(message.subject.isEmpty ? message.preview : message.subject)
+            .lineLimit(1)
+          Text(message.displayBody)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+        }
+      }
+      .padding(.vertical, 4)
+    }
+    .buttonStyle(.plain)
+    .contextMenu { MessageContextMenu(message: message) }
+  }
+}
+
+private struct DraftsView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HeaderView(title: "Drafts", subtitle: "\(session.snapshot.drafts.count) saved drafts")
+      Divider()
+      List(session.snapshot.drafts) { draft in
+        VStack(alignment: .leading, spacing: 5) {
+          HStack {
+            Text(draft.subject.isEmpty ? "Untitled Draft" : draft.subject)
+              .font(.body.weight(.semibold))
+            Spacer()
+            Text(draft.updated_at)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          Text(draft.to)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 5)
+      }
+      .listStyle(.inset)
+    }
+  }
+}
+
+private struct EventsView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HeaderView(title: "Events", subtitle: "\(session.snapshot.events.count) backend events")
+      Divider()
+      List(session.snapshot.events) { event in
+        VStack(alignment: .leading, spacing: 5) {
+          HStack {
+            Text(event.kind.isEmpty ? "Event" : event.kind)
+              .font(.body.weight(.semibold))
+            Spacer()
+            Text(event.created_at)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          Text(event.message)
+            .font(.callout)
+            .textSelection(.enabled)
+        }
+        .padding(.vertical, 5)
+      }
+      .listStyle(.inset)
     }
   }
 }
@@ -1446,7 +2055,9 @@ private struct InboxCard: View {
               .foregroundStyle(.secondary)
           }
           Spacer()
-          Button("Archive") { session.archive(message) }
+          Button { session.archive(message) } label: {
+            Label("Remove From Inbox", systemImage: "archivebox")
+          }
             .buttonStyle(.borderless)
         }
       }
@@ -1455,6 +2066,7 @@ private struct InboxCard: View {
       .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.18)))
     }
     .buttonStyle(.plain)
+    .contextMenu { MessageContextMenu(message: message) }
   }
 }
 
@@ -1506,7 +2118,7 @@ private struct TimelineView: View {
       thread.hasSimpleXPath ? "SimpleX" : nil,
       thread.hasEmailPath ? "email" : nil
     ].compactMap { $0 }.joined(separator: " + ")
-    return "\(count) timeline item\(count == 1 ? "" : "s")" + (paths.isEmpty ? "" : " · \(paths)")
+    return "\(count) timeline item\(count == 1 ? "" : "s")" + (paths.isEmpty ? "" : " - \(paths)")
   }
 }
 
@@ -1549,10 +2161,14 @@ private struct MessageBubble: View {
         HStack(spacing: 8) {
           TransportPill(message: message)
           if message.in_inbox {
-            Button("Remove From Inbox") { session.archive(message) }
+            Button { session.archive(message) } label: {
+              Label("Remove From Inbox", systemImage: "archivebox")
+            }
               .buttonStyle(.borderless)
           }
-          Button(message.read ? "Unread" : "Read") { session.markRead(message, read: !message.read) }
+          Button { session.markRead(message, read: !message.read) } label: {
+            Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+          }
             .buttonStyle(.borderless)
         }
       }
@@ -1561,6 +2177,8 @@ private struct MessageBubble: View {
       .background(messageBackground)
       .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(message.in_inbox ? 0.12 : 0.2)))
       .opacity(message.in_inbox ? 0.62 : 1.0)
+      .contextMenu { MessageContextMenu(message: message) }
+      .onTapGesture { session.selectMessage(message) }
       if !message.from_self { Spacer(minLength: 80) }
     }
   }
@@ -1568,6 +2186,27 @@ private struct MessageBubble: View {
   private var messageBackground: some View {
     RoundedRectangle(cornerRadius: 8)
       .fill(message.from_self ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor))
+  }
+}
+
+private struct MessageContextMenu: View {
+  @EnvironmentObject private var session: OwlSession
+  let message: MessageItem
+
+  var body: some View {
+    Button { session.archive(message) } label: {
+      Label("Remove From Inbox", systemImage: "archivebox")
+    }
+    Button { session.markRead(message, read: !message.read) } label: {
+      Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+    }
+    Button { session.toggleStar(message) } label: {
+      Label(message.starred ? "Unstar" : "Star", systemImage: message.starred ? "star.slash" : "star")
+    }
+    Divider()
+    Button(role: .destructive) { session.delete(message) } label: {
+      Label("Delete", systemImage: "trash")
+    }
   }
 }
 
@@ -1702,7 +2341,7 @@ private struct StatusStrip: View {
           .foregroundStyle(.secondary)
           .lineLimit(2)
       }
-      Text("v\(generatedAppVersion) · \(generatedAppID)")
+      Text("v\(generatedAppVersion) - \(generatedAppID)")
         .font(.caption2)
         .foregroundStyle(.tertiary)
     }
@@ -1719,8 +2358,127 @@ private struct SettingsView: View {
           TextField("Mail root", text: $session.mailRoot)
             .textFieldStyle(.roundedBorder)
             .frame(width: 360)
-          Button("Choose...") { session.chooseMailRoot() }
-          Button("Refresh") { session.refresh() }
+          Button { session.chooseMailRoot() } label: {
+            Label("Choose", systemImage: "folder")
+          }
+          Button { session.refresh() } label: {
+            Label("Refresh", systemImage: "arrow.clockwise")
+          }
+        }
+      }
+      Section("Email") {
+        HStack {
+          TextField("Domain", text: $session.settingsDomainDraft)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 220)
+          Button { session.saveEmailDomain() } label: {
+            Label("Save", systemImage: "checkmark")
+          }
+          Button { session.verifyEmailDomain() } label: {
+            Label("Verify", systemImage: "checkmark.seal")
+          }
+        }
+        HStack {
+          TextField("Test recipient", text: $session.settingsTestRecipientDraft)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 260)
+          Button { session.saveTestRecipient() } label: {
+            Label("Save", systemImage: "person.crop.circle.badge.checkmark")
+          }
+        }
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+          GridRow {
+            Text("Domain")
+              .foregroundStyle(.secondary)
+            Text(session.snapshot.settings.domain_configured ? "configured" : "missing")
+          }
+          GridRow {
+            Text("TLS")
+              .foregroundStyle(.secondary)
+            Text(session.snapshot.settings.ssl_ready ? "ready" : "not ready")
+          }
+          GridRow {
+            Text("Folders")
+              .foregroundStyle(.secondary)
+            Text(session.snapshot.settings.folders_ready ? "ready" : "missing")
+          }
+        }
+        HStack {
+          Button { session.runBackendAction("settings-setup-folders", status: "Mail folders checked") } label: {
+            Label("Setup Folders", systemImage: "folder.badge.gearshape")
+          }
+          Button { session.runBackendAction("settings-setup-ssl", args: ["auto"], status: "TLS setup finished") } label: {
+            Label("Setup TLS", systemImage: "lock.shield")
+          }
+        }
+      }
+      Section("Daemon") {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+          GridRow {
+            Text("Manager")
+              .foregroundStyle(.secondary)
+            Text(session.snapshot.settings.daemon.manager.isEmpty ? "unknown" : session.snapshot.settings.daemon.manager)
+          }
+          GridRow {
+            Text("Installed")
+              .foregroundStyle(.secondary)
+            Text(session.snapshot.settings.daemon.installed ? "yes" : "no")
+          }
+          GridRow {
+            Text("Running")
+              .foregroundStyle(.secondary)
+            Text(session.snapshot.settings.daemon.running ? "yes" : "no")
+          }
+        }
+        HStack {
+          Button { session.runBackendAction("settings-set-daemon-installed", args: ["on"], status: "Daemon installed") } label: {
+            Label("Install", systemImage: "square.and.arrow.down")
+          }
+          Button { session.setDaemonRunning(true) } label: {
+            Label("Start", systemImage: "play.fill")
+          }
+          Button { session.setDaemonRunning(false) } label: {
+            Label("Stop", systemImage: "stop.fill")
+          }
+          Toggle("Launch at Login", isOn: Binding(
+            get: { session.snapshot.settings.daemon.startup_enabled },
+            set: { session.setDaemonStartup($0) }
+          ))
+          .fixedSize()
+        }
+      }
+      Section("Remote") {
+        HStack {
+          TextField("Host", text: $session.remoteHostDraft)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 180)
+          TextField("SSH key", text: $session.remoteKeyPathDraft)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 220)
+          TextField("Port", text: $session.remotePortDraft)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 70)
+        }
+        HStack {
+          Button { session.saveRemoteTarget() } label: {
+            Label("Save", systemImage: "checkmark")
+          }
+          Button { session.verifyRemote() } label: {
+            Label("Verify", systemImage: "network")
+          }
+          Button { session.syncRemote() } label: {
+            Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+          }
+        }
+      }
+      Section("Filtering") {
+        HStack {
+          Button { session.classifySpam() } label: {
+            Label("Classify Spam", systemImage: "line.3.horizontal.decrease.circle")
+          }
+          Button { session.openEvents() } label: {
+            Label("Events", systemImage: "waveform.path.ecg")
+          }
         }
       }
       Section("SimpleX") {
@@ -1743,14 +2501,16 @@ private struct SettingsView: View {
           }
         }
         HStack {
-          Button("Install CLI") { session.installSimpleX() }
-          Button("Provision Identity") { session.provisionSimpleX() }
-          Button("Check Incoming") { session.tickSimpleX() }
+          Button { session.installSimpleX() } label: {
+            Label("Install CLI", systemImage: "square.and.arrow.down")
+          }
+          Button { session.provisionSimpleX() } label: {
+            Label("Provision Identity", systemImage: "person.badge.key")
+          }
+          Button { session.tickSimpleX() } label: {
+            Label("Check", systemImage: "arrow.clockwise")
+          }
         }
-      }
-      Section("Native Contract") {
-        Text("Owl Native renders one contact or group timeline with email and SimpleX as message attributes.")
-          .foregroundStyle(.secondary)
       }
     }
     .formStyle(.grouped)
@@ -1844,13 +2604,20 @@ private enum SeedData {
   )
 
   static let snapshot = Snapshot(
-    root: OwlPreferences.mailRoot,
+    root: defaultMailRoot(),
     inbox: [email, groupMessage],
     favorites: [alice, river],
     individuals: [alice],
     groups: [river],
     threads: [river, alice],
     messages: [email, simplex, groupMessage],
+    mailboxes: [
+      MailboxItem(id: "accepted", title: "Accepted", count: 1, unread: 1),
+      MailboxItem(id: "archive", title: "Archive"),
+      MailboxItem(id: "sent", title: "Sent")
+    ],
+    drafts: [],
+    events: [],
     overview: Overview(counts: OverviewCounts(inbox_messages: 2, new_messages: 0, archive_messages: 0, trash_messages: 0, drafts: 0, sent: 0)),
     simplex: SimpleXSnapshot(install_state: "missing")
   )

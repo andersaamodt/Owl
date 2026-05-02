@@ -10,6 +10,7 @@ typedef struct {
   GtkWidget *stack;
   GtkWidget *status_label;
   GtkWidget *inbox_list;
+  GtkWidget *mailbox_list;
   GtkWidget *thread_list;
   GtkWidget *composer;
   gchar *mail_root;
@@ -130,6 +131,15 @@ static void set_backend_status(AppContext *context, const char *success_message,
   g_free(output);
 }
 
+static void clear_list_box(GtkWidget *list) {
+  GtkWidget *child = gtk_widget_get_first_child(list);
+  while (child != NULL) {
+    GtkWidget *next = gtk_widget_get_next_sibling(child);
+    gtk_list_box_remove(GTK_LIST_BOX(list), child);
+    child = next;
+  }
+}
+
 static GtkWidget *make_badge(const char *text) {
   GtkWidget *label = gtk_label_new(text);
   gtk_widget_add_css_class(label, "badge");
@@ -141,6 +151,13 @@ static GtkWidget *make_transport_mark(const char *transport) {
   GtkWidget *label = gtk_label_new(simplex ? "closed lock  SimpleX" : "open lock  Email");
   gtk_widget_add_css_class(label, simplex ? "secure-transport" : "email-transport");
   return label;
+}
+
+static const char *safe_field(char **fields, guint length, guint index) {
+  if (index >= length || fields[index] == NULL) {
+    return "";
+  }
+  return fields[index];
 }
 
 static GtkWidget *make_sidebar_row(const char *title, const char *subtitle, int count) {
@@ -187,26 +204,106 @@ static GtkWidget *make_inbox_card(const char *contact, const char *transport, co
 }
 
 static void populate_seed_lists(AppContext *context) {
-  gtk_list_box_append(GTK_LIST_BOX(context->inbox_list), make_inbox_card("Alice Ledger", "email", "Longer email-style note", "Email and SimpleX cards both remain in the Inbox and in the one continuous timeline."));
+  clear_list_box(context->inbox_list);
+  clear_list_box(context->mailbox_list);
+  clear_list_box(context->thread_list);
+  gtk_list_box_append(GTK_LIST_BOX(context->mailbox_list), make_sidebar_row("Accepted", "1 message", 1));
+  gtk_list_box_append(GTK_LIST_BOX(context->mailbox_list), make_sidebar_row("Archive", "0 messages", 0));
+  gtk_list_box_append(GTK_LIST_BOX(context->mailbox_list), make_sidebar_row("Sent", "0 messages", 0));
+  gtk_list_box_append(GTK_LIST_BOX(context->inbox_list), make_inbox_card("Alice Ledger", "email", "Longer email-style note", "Unified native inbox item."));
   gtk_list_box_append(GTK_LIST_BOX(context->inbox_list), make_inbox_card("River Stone", "simplex", "", "Group update landed over SimpleX."));
   gtk_list_box_append(GTK_LIST_BOX(context->thread_list), make_sidebar_row("Alice Ledger", "SimpleX + email", 1));
-  gtk_list_box_append(GTK_LIST_BOX(context->thread_list), make_sidebar_row("River Stone", "Group · SimpleX", 1));
+  gtk_list_box_append(GTK_LIST_BOX(context->thread_list), make_sidebar_row("River Stone", "Group - SimpleX", 1));
+}
+
+static void populate_snapshot_lines(AppContext *context, const char *output) {
+  clear_list_box(context->inbox_list);
+  clear_list_box(context->mailbox_list);
+  clear_list_box(context->thread_list);
+
+  gboolean added_any = FALSE;
+  char **lines = g_strsplit(output, "\n", -1);
+  for (guint i = 0; lines[i] != NULL; i++) {
+    if (*lines[i] == '\0') {
+      continue;
+    }
+    char **fields = g_strsplit(lines[i], "\t", -1);
+    guint length = g_strv_length(fields);
+    const char *kind = safe_field(fields, length, 0);
+    if (g_strcmp0(kind, "mailbox") == 0) {
+      const char *count_text = safe_field(fields, length, 3);
+      const char *unread_text = safe_field(fields, length, 4);
+      char *subtitle = g_strdup_printf("%s messages", *count_text != '\0' ? count_text : "0");
+      gtk_list_box_append(GTK_LIST_BOX(context->mailbox_list), make_sidebar_row(safe_field(fields, length, 2), subtitle, atoi(unread_text)));
+      g_free(subtitle);
+      added_any = TRUE;
+    } else if (g_strcmp0(kind, "inbox") == 0) {
+      gtk_list_box_append(
+        GTK_LIST_BOX(context->inbox_list),
+        make_inbox_card(safe_field(fields, length, 2), safe_field(fields, length, 3), safe_field(fields, length, 4), safe_field(fields, length, 5))
+      );
+      added_any = TRUE;
+    } else if (g_strcmp0(kind, "thread") == 0) {
+      const char *thread_kind = safe_field(fields, length, 3);
+      const char *unread_text = safe_field(fields, length, 4);
+      const char *simplex_path = safe_field(fields, length, 6);
+      const char *email_path = safe_field(fields, length, 7);
+      char *subtitle = g_strdup_printf(
+        "%s%s%s",
+        g_strcmp0(thread_kind, "group") == 0 ? "Group" : "Person",
+        *simplex_path != '\0' ? " - SimpleX" : "",
+        *email_path != '\0' ? " - email" : ""
+      );
+      gtk_list_box_append(GTK_LIST_BOX(context->thread_list), make_sidebar_row(safe_field(fields, length, 2), subtitle, atoi(unread_text)));
+      g_free(subtitle);
+      added_any = TRUE;
+    } else if (g_strcmp0(kind, "draft") == 0) {
+      gtk_list_box_append(GTK_LIST_BOX(context->mailbox_list), make_sidebar_row("Drafts", safe_field(fields, length, 3), 0));
+      added_any = TRUE;
+    } else if (g_strcmp0(kind, "event") == 0) {
+      gtk_list_box_append(GTK_LIST_BOX(context->mailbox_list), make_sidebar_row("Events", safe_field(fields, length, 2), 0));
+      added_any = TRUE;
+    }
+    g_strfreev(fields);
+  }
+  g_strfreev(lines);
+
+  if (!added_any) {
+    gtk_list_box_append(GTK_LIST_BOX(context->inbox_list), make_inbox_card("Owl Native", "simplex", "", "Backend snapshot is empty."));
+  }
+}
+
+static void refresh_from_backend(AppContext *context) {
+  char *output = run_backend(context, "snapshot-lines", NULL, NULL);
+  if (output != NULL && g_str_has_prefix(output, "root\t")) {
+    populate_snapshot_lines(context, output);
+    set_status(context, "Loaded Owl Native snapshot.");
+  } else {
+    populate_seed_lists(context);
+    set_status(context, output != NULL ? output : "Backend unavailable.");
+  }
+  g_free(output);
 }
 
 static GtkWidget *make_sidebar(AppContext *context) {
   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
   GtkWidget *search = gtk_search_entry_new();
-  GtkWidget *inbox = make_sidebar_row("Inbox", "Unified cards", 2);
+  GtkWidget *inbox = make_sidebar_row("Inbox", "Messages", 0);
+  GtkWidget *mailboxes = gtk_label_new("Mailboxes");
   GtkWidget *favorites = gtk_label_new("Favorites");
   GtkWidget *people = gtk_label_new("Individuals");
   GtkWidget *divider = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
   GtkWidget *groups = gtk_label_new("Groups");
+  context->mailbox_list = gtk_list_box_new();
   context->thread_list = gtk_list_box_new();
+  gtk_label_set_xalign(GTK_LABEL(mailboxes), 0.0f);
   gtk_label_set_xalign(GTK_LABEL(favorites), 0.0f);
   gtk_label_set_xalign(GTK_LABEL(people), 0.0f);
   gtk_label_set_xalign(GTK_LABEL(groups), 0.0f);
   gtk_box_append(GTK_BOX(box), search);
   gtk_box_append(GTK_BOX(box), inbox);
+  gtk_box_append(GTK_BOX(box), mailboxes);
+  gtk_box_append(GTK_BOX(box), context->mailbox_list);
   gtk_box_append(GTK_BOX(box), favorites);
   gtk_box_append(GTK_BOX(box), people);
   gtk_box_append(GTK_BOX(box), context->thread_list);
@@ -219,7 +316,7 @@ static GtkWidget *make_sidebar(AppContext *context) {
 static GtkWidget *make_main_stage(AppContext *context) {
   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
   GtkWidget *title = gtk_label_new("Inbox");
-  GtkWidget *subtitle = gtk_label_new("Email and SimpleX messages use one card model.");
+  GtkWidget *subtitle = gtk_label_new("Email and SimpleX");
   GtkWidget *scroller = gtk_scrolled_window_new();
   context->inbox_list = gtk_list_box_new();
   gtk_label_set_xalign(GTK_LABEL(title), 0.0f);
@@ -350,7 +447,7 @@ static void activate(GtkApplication *app, gpointer user_data) {
   gtk_box_append(GTK_BOX(root), composer);
   gtk_box_append(GTK_BOX(root), context->status_label);
   gtk_window_set_child(GTK_WINDOW(context->window), root);
-  populate_seed_lists(context);
+  refresh_from_backend(context);
 
   g_signal_connect(refresh_button, "clicked", G_CALLBACK(activate_action_button), g_action_map_lookup_action(G_ACTION_MAP(app), "refresh-snapshot"));
   g_signal_connect(simplex_button, "clicked", G_CALLBACK(activate_action_button), g_action_map_lookup_action(G_ACTION_MAP(app), "tick-simplex"));

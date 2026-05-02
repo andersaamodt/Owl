@@ -12,6 +12,7 @@ Actions:
   get-ui-prefs ROOT
   set-ui-pref ROOT KEY VALUE
   snapshot ROOT
+  snapshot-lines ROOT
   overview ROOT
   settings-controls ROOT
   settings-browse-root ROOT [START_PATH]
@@ -746,6 +747,19 @@ snapshot_action() {
         messages: ($messages | sort_by(.received_at))
       }'
   rm -f "$tmp_email" "$tmp_simplex"
+}
+
+snapshot_lines_action() {
+  snapshot_action | jq -r '
+    def clean: tostring | gsub("[\r\n\t]+"; " ") | gsub("  +"; " ");
+    . as $snapshot
+    | (["root", ($snapshot.root | clean)] | @tsv),
+      ($snapshot.mailboxes[]? | ["mailbox", (.id | clean), (.title | clean), ((.count // 0) | tostring), ((.unread // 0) | tostring)] | @tsv),
+      ($snapshot.inbox[]? | ["inbox", (.id | clean), (.contact_name | clean), (.transport | clean), (.subject | clean), (.preview | clean), (.received_at | clean)] | @tsv),
+      ($snapshot.threads[]? | ["thread", (.id | clean), (.name | clean), (.kind | clean), ((.unread_count // 0) | tostring), (.latest_at | clean), (if (.simplex_address // "") != "" then "simplex" else "" end), (if (.email // "") != "" then "email" else "" end)] | @tsv),
+      ($snapshot.drafts[]? | ["draft", (.ulid | clean), (.to | clean), (.subject | clean), (.updated_at | clean)] | @tsv),
+      ($snapshot.events[]? | ["event", (.id | clean), ((.kind // .label // "event") | clean), (.message | clean), ((.created_at // .at // "") | clean)] | @tsv)
+  '
 }
 
 send_message_action() {
@@ -1498,6 +1512,9 @@ case "$action" in
     ;;
   snapshot)
     snapshot_action
+    ;;
+  snapshot-lines)
+    snapshot_lines_action
     ;;
   health|overview|settings-controls|settings-browse-root|settings-set-test-recipient|settings-verify-domain|settings-set-domain|settings-ssl-prereq-status|settings-ssl-wizard-status|settings-setup-ssl|settings-set-daemon-installed|settings-set-daemon-running|settings-set-daemon-startup|settings-setup-folders|settings-remote-set-target|settings-remote-set-auth|settings-remote-deploy|settings-remote-verify|settings-remote-send-test|settings-remote-sync|settings-llm-controls|settings-llm-set|settings-llm-install-ollama|settings-llm-set-daemon|settings-llm-install-model|settings-llm-uninstall-model|spam-classify|event-feed|contact-get|contact-save|list-senders|list-archive-bundle|list-inbox-bundle-fast|list-messages-fast|list-messages|set-flag|move-message|move-sender|draft-list|draft-get|draft-save|draft-delete|draft-send)
     owl_backend_json "$action" "$@"
