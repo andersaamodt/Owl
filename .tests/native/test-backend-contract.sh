@@ -255,7 +255,7 @@ ui_prefs_are_plaintext_xdg_state() {
   next_root="$tmpdir/prefs/other-mail"
   mkdir -p "$tmpdir/home"
   output=$(backend get-ui-prefs "$root")
-  printf '%s\n' "$output" | jq -e --arg root "$root" '.ok == true and .mail_root == $root and .selected_route == "inbox"' >/dev/null
+  printf '%s\n' "$output" | jq -e --arg root "$root" '.ok == true and .mail_root == $root and .selected_route == "new"' >/dev/null
   backend set-ui-pref "$root" mail_root "$next_root" >/dev/null
   backend set-ui-pref "$root" selected_route "thread:alice" >/dev/null
   output=$(backend get-ui-prefs "$root")

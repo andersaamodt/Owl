@@ -61,7 +61,12 @@ linux_actions_cover_ir() {
 
 swift_uses_native_desktop_idiom() {
   cd "$repo_dir"
-  grep -q 'NavigationSplitView' generated/macos/Sources/App/App.swift
+  grep -q 'PrimaryTabBar' generated/macos/Sources/App/App.swift
+  grep -q 'NewSendersView' generated/macos/Sources/App/App.swift
+  grep -q 'MailView' generated/macos/Sources/App/App.swift
+  grep -q 'TabButton(title: "New Senders"' generated/macos/Sources/App/App.swift
+  grep -q 'TabButton(title: "Inbox"' generated/macos/Sources/App/App.swift
+  grep -q 'TabButton(title: "Mail"' generated/macos/Sources/App/App.swift
   grep -q 'NSApplicationDelegate' generated/macos/Sources/App/App.swift
   grep -q 'NSWindow(' generated/macos/Sources/App/App.swift
   grep -q 'NSHostingView(rootView:' generated/macos/Sources/App/App.swift

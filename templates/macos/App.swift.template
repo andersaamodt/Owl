@@ -136,10 +136,9 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let viewMenu = NSMenu(title: "View")
     viewMenu.addItem(actionItem("Refresh", action: "refresh_snapshot", key: "r", modifiers: [.command]))
     viewMenu.addItem(.separator())
-    viewMenu.addItem(actionItem("Inbox", action: "focus_inbox", key: "1", modifiers: [.command]))
-    viewMenu.addItem(actionItem("Drafts", action: "focus_drafts", key: "2", modifiers: [.command]))
-    viewMenu.addItem(actionItem("Events", action: "focus_events", key: "3", modifiers: [.command]))
-    viewMenu.addItem(actionItem("Settings", action: "focus_settings", key: "4", modifiers: [.command]))
+    viewMenu.addItem(actionItem("New Senders", action: "focus_new", key: "1", modifiers: [.command]))
+    viewMenu.addItem(actionItem("Inbox", action: "focus_inbox", key: "2", modifiers: [.command]))
+    viewMenu.addItem(actionItem("Mail", action: "focus_mail", key: "3", modifiers: [.command]))
     viewMenuItem.submenu = viewMenu
     mainMenu.addItem(viewMenuItem)
 
@@ -153,19 +152,6 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     messageMenu.addItem(actionItem("Mark Unread", action: "mark_selected_unread", key: "u", modifiers: [.command]))
     messageMenuItem.submenu = messageMenu
     mainMenu.addItem(messageMenuItem)
-
-    let mailboxMenuItem = NSMenuItem()
-    let mailboxMenu = NSMenu(title: "Mailbox")
-    mailboxMenu.addItem(actionItem("Accepted", action: "focus_mailbox_accepted"))
-    mailboxMenu.addItem(actionItem("Quarantine", action: "focus_mailbox_quarantine"))
-    mailboxMenu.addItem(actionItem("Spam", action: "focus_mailbox_spam"))
-    mailboxMenu.addItem(actionItem("Banned", action: "focus_mailbox_banned"))
-    mailboxMenu.addItem(actionItem("Archive", action: "focus_mailbox_archive"))
-    mailboxMenu.addItem(actionItem("Sent", action: "focus_mailbox_sent"))
-    mailboxMenu.addItem(actionItem("Outbox", action: "focus_mailbox_outbox"))
-    mailboxMenu.addItem(actionItem("Trash", action: "focus_mailbox_trash"))
-    mailboxMenuItem.submenu = mailboxMenu
-    mainMenu.addItem(mailboxMenuItem)
 
     let transportMenuItem = NSMenuItem()
     let transportMenu = NSMenu(title: "Transport")
@@ -687,9 +673,11 @@ private func defaultMailRoot() -> String {
 @MainActor
 private final class OwlSession: ObservableObject {
   @Published var snapshot: Snapshot = SeedData.snapshot
-  @Published var selectedRoute: String = "inbox"
+  @Published var selectedRoute: String = "new"
   @Published var focusedMessageID: String?
   @Published var selectedMessageID: String?
+  @Published var selectedNewSenderID: String?
+  @Published var selectedMailThreadID: String?
   @Published var mailRoot: String = defaultMailRoot()
   @Published var selectedTransport: Transport = .simplex
   @Published var composeSubject: String = ""
@@ -710,7 +698,7 @@ private final class OwlSession: ObservableObject {
   init() {
     snapshot = SeedData.snapshot
     mailRoot = defaultMailRoot()
-    selectedRoute = "inbox"
+    selectedRoute = "new"
     selectedTransport = .simplex
     Task { await loadPreferencesThenRefresh() }
   }
@@ -720,6 +708,9 @@ private final class OwlSession: ObservableObject {
   }
 
   var selectedThreadID: String? {
+    if let selectedMailThreadID {
+      return selectedMailThreadID
+    }
     guard selectedRoute.hasPrefix("thread:") else { return nil }
     return String(selectedRoute.dropFirst("thread:".count))
   }
@@ -727,6 +718,25 @@ private final class OwlSession: ObservableObject {
   var selectedThread: ThreadItem? {
     guard let id = selectedThreadID else { return nil }
     return snapshot.threads.first(where: { $0.id == id })
+  }
+
+  var newSenderThreads: [ThreadItem] {
+    snapshot.threads
+      .filter { thread in thread.messages.contains(where: { $0.list == "quarantine" }) }
+      .sorted { $0.latest_at > $1.latest_at }
+  }
+
+  var selectedNewSender: ThreadItem? {
+    if let selectedNewSenderID {
+      return newSenderThreads.first(where: { $0.id == selectedNewSenderID })
+    }
+    return newSenderThreads.first
+  }
+
+  var newSenderMessages: [MessageItem] {
+    (selectedNewSender?.messages ?? [])
+      .filter { $0.list == "quarantine" }
+      .sorted { $0.received_at > $1.received_at }
   }
 
   var selectedMailboxID: String? {
@@ -777,7 +787,7 @@ private final class OwlSession: ObservableObject {
       if !prefs.mail_root.isEmpty {
         mailRoot = prefs.mail_root
       }
-      selectedRoute = prefs.selected_route.isEmpty ? "inbox" : prefs.selected_route
+      selectedRoute = prefs.selected_route.isEmpty ? "new" : prefs.selected_route
     } catch {
       statusText = "Preferences unavailable: \(error.localizedDescription)"
     }
@@ -817,11 +827,18 @@ private final class OwlSession: ObservableObject {
   func apply(snapshot next: Snapshot) {
     snapshot = next
     mailRoot = next.root
-    if selectedRoute.hasPrefix("thread:"), selectedThread == nil {
-      selectedRoute = "inbox"
+    if selectedRoute.hasPrefix("thread:") {
+      selectedMailThreadID = String(selectedRoute.dropFirst("thread:".count))
+      selectedRoute = "mail"
     }
-    if selectedRoute.hasPrefix("mailbox:"), selectedMailbox == nil {
-      selectedRoute = "inbox"
+    if selectedRoute != "new" && selectedRoute != "inbox" && selectedRoute != "mail" {
+      selectedRoute = "new"
+    }
+    if selectedMailThreadID == nil {
+      selectedMailThreadID = snapshot.threads.first?.id
+    }
+    if selectedNewSenderID == nil {
+      selectedNewSenderID = newSenderThreads.first?.id
     }
     if let thread = selectedThread {
       syncTransportDefault(for: thread)
@@ -834,8 +851,19 @@ private final class OwlSession: ObservableObject {
     remotePortDraft = next.settings.remote.port
   }
 
+  func openNewSenders() {
+    selectedRoute = "new"
+    if selectedNewSenderID == nil {
+      selectedNewSenderID = newSenderThreads.first?.id
+    }
+    selectedMessageID = newSenderMessages.first?.id
+    focusedMessageID = selectedMessageID
+    persistSelectedRoute()
+  }
+
   func selectThread(_ thread: ThreadItem) {
-    selectedRoute = "thread:\(thread.id)"
+    selectedRoute = "mail"
+    selectedMailThreadID = thread.id
     focusedMessageID = nil
     selectedMessageID = nil
     syncTransportDefault(for: thread)
@@ -843,8 +871,21 @@ private final class OwlSession: ObservableObject {
     persistSelectedRoute()
   }
 
+  func openMail() {
+    selectedRoute = "mail"
+    if selectedMailThreadID == nil {
+      selectedMailThreadID = snapshot.threads.first?.id
+    }
+    if let thread = selectedThread {
+      syncTransportDefault(for: thread)
+      loadContactDraft(from: thread)
+    }
+    persistSelectedRoute()
+  }
+
   func openTimeline(for message: MessageItem) {
-    selectedRoute = "thread:\(message.thread_id)"
+    selectedRoute = "mail"
+    selectedMailThreadID = message.thread_id
     focusedMessageID = message.id
     selectedMessageID = message.id
     if let thread = selectedThread {
@@ -859,6 +900,23 @@ private final class OwlSession: ObservableObject {
     focusedMessageID = messageID
     selectedMessageID = messageID
     persistSelectedRoute()
+  }
+
+  func selectNewSender(_ thread: ThreadItem) {
+    selectedRoute = "new"
+    selectedNewSenderID = thread.id
+    let firstMessage = thread.messages.filter { $0.list == "quarantine" }.sorted { $0.received_at > $1.received_at }.first
+    selectedMessageID = firstMessage?.id
+    focusedMessageID = firstMessage?.id
+    persistSelectedRoute()
+  }
+
+  func moveSelectedNewSender(to list: String) {
+    guard let message = newSenderMessages.first else { return }
+    let root = mailRoot
+    runMessageAction(status: "Moved sender to \(list)") {
+      try await OwlBackend.runJSON(action: "move-sender", root: root, args: ["quarantine", list, message.sender])
+    }
   }
 
   func openMailbox(_ mailbox: MailboxItem) {
@@ -1111,8 +1169,12 @@ __SWIFT_ACTION_CASES__
     switch action {
       case "refresh_snapshot":
         refresh()
+      case "focus_new":
+        openNewSenders()
       case "focus_inbox":
         openInbox(focusing: nil)
+      case "focus_mail":
+        openMail()
       case "focus_drafts":
         openDrafts()
       case "focus_events":
@@ -1262,11 +1324,14 @@ private struct RootView: View {
   @EnvironmentObject private var session: OwlSession
 
   var body: some View {
-    NavigationSplitView {
-      SidebarView()
-        .navigationSplitViewColumnWidth(min: 230, ideal: 280, max: 360)
-    } detail: {
+    VStack(spacing: 0) {
+      PrimaryTabBar()
+      Divider()
       MainContentView()
+      Divider()
+      StatusStrip()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
     }
     .toolbar {
       ToolbarItemGroup(placement: .primaryAction) {
@@ -1278,6 +1343,56 @@ private struct RootView: View {
         }
       }
     }
+  }
+}
+
+private struct PrimaryTabBar: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    HStack(spacing: 8) {
+      TabButton(title: "New Senders", count: session.newSenderThreads.count, selected: session.selectedRoute == "new") {
+        session.openNewSenders()
+      }
+      TabButton(title: "Inbox", count: session.snapshot.inbox.count, selected: session.selectedRoute == "inbox") {
+        session.openInbox(focusing: nil)
+      }
+      TabButton(title: "Mail", count: session.snapshot.threads.count, selected: session.selectedRoute == "mail") {
+        session.openMail()
+      }
+      Spacer()
+      Button { session.refresh() } label: {
+        Label("Refresh", systemImage: "arrow.clockwise")
+      }
+      .buttonStyle(.borderless)
+      Button { (NSApp.delegate as? OwlNativeAppDelegate)?.showSettingsWindow(nil) } label: {
+        Label("Settings", systemImage: "gearshape")
+      }
+      .buttonStyle(.borderless)
+    }
+    .padding(.horizontal, 18)
+    .padding(.vertical, 10)
+  }
+}
+
+private struct TabButton: View {
+  let title: String
+  let count: Int
+  let selected: Bool
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      HStack(spacing: 7) {
+        Text(title)
+          .font(.callout.weight(selected ? .semibold : .regular))
+        CountBadge(count: count)
+      }
+      .padding(.horizontal, 12)
+      .padding(.vertical, 6)
+      .background(Capsule().fill(selected ? Color.accentColor.opacity(0.16) : Color.clear))
+    }
+    .buttonStyle(.plain)
   }
 }
 
@@ -1458,21 +1573,213 @@ private struct MainContentView: View {
 
   var body: some View {
     Group {
-      if session.selectedRoute == "inbox" {
+      if session.selectedRoute == "new" {
+        NewSendersView()
+      } else if session.selectedRoute == "inbox" {
         InboxView()
-      } else if session.selectedRoute == "drafts" {
-        DraftsView()
-      } else if session.selectedRoute == "events" {
-        EventsView()
-      } else if session.selectedRoute == "settings" {
-        SettingsView()
-          .padding(20)
-      } else if session.selectedMailbox != nil || session.selectedMailboxID != nil {
-        MailboxView()
-      } else if session.selectedThread != nil {
+      } else if session.selectedRoute == "mail" {
+        MailView()
+      } else {
+        NewSendersView()
+      }
+    }
+  }
+}
+
+private struct NewSendersView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var selectedMessage: MessageItem? {
+    if let id = session.selectedMessageID, let match = session.newSenderMessages.first(where: { $0.id == id }) {
+      return match
+    }
+    return session.newSenderMessages.first
+  }
+
+  var body: some View {
+    HStack(spacing: 0) {
+      VStack(alignment: .leading, spacing: 0) {
+        HeaderView(title: "New Senders", subtitle: "\(session.newSenderThreads.count) senders")
+        Divider()
+        List(selection: $session.selectedNewSenderID) {
+          ForEach(session.newSenderThreads) { thread in
+            SidebarThreadRow(thread: thread)
+              .tag(thread.id)
+              .onTapGesture { session.selectNewSender(thread) }
+          }
+        }
+        .listStyle(.inset)
+      }
+      .frame(minWidth: 240, idealWidth: 280, maxWidth: 340)
+      Divider()
+      VStack(alignment: .leading, spacing: 0) {
+        if let sender = session.selectedNewSender {
+          HeaderView(title: sender.displayName, subtitle: "\(session.newSenderMessages.count) quarantined messages")
+        } else {
+          HeaderView(title: "Messages", subtitle: "No sender selected")
+        }
+        Divider()
+        List(session.newSenderMessages) { message in
+          MessageListRow(message: message)
+            .onTapGesture { session.selectMessage(message) }
+        }
+        .listStyle(.inset)
+        Divider()
+        HStack(spacing: 8) {
+          Button { session.moveSelectedNewSender(to: "accepted") } label: {
+            Label("Accept", systemImage: "checkmark.circle")
+          }
+          Button { session.moveSelectedNewSender(to: "spam") } label: {
+            Label("Spam", systemImage: "exclamationmark.octagon")
+          }
+          Button { session.moveSelectedNewSender(to: "banned") } label: {
+            Label("Ban", systemImage: "hand.raised")
+          }
+        }
+        .padding(12)
+      }
+      .frame(minWidth: 280, idealWidth: 360, maxWidth: 460)
+      Divider()
+      MessageReaderView(message: selectedMessage, emptyTitle: "No Message Selected")
+        .frame(minWidth: 420)
+    }
+  }
+}
+
+private struct MailView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    HStack(spacing: 0) {
+      ContactListView()
+        .frame(minWidth: 240, idealWidth: 290, maxWidth: 360)
+      Divider()
+      if session.selectedThread != nil {
         TimelineView()
       } else {
-        EmptyStateView(title: "No Selection", subtitle: "Choose a mailbox or conversation.")
+        EmptyStateView(title: "No Contact Selected", subtitle: "Choose a contact or group.")
+      }
+    }
+  }
+}
+
+private struct ContactListView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HeaderView(title: "Mail", subtitle: "\(session.snapshot.threads.count) contacts")
+      Divider()
+      List(selection: $session.selectedMailThreadID) {
+        if !session.snapshot.favorites.isEmpty {
+          Section("Favorites") {
+            ForEach(session.snapshot.favorites) { thread in
+              SidebarThreadRow(thread: thread)
+                .tag(thread.id)
+                .onTapGesture { session.selectThread(thread) }
+            }
+          }
+        }
+        Section("Individuals") {
+          ForEach(session.snapshot.individuals) { thread in
+            SidebarThreadRow(thread: thread)
+              .tag(thread.id)
+              .onTapGesture { session.selectThread(thread) }
+          }
+        }
+        Section("Groups") {
+          ForEach(session.snapshot.groups) { thread in
+            SidebarThreadRow(thread: thread)
+              .tag(thread.id)
+              .onTapGesture { session.selectThread(thread) }
+          }
+        }
+      }
+      .listStyle(.sidebar)
+    }
+  }
+}
+
+private struct MessageListRow: View {
+  let message: MessageItem
+
+  var body: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 10) {
+      TransportMark(message: message)
+      VStack(alignment: .leading, spacing: 4) {
+        HStack {
+          Text(message.contact_name)
+            .font(.body.weight(message.read ? .regular : .semibold))
+          if message.in_inbox {
+            Text("Inbox")
+              .font(.caption2.weight(.semibold))
+              .padding(.horizontal, 6)
+              .padding(.vertical, 1)
+              .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+          }
+          Spacer()
+          Text(message.received_at)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+        Text(message.subject.isEmpty ? message.preview : message.subject)
+          .lineLimit(1)
+        Text(message.displayBody)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .lineLimit(2)
+      }
+    }
+    .padding(.vertical, 4)
+  }
+}
+
+private struct MessageReaderView: View {
+  @EnvironmentObject private var session: OwlSession
+  let message: MessageItem?
+  let emptyTitle: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      if let message {
+        HeaderView(title: message.subject.isEmpty ? message.contact_name : message.subject, subtitle: "\(message.contact_name) - \(message.received_at)")
+        Divider()
+        ScrollView {
+          VStack(alignment: .leading, spacing: 14) {
+            HStack {
+              TransportPill(message: message)
+              if message.in_inbox {
+                Button { session.openInbox(focusing: message.id) } label: {
+                  Label("Inbox", systemImage: "tray.full")
+                }
+                .buttonStyle(.borderless)
+              }
+              Spacer()
+              Button { session.openTimeline(for: message) } label: {
+                Label("Open in Mail", systemImage: "bubble.left.and.bubble.right")
+              }
+              .buttonStyle(.borderless)
+            }
+            Text(message.displayBody.isEmpty ? "No content" : message.displayBody)
+              .font(.body)
+              .textSelection(.enabled)
+              .fixedSize(horizontal: false, vertical: true)
+            HStack {
+              Button { session.archive(message) } label: {
+                Label("Remove From Inbox", systemImage: "archivebox")
+              }
+              Button { session.markRead(message, read: !message.read) } label: {
+                Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+              }
+              Button(role: .destructive) { session.delete(message) } label: {
+                Label("Delete", systemImage: "trash")
+              }
+            }
+          }
+          .padding(18)
+        }
+      } else {
+        EmptyStateView(title: emptyTitle, subtitle: "Select a message.")
       }
     }
   }
@@ -1481,31 +1788,36 @@ private struct MainContentView: View {
 private struct InboxView: View {
   @EnvironmentObject private var session: OwlSession
 
+  var selectedMessage: MessageItem? {
+    if let id = session.selectedMessageID, let match = session.snapshot.inbox.first(where: { $0.id == id }) {
+      return match
+    }
+    return session.snapshot.inbox.first
+  }
+
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      HeaderView(title: "Inbox", subtitle: "\(session.snapshot.inbox.count) items")
-      Divider()
-      ScrollViewReader { proxy in
-        ScrollView {
-          LazyVStack(alignment: .leading, spacing: 10) {
-            if session.snapshot.inbox.isEmpty {
-              EmptyStateView(title: "Inbox Is Clear", subtitle: "No inbox items.")
-                .padding(.top, 80)
-            } else {
-              ForEach(session.snapshot.inbox) { message in
-                InboxCard(message: message)
-                  .id(message.id)
-              }
-            }
+    HStack(spacing: 0) {
+      VStack(alignment: .leading, spacing: 0) {
+        HeaderView(title: "Inbox", subtitle: "\(session.snapshot.inbox.count) items")
+        Divider()
+        ScrollViewReader { proxy in
+          List(session.snapshot.inbox) { message in
+            MessageListRow(message: message)
+              .id(message.id)
+              .onTapGesture { session.selectMessage(message) }
+              .contextMenu { MessageContextMenu(message: message) }
           }
-          .padding(18)
-        }
-        .onChange(of: session.focusedMessageID) { target in
-          if let target {
-            withAnimation { proxy.scrollTo(target, anchor: .center) }
+          .listStyle(.inset)
+          .onChange(of: session.focusedMessageID) { target in
+            if let target {
+              withAnimation { proxy.scrollTo(target, anchor: .center) }
+            }
           }
         }
       }
+      .frame(minWidth: 320, idealWidth: 390, maxWidth: 480)
+      Divider()
+      MessageReaderView(message: selectedMessage, emptyTitle: "Inbox Is Clear")
     }
   }
 }

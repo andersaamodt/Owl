@@ -18,8 +18,16 @@ static const char *wizardry_app_ir =
   "        \"title\": \"Refresh\"\n"
   "      },\n"
   "      {\n"
+  "        \"id\": \"focus_new\",\n"
+  "        \"title\": \"New Senders\"\n"
+  "      },\n"
+  "      {\n"
   "        \"id\": \"focus_inbox\",\n"
   "        \"title\": \"Inbox\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"focus_mail\",\n"
+  "        \"title\": \"Mail\"\n"
   "      },\n"
   "      {\n"
   "        \"id\": \"focus_favorites\",\n"
@@ -724,7 +732,9 @@ static void app_action_activated(GSimpleAction *action, GVariant *parameter, gpo
   AppContext *context = (AppContext *)user_data;
   const char *action_name = g_action_get_name(G_ACTION(action));
   if (g_strcmp0(action_name, "refresh-snapshot") == 0) { refresh_from_backend(context); return; }
+  if (g_strcmp0(action_name, "focus-new") == 0) { set_status(context, "focus new"); return; }
   if (g_strcmp0(action_name, "focus-inbox") == 0) { set_status(context, "focus inbox"); return; }
+  if (g_strcmp0(action_name, "focus-mail") == 0) { set_status(context, "focus mail"); return; }
   if (g_strcmp0(action_name, "focus-favorites") == 0) { set_status(context, "focus favorites"); return; }
   if (g_strcmp0(action_name, "focus-people") == 0) { set_status(context, "focus people"); return; }
   if (g_strcmp0(action_name, "focus-groups") == 0) { set_status(context, "focus groups"); return; }
@@ -754,7 +764,9 @@ static void add_app_action(GtkApplication *app, AppContext *context, const char 
 
 static void setup_actions(GtkApplication *app, AppContext *context) {
   add_app_action(app, context, "refresh-snapshot");
+  add_app_action(app, context, "focus-new");
   add_app_action(app, context, "focus-inbox");
+  add_app_action(app, context, "focus-mail");
   add_app_action(app, context, "focus-favorites");
   add_app_action(app, context, "focus-people");
   add_app_action(app, context, "focus-groups");

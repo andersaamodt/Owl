@@ -306,7 +306,7 @@ ui_pref_value() {
       config_get "$(ui_prefs_file)" mail_root 2>/dev/null || printf '%s\n' "$ROOT"
       ;;
     selected_route)
-      config_get "$(ui_prefs_file)" selected_route 2>/dev/null || printf '%s\n' inbox
+      config_get "$(ui_prefs_file)" selected_route 2>/dev/null || printf '%s\n' new
       ;;
     *)
       return 1
