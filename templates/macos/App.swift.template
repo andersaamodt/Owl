@@ -15,6 +15,11 @@ private let generatedAppVersion = "__APP_VERSION__"
 struct OwlNativeGeneratedApp: App {
   @StateObject private var session = OwlSession()
 
+  init() {
+    let _ = NSApplication.shared.setActivationPolicy(.regular)
+    NSApplication.shared.activate(ignoringOtherApps: true)
+  }
+
   var body: some Scene {
     WindowGroup("__WINDOW_TITLE__") {
       RootView()

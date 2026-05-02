@@ -64,6 +64,7 @@ swift_uses_native_desktop_idiom() {
   grep -q 'NavigationSplitView' generated/macos/Sources/App/App.swift
   grep -q 'Settings {' generated/macos/Sources/App/App.swift
   grep -q 'NSOpenPanel' generated/macos/Sources/App/App.swift
+  grep -q 'setActivationPolicy(.regular)' generated/macos/Sources/App/App.swift
   grep -q 'Process()' generated/macos/Sources/App/App.swift
   grep -q 'process.arguments = \\[script.path, action, root\\] + args' generated/macos/Sources/App/App.swift
   ! grep -q 'WKWebView' generated/macos/Sources/App/App.swift
