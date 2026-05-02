@@ -83,6 +83,16 @@ if ! jq -e '
 fi
 
 if ! jq -e '
+  (.app.actions // [] | type) == "array" and
+  (.app.actions // [] | all((.id | type) == "string" and (.id | test("^[a-z][a-z0-9_]*$")) and ((.title // "") | type) == "string")) and
+  (((.app.actions // []) | map(.id) | length) == ((.app.actions // []) | map(.id) | unique | length))
+' "$ir_path" >/dev/null 2>&1; then
+  printf '%s\n' "native-desktop-ir: app.actions must be unique snake_case ids with string titles." >&2
+  printf '%s\n' "repair: define actions as [{\"id\":\"refresh_snapshot\",\"title\":\"Refresh\"}, ...]." >&2
+  exit 1
+fi
+
+if ! jq -e '
   (.app.window.type == "Window") and
   ((.app.window.id | type) == "string") and
   ((.app.window.id | length) > 0)
@@ -112,6 +122,37 @@ if ! jq -e '
 ' "$ir_path" >/dev/null 2>&1; then
   printf '%s\n' "native-desktop-ir: every node needs a unique id and a v1 primitive type." >&2
   printf '%s\n' "repair: dedupe node ids and use only the documented v1 primitive set." >&2
+  exit 1
+fi
+
+if ! jq -e '
+  def nodes:
+    if type == "array" then
+      (map(nodes) | add) // []
+    elif type == "object" then
+      ((if (.type? and .id?) then [.] else [] end) + (([ .[]? ] | map(nodes) | add) // []))
+    else
+      []
+    end;
+  (.app.actions // [] | map(.id)) as $actions |
+  (nodes | map(select(.action?)) | all(.action as $action | $actions | index($action) != null))
+' "$ir_path" >/dev/null 2>&1; then
+  printf '%s\n' "native-desktop-ir: every node action must reference an app.actions id." >&2
+  printf '%s\n' "repair: add missing actions to app.actions or remove stale node action references." >&2
+  exit 1
+fi
+
+if ! jq -e '
+  def scalars:
+    if type == "object" then ([ .[] | scalars ] | add) // []
+    elif type == "array" then ([ .[] | scalars ] | add) // []
+    elif type == "string" then [.]
+    else []
+    end;
+  (scalars | all(([explode[] | select(. >= 0 and . <= 31)] | length) == 0))
+' "$ir_path" >/dev/null 2>&1; then
+  printf '%s\n' "native-desktop-ir: string values must not contain control characters." >&2
+  printf '%s\n' "repair: remove embedded control characters from IR strings." >&2
   exit 1
 fi
 

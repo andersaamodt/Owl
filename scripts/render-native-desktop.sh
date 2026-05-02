@@ -9,22 +9,112 @@ schema_path="$project_dir/schemas/native-desktop-ir-v1.json"
 generated_root="$project_dir/generated"
 macos_dir="$generated_root/macos"
 linux_dir="$generated_root/linux"
+template_root="$project_dir/templates"
+version_file="$project_dir/VERSION"
 
 "$script_dir/validate-native-desktop-ir.sh" "$ir_path" "$schema_path" >/dev/null
 
 app_name=$(jq -r '.app.name' "$ir_path")
 app_id=$(jq -r '.app.id' "$ir_path")
 window_title=$(jq -r '.app.window.title // .app.name' "$ir_path")
-menu_json=$(jq -c '.app.window.menuBar // {}' "$ir_path")
-toolbar_json=$(jq -c '.app.window.toolbar // {}' "$ir_path")
-content_json=$(jq -c '.app.window.content // {}' "$ir_path")
-status_json=$(jq -c '.app.window.statusBar // {}' "$ir_path")
-targets_csv=$(jq -r '.app.targets | join(",")' "$ir_path")
+if [ -f "$version_file" ]; then
+  app_version=$(tr -d ' \t\r\n' <"$version_file")
+else
+  app_version=0.1.0
+fi
 pretty_ir=$(jq '.' "$ir_path")
+linux_ir_literal=$(printf '%s\n' "$pretty_ir" | sed 's/\\/\\\\/g; s/"/\\"/g; s/^/  "/; s/$/\\n"/')
 
 mkdir -p "$macos_dir/Sources/App" "$linux_dir/src"
 
-cat > "$macos_dir/Package.swift" <<EOF
+actions_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-actions.XXXXXX")
+swift_cases_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-swift-actions.XXXXXX")
+linux_setup_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-linux-actions.XXXXXX")
+linux_handlers_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-linux-handlers.XXXXXX")
+trap 'rm -f "$actions_tmp" "$swift_cases_tmp" "$linux_setup_tmp" "$linux_handlers_tmp"' EXIT HUP INT TERM
+
+jq -r '.app.actions[].id' "$ir_path" >"$actions_tmp"
+
+while IFS= read -r action_id; do
+  [ -n "$action_id" ] || continue
+  printf '      case "%s":\n        runSymbolicAction("%s")\n' "$action_id" "$action_id" >>"$swift_cases_tmp"
+  linux_action_id=$(printf '%s' "$action_id" | tr '_' '-')
+  printf '  add_app_action(app, context, "%s");\n' "$linux_action_id" >>"$linux_setup_tmp"
+  case "$linux_action_id" in
+    refresh-snapshot)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_backend_status(context, "Loaded unified Owl snapshot.", "snapshot", NULL, NULL); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
+    tick-simplex)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_backend_status(context, "Checked SimpleX incoming queue.", "tick-simplex", NULL, NULL); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
+    install-simplex-cli)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_backend_status(context, "SimpleX CLI install action completed.", "install-simplex-cli", NULL, NULL); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
+    provision-simplex-identity)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_backend_status(context, "Provisioned SimpleX identity.", "provision-simplex-identity", "default", NULL); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
+    quit-app)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { g_application_quit(G_APPLICATION(context->app)); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
+    compose-email)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_status(context, "Email selected explicitly; open-lock warning treatment applies."); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
+    compose-simplex)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_status(context, "SimpleX selected as preferred secure transport."); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
+    send-message)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_status(context, "Use the native composer transport selector before sending."); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
+    *)
+      label=$(printf '%s' "$linux_action_id" | tr '-' ' ')
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_status(context, "%s"); return; }\n' "$linux_action_id" "$label" >>"$linux_handlers_tmp"
+      ;;
+  esac
+done <"$actions_tmp"
+
+swift_action_cases=$(cat "$swift_cases_tmp")
+linux_action_setup=$(cat "$linux_setup_tmp")
+linux_action_handlers=$(cat "$linux_handlers_tmp")
+
+render_template_file() {
+  template_path=$1
+  output_path=$2
+  mkdir -p "$(dirname "$output_path")"
+  : >"$output_path"
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      "__CANONICAL_IR__")
+        printf '%s\n' "$pretty_ir" >>"$output_path"
+        ;;
+      "__LINUX_IR_LITERAL__")
+        printf '%s\n' "$linux_ir_literal" >>"$output_path"
+        ;;
+      "__LINUX_IR_LITERAL__;")
+        printf '%s\n' "$linux_ir_literal" >>"$output_path"
+        printf '%s\n' ";" >>"$output_path"
+        ;;
+      "__SWIFT_ACTION_CASES__")
+        printf '%s\n' "$swift_action_cases" >>"$output_path"
+        ;;
+      "__LINUX_ACTION_SETUP__")
+        printf '%s\n' "$linux_action_setup" >>"$output_path"
+        ;;
+      "__LINUX_ACTION_HANDLERS__")
+        printf '%s\n' "$linux_action_handlers" >>"$output_path"
+        ;;
+      *)
+        printf '%s\n' "$line" \
+          | sed \
+            -e "s/__APP_NAME__/$app_name/g" \
+            -e "s/__APP_ID__/$app_id/g" \
+            -e "s/__APP_VERSION__/$app_version/g" \
+            -e "s/__WINDOW_TITLE__/$window_title/g" >>"$output_path"
+        ;;
+    esac
+  done <"$template_path"
+}
+
+cat >"$macos_dir/Package.swift" <<EOF_PACKAGE
 // Generated from ir/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh.
 // swift-tools-version: 6.0
 import PackageDescription
@@ -44,70 +134,11 @@ let package = Package(
     )
   ]
 )
-EOF
+EOF_PACKAGE
 
-cat > "$macos_dir/Sources/App/App.swift" <<EOF
-// Generated from ir/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh.
-import SwiftUI
-
-private let canonicalIR = """
-$pretty_ir
-"""
-
-private let menuBarIR = #"$menu_json"#
-private let toolbarIR = #"$toolbar_json"#
-private let contentIR = #"$content_json"#
-private let statusBarIR = #"$status_json"#
-
-@main
-struct GeneratedNativeDesktopApp: App {
-  var body: some Scene {
-    WindowGroup("$window_title") {
-      RootView()
-    }
-    .commands {
-      CommandMenu("$app_name") {
-        Button("Settings") {}
-        Divider()
-        Button("Quit") {}
-      }
-    }
-  }
-}
-
-private struct RootView: View {
-  var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      Text("$app_name")
-        .font(.title2)
-      Text("Generated from the canonical native desktop IR.")
-        .foregroundStyle(.secondary)
-      Divider()
-      Text("Toolbar IR: \\(toolbarIR)")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      Text("Content IR: \\(contentIR)")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      Text("Status IR: \\(statusBarIR)")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      Spacer()
-      Text("Targets: $targets_csv")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-    }
-    .padding(20)
-    .frame(minWidth: 720, minHeight: 460, alignment: .topLeading)
-  }
-}
-EOF
-
-linux_ir_literal=$(printf '%s' "$pretty_ir" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n')
-
-cat > "$linux_dir/meson.build" <<EOF
+cat >"$linux_dir/meson.build" <<EOF_MESON
 # Generated from ir/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh.
-project('$app_id', 'c', version: '0.1.0')
+project('$app_id', 'c', version: '$app_version')
 
 gtk_dep = dependency('gtk4')
 
@@ -117,49 +148,10 @@ executable(
   dependencies: [gtk_dep],
   install: false,
 )
-EOF
+EOF_MESON
 
-cat > "$linux_dir/src/main.c" <<EOF
-/* Generated from ir/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh. */
-#include <gtk/gtk.h>
-
-static const char *wizardry_app_ir =
-  "$linux_ir_literal";
-
-static void activate(GtkApplication *app, gpointer user_data) {
-  GtkWidget *window = gtk_application_window_new(app);
-  GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-  GtkWidget *title = gtk_label_new("$app_name");
-  GtkWidget *summary = gtk_label_new("Generated from the canonical native desktop IR.");
-  GtkWidget *targets = gtk_label_new("Targets: $targets_csv");
-
-  (void)user_data;
-  (void)wizardry_app_ir;
-
-  gtk_window_set_title(GTK_WINDOW(window), "$window_title");
-  gtk_window_set_default_size(GTK_WINDOW(window), 960, 640);
-  gtk_widget_set_margin_top(box, 20);
-  gtk_widget_set_margin_bottom(box, 20);
-  gtk_widget_set_margin_start(box, 20);
-  gtk_widget_set_margin_end(box, 20);
-  gtk_label_set_xalign(GTK_LABEL(title), 0.0f);
-  gtk_label_set_xalign(GTK_LABEL(summary), 0.0f);
-  gtk_label_set_xalign(GTK_LABEL(targets), 0.0f);
-  gtk_box_append(GTK_BOX(box), title);
-  gtk_box_append(GTK_BOX(box), summary);
-  gtk_box_append(GTK_BOX(box), targets);
-  gtk_window_set_child(GTK_WINDOW(window), box);
-  gtk_window_present(GTK_WINDOW(window));
-}
-
-int main(int argc, char **argv) {
-  GtkApplication *app = gtk_application_new("app.$app_id", G_APPLICATION_DEFAULT_FLAGS);
-  g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
-  int status = g_application_run(G_APPLICATION(app), argc, argv);
-  g_object_unref(app);
-  return status;
-}
-EOF
+render_template_file "$template_root/macos/App.swift.template" "$macos_dir/Sources/App/App.swift"
+render_template_file "$template_root/linux/main.c.template" "$linux_dir/src/main.c"
 
 printf 'status=ok\n'
 printf 'ir=%s\n' "$ir_path"

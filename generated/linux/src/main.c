@@ -2,32 +2,761 @@
 #include <gtk/gtk.h>
 
 static const char *wizardry_app_ir =
-  "{\n  \"version\": \"native-desktop-ir/v1\",\n  \"format\": \"yaml-1.2-json-compatible\",\n  \"app\": {\n    \"id\": \"owl-native\",\n    \"name\": \"Owl Native\",\n    \"targets\": [\n      \"macos\",\n      \"linux\"\n    ],\n    \"window\": {\n      \"id\": \"window.main\",\n      \"name\": \"mainWindow\",\n      \"type\": \"Window\",\n      \"title\": \"Owl Native\",\n      \"width\": 112,\n      \"minWidth\": 96,\n      \"height\": 72,\n      \"minHeight\": 56,\n      \"menuBar\": {\n        \"id\": \"menubar.main\",\n        \"type\": \"MenuBar\",\n        \"children\": [\n          {\n            \"id\": \"menu.app\",\n            \"type\": \"Menu\",\n            \"title\": \"Owl Native\",\n            \"children\": [\n              {\n                \"id\": \"menuitem.openSettings\",\n                \"type\": \"MenuItem\",\n                \"title\": \"Settings\",\n                \"action\": \"open_settings\"\n              },\n              {\n                \"id\": \"menuitem.quit\",\n                \"type\": \"MenuItem\",\n                \"title\": \"Quit\",\n                \"action\": \"quit_app\"\n              }\n            ]\n          },\n          {\n            \"id\": \"menu.file\",\n            \"type\": \"Menu\",\n            \"title\": \"File\",\n            \"children\": [\n              {\n                \"id\": \"menuitem.save\",\n                \"type\": \"MenuItem\",\n                \"title\": \"Save\",\n                \"action\": \"save_document\",\n                \"shortcut\": \"cmd+s\"\n              }\n            ]\n          }\n        ]\n      },\n      \"toolbar\": {\n        \"id\": \"toolbar.main\",\n        \"type\": \"Toolbar\",\n        \"children\": [\n          {\n            \"id\": \"toolbar.button.save\",\n            \"type\": \"Button\",\n            \"title\": \"Save\",\n            \"action\": \"save_document\"\n          },\n          {\n            \"id\": \"toolbar.spacer.1\",\n            \"type\": \"Spacer\"\n          },\n          {\n            \"id\": \"toolbar.button.settings\",\n            \"type\": \"Button\",\n            \"title\": \"Settings\",\n            \"action\": \"open_settings\"\n          }\n        ]\n      },\n      \"content\": {\n        \"id\": \"content.main\",\n        \"type\": \"Content\",\n        \"child\": {\n          \"id\": \"stack.root\",\n          \"type\": \"Stack\",\n          \"axis\": \"vertical\",\n          \"spacing\": 16,\n          \"children\": [\n            {\n              \"id\": \"section.hero\",\n              \"type\": \"Section\",\n              \"title\": \"Overview\",\n              \"child\": {\n                \"id\": \"stack.hero\",\n                \"type\": \"Stack\",\n                \"axis\": \"vertical\",\n                \"spacing\": 12,\n                \"children\": [\n                  {\n                    \"id\": \"text.headline\",\n                    \"type\": \"Text\",\n                    \"style\": \"title\",\n                    \"value\": \"Owl Native\"\n                  },\n                  {\n                    \"id\": \"text.summary\",\n                    \"type\": \"Text\",\n                    \"style\": \"body\",\n                    \"value\": \"Native desktop app scaffolded by App Forge.\"\n                  },\n                  {\n                    \"id\": \"group.form\",\n                    \"type\": \"Group\",\n                    \"title\": \"Quick action\",\n                    \"child\": {\n                      \"id\": \"form.settings\",\n                      \"type\": \"Form\",\n                      \"children\": [\n                        {\n                          \"id\": \"input.projectName\",\n                          \"type\": \"Input\",\n                          \"label\": \"Project name\",\n                          \"stateKey\": \"project_name\",\n                          \"placeholder\": \"Owl Native\"\n                        },\n                        {\n                          \"id\": \"button.primary\",\n                          \"type\": \"Button\",\n                          \"title\": \"Save draft\",\n                          \"action\": \"save_document\"\n                        }\n                      ]\n                    }\n                  }\n                ]\n              }\n            }\n          ]\n        }\n      },\n      \"statusBar\": {\n        \"id\": \"statusbar.main\",\n        \"type\": \"StatusBar\",\n        \"children\": [\n          {\n            \"id\": \"statusbar.text\",\n            \"type\": \"Text\",\n            \"style\": \"caption\",\n            \"value\": \"Ready\"\n          }\n        ]\n      }\n    }\n  },\n  \"extensions\": []\n}\n";
+  "{\n"
+  "  \"version\": \"native-desktop-ir/v1\",\n"
+  "  \"format\": \"yaml-1.2-json-compatible\",\n"
+  "  \"app\": {\n"
+  "    \"id\": \"owl-native\",\n"
+  "    \"name\": \"Owl Native\",\n"
+  "    \"targets\": [\n"
+  "      \"macos\",\n"
+  "      \"linux\"\n"
+  "    ],\n"
+  "    \"actions\": [\n"
+  "      {\n"
+  "        \"id\": \"refresh_snapshot\",\n"
+  "        \"title\": \"Refresh\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"focus_inbox\",\n"
+  "        \"title\": \"Inbox\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"focus_favorites\",\n"
+  "        \"title\": \"Favorites\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"focus_people\",\n"
+  "        \"title\": \"People\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"focus_groups\",\n"
+  "        \"title\": \"Groups\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"send_message\",\n"
+  "        \"title\": \"Send Message\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"archive_message\",\n"
+  "        \"title\": \"Remove From Inbox\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"delete_message\",\n"
+  "        \"title\": \"Delete\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"toggle_star\",\n"
+  "        \"title\": \"Star\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"mark_read\",\n"
+  "        \"title\": \"Mark Read\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"open_settings\",\n"
+  "        \"title\": \"Settings\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"choose_mail_root\",\n"
+  "        \"title\": \"Choose Mail Root\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"install_simplex_cli\",\n"
+  "        \"title\": \"Install SimpleX CLI\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"provision_simplex_identity\",\n"
+  "        \"title\": \"Provision SimpleX Identity\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"tick_simplex\",\n"
+  "        \"title\": \"Check SimpleX\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"bind_contact\",\n"
+  "        \"title\": \"Bind Contact\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"compose_simplex\",\n"
+  "        \"title\": \"Use SimpleX\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"compose_email\",\n"
+  "        \"title\": \"Use Email\"\n"
+  "      },\n"
+  "      {\n"
+  "        \"id\": \"quit_app\",\n"
+  "        \"title\": \"Quit\"\n"
+  "      }\n"
+  "    ],\n"
+  "    \"state\": {\n"
+  "      \"mailRoot\": \"~/mail\",\n"
+  "      \"selectedRoute\": \"inbox\",\n"
+  "      \"selectedTransport\": \"simplex\"\n"
+  "    },\n"
+  "    \"window\": {\n"
+  "      \"id\": \"window.main\",\n"
+  "      \"name\": \"mainWindow\",\n"
+  "      \"type\": \"Window\",\n"
+  "      \"title\": \"Owl Native\",\n"
+  "      \"width\": 128,\n"
+  "      \"minWidth\": 96,\n"
+  "      \"height\": 82,\n"
+  "      \"minHeight\": 58,\n"
+  "      \"menuBar\": {\n"
+  "        \"id\": \"menubar.main\",\n"
+  "        \"type\": \"MenuBar\",\n"
+  "        \"children\": [\n"
+  "          {\n"
+  "            \"id\": \"menu.app\",\n"
+  "            \"type\": \"Menu\",\n"
+  "            \"title\": \"Owl Native\",\n"
+  "            \"children\": [\n"
+  "              {\n"
+  "                \"id\": \"menuitem.refresh\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Refresh\",\n"
+  "                \"action\": \"refresh_snapshot\",\n"
+  "                \"shortcut\": \"cmd+r\"\n"
+  "              },\n"
+  "              {\n"
+  "                \"id\": \"menuitem.settings\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Settings\",\n"
+  "                \"action\": \"open_settings\",\n"
+  "                \"shortcut\": \"cmd+,\"\n"
+  "              },\n"
+  "              {\n"
+  "                \"id\": \"menuitem.quit\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Quit\",\n"
+  "                \"action\": \"quit_app\",\n"
+  "                \"shortcut\": \"cmd+q\"\n"
+  "              }\n"
+  "            ]\n"
+  "          },\n"
+  "          {\n"
+  "            \"id\": \"menu.view\",\n"
+  "            \"type\": \"Menu\",\n"
+  "            \"title\": \"View\",\n"
+  "            \"children\": [\n"
+  "              {\n"
+  "                \"id\": \"menuitem.inbox\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Inbox\",\n"
+  "                \"action\": \"focus_inbox\",\n"
+  "                \"shortcut\": \"cmd+1\"\n"
+  "              },\n"
+  "              {\n"
+  "                \"id\": \"menuitem.favorites\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Favorites\",\n"
+  "                \"action\": \"focus_favorites\",\n"
+  "                \"shortcut\": \"cmd+2\"\n"
+  "              },\n"
+  "              {\n"
+  "                \"id\": \"menuitem.people\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"People\",\n"
+  "                \"action\": \"focus_people\",\n"
+  "                \"shortcut\": \"cmd+3\"\n"
+  "              },\n"
+  "              {\n"
+  "                \"id\": \"menuitem.groups\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Groups\",\n"
+  "                \"action\": \"focus_groups\",\n"
+  "                \"shortcut\": \"cmd+4\"\n"
+  "              }\n"
+  "            ]\n"
+  "          },\n"
+  "          {\n"
+  "            \"id\": \"menu.transport\",\n"
+  "            \"type\": \"Menu\",\n"
+  "            \"title\": \"Transport\",\n"
+  "            \"children\": [\n"
+  "              {\n"
+  "                \"id\": \"menuitem.simplex\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Compose With SimpleX\",\n"
+  "                \"action\": \"compose_simplex\"\n"
+  "              },\n"
+  "              {\n"
+  "                \"id\": \"menuitem.email\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Compose With Email\",\n"
+  "                \"action\": \"compose_email\"\n"
+  "              },\n"
+  "              {\n"
+  "                \"id\": \"menuitem.tickSimplex\",\n"
+  "                \"type\": \"MenuItem\",\n"
+  "                \"title\": \"Check SimpleX\",\n"
+  "                \"action\": \"tick_simplex\"\n"
+  "              }\n"
+  "            ]\n"
+  "          }\n"
+  "        ]\n"
+  "      },\n"
+  "      \"toolbar\": {\n"
+  "        \"id\": \"toolbar.main\",\n"
+  "        \"type\": \"Toolbar\",\n"
+  "        \"children\": [\n"
+  "          {\n"
+  "            \"id\": \"toolbar.refresh\",\n"
+  "            \"type\": \"Button\",\n"
+  "            \"title\": \"Refresh\",\n"
+  "            \"action\": \"refresh_snapshot\"\n"
+  "          },\n"
+  "          {\n"
+  "            \"id\": \"toolbar.inbox\",\n"
+  "            \"type\": \"Button\",\n"
+  "            \"title\": \"Inbox\",\n"
+  "            \"action\": \"focus_inbox\"\n"
+  "          },\n"
+  "          {\n"
+  "            \"id\": \"toolbar.spacer\",\n"
+  "            \"type\": \"Spacer\"\n"
+  "          },\n"
+  "          {\n"
+  "            \"id\": \"toolbar.simplex\",\n"
+  "            \"type\": \"Button\",\n"
+  "            \"title\": \"Check SimpleX\",\n"
+  "            \"action\": \"tick_simplex\"\n"
+  "          },\n"
+  "          {\n"
+  "            \"id\": \"toolbar.settings\",\n"
+  "            \"type\": \"Button\",\n"
+  "            \"title\": \"Settings\",\n"
+  "            \"action\": \"open_settings\"\n"
+  "          }\n"
+  "        ]\n"
+  "      },\n"
+  "      \"content\": {\n"
+  "        \"id\": \"content.main\",\n"
+  "        \"type\": \"Content\",\n"
+  "        \"child\": {\n"
+  "          \"id\": \"split.messenger\",\n"
+  "          \"type\": \"Split\",\n"
+  "          \"children\": [\n"
+  "            {\n"
+  "              \"id\": \"sidebar.contacts\",\n"
+  "              \"type\": \"Sidebar\",\n"
+  "              \"children\": [\n"
+  "                {\n"
+  "                  \"id\": \"list.inbox\",\n"
+  "                  \"type\": \"List\",\n"
+  "                  \"title\": \"Inbox\",\n"
+  "                  \"action\": \"focus_inbox\"\n"
+  "                },\n"
+  "                {\n"
+  "                  \"id\": \"list.favorites\",\n"
+  "                  \"type\": \"List\",\n"
+  "                  \"title\": \"Favorites\",\n"
+  "                  \"action\": \"focus_favorites\"\n"
+  "                },\n"
+  "                {\n"
+  "                  \"id\": \"list.people\",\n"
+  "                  \"type\": \"List\",\n"
+  "                  \"title\": \"People\",\n"
+  "                  \"action\": \"focus_people\"\n"
+  "                },\n"
+  "                {\n"
+  "                  \"id\": \"list.groups\",\n"
+  "                  \"type\": \"List\",\n"
+  "                  \"title\": \"Groups\",\n"
+  "                  \"action\": \"focus_groups\"\n"
+  "                }\n"
+  "              ]\n"
+  "            },\n"
+  "            {\n"
+  "              \"id\": \"detail.timeline\",\n"
+  "              \"type\": \"Detail\",\n"
+  "              \"children\": [\n"
+  "                {\n"
+  "                  \"id\": \"section.timeline\",\n"
+  "                  \"type\": \"Section\",\n"
+  "                  \"title\": \"Timeline\"\n"
+  "                },\n"
+  "                {\n"
+  "                  \"id\": \"form.compose\",\n"
+  "                  \"type\": \"Form\",\n"
+  "                  \"title\": \"Compose\"\n"
+  "                },\n"
+  "                {\n"
+  "                  \"id\": \"select.transport\",\n"
+  "                  \"type\": \"Select\",\n"
+  "                  \"title\": \"Transport\",\n"
+  "                  \"action\": \"compose_simplex\"\n"
+  "                },\n"
+  "                {\n"
+  "                  \"id\": \"button.send\",\n"
+  "                  \"type\": \"Button\",\n"
+  "                  \"title\": \"Send\",\n"
+  "                  \"action\": \"send_message\"\n"
+  "                }\n"
+  "              ]\n"
+  "            }\n"
+  "          ]\n"
+  "        }\n"
+  "      },\n"
+  "      \"statusBar\": {\n"
+  "        \"id\": \"statusbar.main\",\n"
+  "        \"type\": \"StatusBar\",\n"
+  "        \"children\": [\n"
+  "          {\n"
+  "            \"id\": \"statusbar.backend\",\n"
+  "            \"type\": \"Text\",\n"
+  "            \"style\": \"caption\",\n"
+  "            \"value\": \"Owl mail root: ~/mail\"\n"
+  "          },\n"
+  "          {\n"
+  "            \"id\": \"statusbar.transport\",\n"
+  "            \"type\": \"Text\",\n"
+  "            \"style\": \"caption\",\n"
+  "            \"value\": \"SimpleX preferred when available\"\n"
+  "          }\n"
+  "        ]\n"
+  "      }\n"
+  "    },\n"
+  "    \"mock\": {\n"
+  "      \"contacts\": [\n"
+  "        {\n"
+  "          \"id\": \"alice-ledger\",\n"
+  "          \"kind\": \"person\",\n"
+  "          \"name\": \"Alice Ledger\",\n"
+  "          \"email\": \"alice@example.org\",\n"
+  "          \"simplex_address\": \"simplex://alice-ledger\",\n"
+  "          \"favorite\": true\n"
+  "        },\n"
+  "        {\n"
+  "          \"id\": \"river-stone\",\n"
+  "          \"kind\": \"group\",\n"
+  "          \"name\": \"River Stone\",\n"
+  "          \"email\": \"\",\n"
+  "          \"simplex_address\": \"simplex://river-stone\",\n"
+  "          \"favorite\": true\n"
+  "        }\n"
+  "      ],\n"
+  "      \"messages\": [\n"
+  "        {\n"
+  "          \"id\": \"seed-email-1\",\n"
+  "          \"thread_id\": \"alice-ledger\",\n"
+  "          \"transport\": \"email\",\n"
+  "          \"lock\": \"open\",\n"
+  "          \"subject\": \"Longer email-style note\",\n"
+  "          \"body\": \"This is a longer email-shaped message rendered in the same continuous contact timeline as short chat messages.\",\n"
+  "          \"received_at\": \"2026-04-20T10:00:00Z\",\n"
+  "          \"in_inbox\": true,\n"
+  "          \"from_self\": false\n"
+  "        },\n"
+  "        {\n"
+  "          \"id\": \"seed-simplex-1\",\n"
+  "          \"thread_id\": \"alice-ledger\",\n"
+  "          \"transport\": \"simplex\",\n"
+  "          \"lock\": \"closed\",\n"
+  "          \"subject\": \"\",\n"
+  "          \"body\": \"Short secure reply.\",\n"
+  "          \"received_at\": \"2026-04-20T10:03:00Z\",\n"
+  "          \"in_inbox\": false,\n"
+  "          \"from_self\": true\n"
+  "        }\n"
+  "      ]\n"
+  "    }\n"
+  "  },\n"
+  "  \"extensions\": []\n"
+  "}\n"
+;
+
+typedef struct {
+  GtkApplication *app;
+  GtkWidget *window;
+  GtkWidget *stack;
+  GtkWidget *status_label;
+  GtkWidget *inbox_list;
+  GtkWidget *thread_list;
+  GtkWidget *composer;
+  gchar *mail_root;
+} AppContext;
+
+static char *default_mail_root(void) {
+  const char *home = g_get_home_dir();
+  if (home == NULL || *home == '\0') {
+    home = ".";
+  }
+  return g_build_filename(home, "mail", NULL);
+}
+
+static char *resolve_backend_script(void) {
+  const char *override = g_getenv("OWL_NATIVE_BACKEND");
+  if (override != NULL && *override != '\0' && g_file_test(override, G_FILE_TEST_EXISTS)) {
+    return g_strdup(override);
+  }
+
+  char *cwd = g_get_current_dir();
+  char *candidate = g_build_filename(cwd, "../../scripts/owl-native-backend.sh", NULL);
+  if (g_file_test(candidate, G_FILE_TEST_EXISTS)) {
+    g_free(cwd);
+    return candidate;
+  }
+  g_free(candidate);
+
+  candidate = g_build_filename(cwd, "scripts/owl-native-backend.sh", NULL);
+  if (g_file_test(candidate, G_FILE_TEST_EXISTS)) {
+    g_free(cwd);
+    return candidate;
+  }
+  g_free(candidate);
+  g_free(cwd);
+
+  char *exe_link = g_file_read_link("/proc/self/exe", NULL);
+  if (exe_link != NULL) {
+    char *exe_dir = g_path_get_dirname(exe_link);
+    candidate = g_build_filename(exe_dir, "../Resources/scripts/owl-native-backend.sh", NULL);
+    g_free(exe_dir);
+    g_free(exe_link);
+    if (g_file_test(candidate, G_FILE_TEST_EXISTS)) {
+      return candidate;
+    }
+    g_free(candidate);
+  }
+
+  const char *home = g_get_home_dir();
+  if (home != NULL) {
+    candidate = g_build_filename(home, "git/owl-native/scripts/owl-native-backend.sh", NULL);
+    if (g_file_test(candidate, G_FILE_TEST_EXISTS)) {
+      return candidate;
+    }
+    g_free(candidate);
+  }
+  return NULL;
+}
+
+static char *run_backend(AppContext *context, const char *action, const char *arg1, const char *arg2) {
+  char *script_path = resolve_backend_script();
+  if (script_path == NULL) {
+    return g_strdup("Owl Native backend script not found.");
+  }
+
+  GPtrArray *argv = g_ptr_array_new();
+  g_ptr_array_add(argv, (char *)"/bin/sh");
+  g_ptr_array_add(argv, script_path);
+  g_ptr_array_add(argv, (char *)action);
+  g_ptr_array_add(argv, context->mail_root);
+  if (arg1 != NULL) {
+    g_ptr_array_add(argv, (char *)arg1);
+  }
+  if (arg2 != NULL) {
+    g_ptr_array_add(argv, (char *)arg2);
+  }
+  g_ptr_array_add(argv, NULL);
+
+  gchar *stdout_text = NULL;
+  gchar *stderr_text = NULL;
+  gint status = 0;
+  GError *error = NULL;
+  gboolean ok = g_spawn_sync(NULL, (gchar **)argv->pdata, NULL, G_SPAWN_DEFAULT, NULL, NULL, &stdout_text, &stderr_text, &status, &error);
+  g_ptr_array_free(argv, TRUE);
+  g_free(script_path);
+
+  if (!ok) {
+    char *message = g_strdup(error != NULL ? error->message : "backend spawn failed");
+    if (error != NULL) {
+      g_error_free(error);
+    }
+    g_free(stdout_text);
+    g_free(stderr_text);
+    return message;
+  }
+  if (status != 0) {
+    char *message = g_strdup((stderr_text != NULL && *stderr_text != '\0') ? stderr_text : "backend command failed");
+    g_free(stdout_text);
+    g_free(stderr_text);
+    return message;
+  }
+  char *message = g_strdup((stdout_text != NULL && *stdout_text != '\0') ? stdout_text : "ok");
+  g_free(stdout_text);
+  g_free(stderr_text);
+  return message;
+}
+
+static void set_status(AppContext *context, const char *message) {
+  gtk_label_set_text(GTK_LABEL(context->status_label), message);
+}
+
+static void set_backend_status(AppContext *context, const char *success_message, const char *action, const char *arg1, const char *arg2) {
+  char *output = run_backend(context, action, arg1, arg2);
+  if (output != NULL && *output != '\0') {
+    set_status(context, success_message);
+  } else {
+    set_status(context, output != NULL ? output : "Backend returned no output.");
+  }
+  g_free(output);
+}
+
+static GtkWidget *make_badge(const char *text) {
+  GtkWidget *label = gtk_label_new(text);
+  gtk_widget_add_css_class(label, "badge");
+  return label;
+}
+
+static GtkWidget *make_transport_mark(const char *transport) {
+  const gboolean simplex = g_strcmp0(transport, "simplex") == 0;
+  GtkWidget *label = gtk_label_new(simplex ? "closed lock  SimpleX" : "open lock  Email");
+  gtk_widget_add_css_class(label, simplex ? "secure-transport" : "email-transport");
+  return label;
+}
+
+static GtkWidget *make_sidebar_row(const char *title, const char *subtitle, int count) {
+  GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *copy = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+  GtkWidget *title_label = gtk_label_new(title);
+  GtkWidget *subtitle_label = gtk_label_new(subtitle);
+  gtk_label_set_xalign(GTK_LABEL(title_label), 0.0f);
+  gtk_label_set_xalign(GTK_LABEL(subtitle_label), 0.0f);
+  gtk_widget_add_css_class(title_label, "sidebar-title");
+  gtk_widget_add_css_class(subtitle_label, "sidebar-subtitle");
+  gtk_box_append(GTK_BOX(copy), title_label);
+  gtk_box_append(GTK_BOX(copy), subtitle_label);
+  gtk_box_append(GTK_BOX(row), copy);
+  gtk_widget_set_hexpand(copy, TRUE);
+  if (count > 0) {
+    char *count_text = g_strdup_printf("%d", count);
+    gtk_box_append(GTK_BOX(row), make_badge(count_text));
+    g_free(count_text);
+  }
+  return row;
+}
+
+static GtkWidget *make_inbox_card(const char *contact, const char *transport, const char *subject, const char *body) {
+  GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+  GtkWidget *head = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *contact_label = gtk_label_new(contact);
+  GtkWidget *subject_label = gtk_label_new(subject);
+  GtkWidget *body_label = gtk_label_new(body);
+  gtk_widget_add_css_class(card, "message-card");
+  gtk_label_set_xalign(GTK_LABEL(contact_label), 0.0f);
+  gtk_label_set_xalign(GTK_LABEL(subject_label), 0.0f);
+  gtk_label_set_xalign(GTK_LABEL(body_label), 0.0f);
+  gtk_label_set_wrap(GTK_LABEL(body_label), TRUE);
+  gtk_box_append(GTK_BOX(head), make_transport_mark(transport));
+  gtk_box_append(GTK_BOX(head), contact_label);
+  gtk_box_append(GTK_BOX(card), head);
+  if (subject != NULL && *subject != '\0') {
+    gtk_widget_add_css_class(subject_label, "subject");
+    gtk_box_append(GTK_BOX(card), subject_label);
+  }
+  gtk_box_append(GTK_BOX(card), body_label);
+  return card;
+}
+
+static void populate_seed_lists(AppContext *context) {
+  gtk_list_box_append(GTK_LIST_BOX(context->inbox_list), make_inbox_card("Alice Ledger", "email", "Longer email-style note", "Email and SimpleX cards both remain in the Inbox and in the one continuous timeline."));
+  gtk_list_box_append(GTK_LIST_BOX(context->inbox_list), make_inbox_card("River Stone", "simplex", "", "Group update landed over SimpleX."));
+  gtk_list_box_append(GTK_LIST_BOX(context->thread_list), make_sidebar_row("Alice Ledger", "SimpleX + email", 1));
+  gtk_list_box_append(GTK_LIST_BOX(context->thread_list), make_sidebar_row("River Stone", "Group · SimpleX", 1));
+}
+
+static GtkWidget *make_sidebar(AppContext *context) {
+  GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+  GtkWidget *search = gtk_search_entry_new();
+  GtkWidget *inbox = make_sidebar_row("Inbox", "Unified cards", 2);
+  GtkWidget *favorites = gtk_label_new("Favorites");
+  GtkWidget *people = gtk_label_new("Individuals");
+  GtkWidget *divider = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+  GtkWidget *groups = gtk_label_new("Groups");
+  context->thread_list = gtk_list_box_new();
+  gtk_label_set_xalign(GTK_LABEL(favorites), 0.0f);
+  gtk_label_set_xalign(GTK_LABEL(people), 0.0f);
+  gtk_label_set_xalign(GTK_LABEL(groups), 0.0f);
+  gtk_box_append(GTK_BOX(box), search);
+  gtk_box_append(GTK_BOX(box), inbox);
+  gtk_box_append(GTK_BOX(box), favorites);
+  gtk_box_append(GTK_BOX(box), people);
+  gtk_box_append(GTK_BOX(box), context->thread_list);
+  gtk_box_append(GTK_BOX(box), divider);
+  gtk_box_append(GTK_BOX(box), groups);
+  gtk_widget_set_size_request(box, 260, -1);
+  return box;
+}
+
+static GtkWidget *make_main_stage(AppContext *context) {
+  GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+  GtkWidget *title = gtk_label_new("Inbox");
+  GtkWidget *subtitle = gtk_label_new("Email and SimpleX messages use one card model.");
+  GtkWidget *scroller = gtk_scrolled_window_new();
+  context->inbox_list = gtk_list_box_new();
+  gtk_label_set_xalign(GTK_LABEL(title), 0.0f);
+  gtk_label_set_xalign(GTK_LABEL(subtitle), 0.0f);
+  gtk_widget_add_css_class(title, "view-title");
+  gtk_widget_add_css_class(subtitle, "view-subtitle");
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroller), context->inbox_list);
+  gtk_widget_set_vexpand(scroller, TRUE);
+  gtk_box_append(GTK_BOX(box), title);
+  gtk_box_append(GTK_BOX(box), subtitle);
+  gtk_box_append(GTK_BOX(box), scroller);
+  return box;
+}
+
+static GtkWidget *make_composer(AppContext *context) {
+  GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+  GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *simplex = gtk_check_button_new_with_label("SimpleX");
+  GtkWidget *email = gtk_check_button_new_with_label("Email (open lock)");
+  GtkWidget *send = gtk_button_new_with_label("Send");
+  GtkWidget *subject = gtk_entry_new();
+  context->composer = gtk_text_view_new();
+  gtk_check_button_set_group(GTK_CHECK_BUTTON(email), GTK_CHECK_BUTTON(simplex));
+  gtk_check_button_set_active(GTK_CHECK_BUTTON(simplex), TRUE);
+  gtk_widget_add_css_class(send, "suggested-action");
+  gtk_box_append(GTK_BOX(toolbar), simplex);
+  gtk_box_append(GTK_BOX(toolbar), email);
+  gtk_box_append(GTK_BOX(toolbar), send);
+  gtk_entry_set_placeholder_text(GTK_ENTRY(subject), "Subject");
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(context->composer), GTK_WRAP_WORD_CHAR);
+  gtk_widget_set_size_request(context->composer, -1, 96);
+  gtk_box_append(GTK_BOX(box), toolbar);
+  gtk_box_append(GTK_BOX(box), subject);
+  gtk_box_append(GTK_BOX(box), context->composer);
+  (void)context;
+  return box;
+}
+
+static void app_action_activated(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+  (void)parameter;
+  AppContext *context = (AppContext *)user_data;
+  const char *action_name = g_action_get_name(G_ACTION(action));
+  if (g_strcmp0(action_name, "refresh-snapshot") == 0) { set_backend_status(context, "Loaded unified Owl snapshot.", "snapshot", NULL, NULL); return; }
+  if (g_strcmp0(action_name, "focus-inbox") == 0) { set_status(context, "focus inbox"); return; }
+  if (g_strcmp0(action_name, "focus-favorites") == 0) { set_status(context, "focus favorites"); return; }
+  if (g_strcmp0(action_name, "focus-people") == 0) { set_status(context, "focus people"); return; }
+  if (g_strcmp0(action_name, "focus-groups") == 0) { set_status(context, "focus groups"); return; }
+  if (g_strcmp0(action_name, "send-message") == 0) { set_status(context, "Use the native composer transport selector before sending."); return; }
+  if (g_strcmp0(action_name, "archive-message") == 0) { set_status(context, "archive message"); return; }
+  if (g_strcmp0(action_name, "delete-message") == 0) { set_status(context, "delete message"); return; }
+  if (g_strcmp0(action_name, "toggle-star") == 0) { set_status(context, "toggle star"); return; }
+  if (g_strcmp0(action_name, "mark-read") == 0) { set_status(context, "mark read"); return; }
+  if (g_strcmp0(action_name, "open-settings") == 0) { set_status(context, "open settings"); return; }
+  if (g_strcmp0(action_name, "choose-mail-root") == 0) { set_status(context, "choose mail root"); return; }
+  if (g_strcmp0(action_name, "install-simplex-cli") == 0) { set_backend_status(context, "SimpleX CLI install action completed.", "install-simplex-cli", NULL, NULL); return; }
+  if (g_strcmp0(action_name, "provision-simplex-identity") == 0) { set_backend_status(context, "Provisioned SimpleX identity.", "provision-simplex-identity", "default", NULL); return; }
+  if (g_strcmp0(action_name, "tick-simplex") == 0) { set_backend_status(context, "Checked SimpleX incoming queue.", "tick-simplex", NULL, NULL); return; }
+  if (g_strcmp0(action_name, "bind-contact") == 0) { set_status(context, "bind contact"); return; }
+  if (g_strcmp0(action_name, "compose-simplex") == 0) { set_status(context, "SimpleX selected as preferred secure transport."); return; }
+  if (g_strcmp0(action_name, "compose-email") == 0) { set_status(context, "Email selected explicitly; open-lock warning treatment applies."); return; }
+  if (g_strcmp0(action_name, "quit-app") == 0) { g_application_quit(G_APPLICATION(context->app)); return; }
+  set_status(context, "Unsupported action.");
+}
+
+static void add_app_action(GtkApplication *app, AppContext *context, const char *name) {
+  GSimpleAction *action = g_simple_action_new(name, NULL);
+  g_signal_connect(action, "activate", G_CALLBACK(app_action_activated), context);
+  g_action_map_add_action(G_ACTION_MAP(app), G_ACTION(action));
+  g_object_unref(action);
+}
+
+static void setup_actions(GtkApplication *app, AppContext *context) {
+  add_app_action(app, context, "refresh-snapshot");
+  add_app_action(app, context, "focus-inbox");
+  add_app_action(app, context, "focus-favorites");
+  add_app_action(app, context, "focus-people");
+  add_app_action(app, context, "focus-groups");
+  add_app_action(app, context, "send-message");
+  add_app_action(app, context, "archive-message");
+  add_app_action(app, context, "delete-message");
+  add_app_action(app, context, "toggle-star");
+  add_app_action(app, context, "mark-read");
+  add_app_action(app, context, "open-settings");
+  add_app_action(app, context, "choose-mail-root");
+  add_app_action(app, context, "install-simplex-cli");
+  add_app_action(app, context, "provision-simplex-identity");
+  add_app_action(app, context, "tick-simplex");
+  add_app_action(app, context, "bind-contact");
+  add_app_action(app, context, "compose-simplex");
+  add_app_action(app, context, "compose-email");
+  add_app_action(app, context, "quit-app");
+}
+
+static void setup_menus(GtkApplication *app) {
+  GMenu *menubar = g_menu_new();
+  GMenu *app_menu = g_menu_new();
+  g_menu_append(app_menu, "Refresh", "app.refresh-snapshot");
+  g_menu_append(app_menu, "Settings", "app.open-settings");
+  g_menu_append(app_menu, "Quit", "app.quit-app");
+  g_menu_append_submenu(menubar, "Owl Native", G_MENU_MODEL(app_menu));
+
+  GMenu *view_menu = g_menu_new();
+  g_menu_append(view_menu, "Inbox", "app.focus-inbox");
+  g_menu_append(view_menu, "Favorites", "app.focus-favorites");
+  g_menu_append(view_menu, "People", "app.focus-people");
+  g_menu_append(view_menu, "Groups", "app.focus-groups");
+  g_menu_append_submenu(menubar, "View", G_MENU_MODEL(view_menu));
+
+  GMenu *transport_menu = g_menu_new();
+  g_menu_append(transport_menu, "Use SimpleX", "app.compose-simplex");
+  g_menu_append(transport_menu, "Use Email", "app.compose-email");
+  g_menu_append(transport_menu, "Check SimpleX", "app.tick-simplex");
+  g_menu_append_submenu(menubar, "Transport", G_MENU_MODEL(transport_menu));
+  gtk_application_set_menubar(app, G_MENU_MODEL(menubar));
+  g_object_unref(menubar);
+}
+
+static void activate_action_button(GtkWidget *button, gpointer user_data) {
+  (void)button;
+  if (user_data != NULL) {
+    g_action_activate(G_ACTION(user_data), NULL);
+  }
+}
 
 static void activate(GtkApplication *app, gpointer user_data) {
-  GtkWidget *window = gtk_application_window_new(app);
-  GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-  GtkWidget *title = gtk_label_new("Owl Native");
-  GtkWidget *summary = gtk_label_new("Generated from the canonical native desktop IR.");
-  GtkWidget *targets = gtk_label_new("Targets: macos,linux");
-
   (void)user_data;
-  (void)wizardry_app_ir;
+  AppContext *context = g_new0(AppContext, 1);
+  context->app = app;
+  context->mail_root = default_mail_root();
 
-  gtk_window_set_title(GTK_WINDOW(window), "Owl Native");
-  gtk_window_set_default_size(GTK_WINDOW(window), 960, 640);
-  gtk_widget_set_margin_top(box, 20);
-  gtk_widget_set_margin_bottom(box, 20);
-  gtk_widget_set_margin_start(box, 20);
-  gtk_widget_set_margin_end(box, 20);
-  gtk_label_set_xalign(GTK_LABEL(title), 0.0f);
-  gtk_label_set_xalign(GTK_LABEL(summary), 0.0f);
-  gtk_label_set_xalign(GTK_LABEL(targets), 0.0f);
-  gtk_box_append(GTK_BOX(box), title);
-  gtk_box_append(GTK_BOX(box), summary);
-  gtk_box_append(GTK_BOX(box), targets);
-  gtk_window_set_child(GTK_WINDOW(window), box);
-  gtk_window_present(GTK_WINDOW(window));
+  context->window = gtk_application_window_new(app);
+  gtk_window_set_title(GTK_WINDOW(context->window), "Owl Native");
+  gtk_window_set_default_size(GTK_WINDOW(context->window), 1120, 740);
+
+  GtkWidget *header = gtk_header_bar_new();
+  GtkWidget *refresh_button = gtk_button_new_from_icon_name("view-refresh-symbolic");
+  GtkWidget *simplex_button = gtk_button_new_from_icon_name("changes-prevent-symbolic");
+  gtk_widget_set_tooltip_text(refresh_button, "Refresh");
+  gtk_widget_set_tooltip_text(simplex_button, "Check SimpleX");
+  gtk_header_bar_pack_start(GTK_HEADER_BAR(header), refresh_button);
+  gtk_header_bar_pack_start(GTK_HEADER_BAR(header), simplex_button);
+  gtk_window_set_titlebar(GTK_WINDOW(context->window), header);
+
+  setup_actions(app, context);
+  setup_menus(app);
+
+  GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+  GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+  GtkWidget *sidebar_scroller = gtk_scrolled_window_new();
+  GtkWidget *sidebar = make_sidebar(context);
+  GtkWidget *stage = make_main_stage(context);
+  GtkWidget *composer = make_composer(context);
+  context->status_label = gtk_label_new("Ready");
+  gtk_label_set_xalign(GTK_LABEL(context->status_label), 0.0f);
+
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(sidebar_scroller), sidebar);
+  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sidebar_scroller), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+  gtk_paned_set_start_child(GTK_PANED(paned), sidebar_scroller);
+  gtk_paned_set_end_child(GTK_PANED(paned), stage);
+  gtk_paned_set_position(GTK_PANED(paned), 280);
+  gtk_widget_set_vexpand(paned, TRUE);
+
+  gtk_box_append(GTK_BOX(root), paned);
+  gtk_box_append(GTK_BOX(root), composer);
+  gtk_box_append(GTK_BOX(root), context->status_label);
+  gtk_window_set_child(GTK_WINDOW(context->window), root);
+  populate_seed_lists(context);
+
+  g_signal_connect(refresh_button, "clicked", G_CALLBACK(activate_action_button), g_action_map_lookup_action(G_ACTION_MAP(app), "refresh-snapshot"));
+  g_signal_connect(simplex_button, "clicked", G_CALLBACK(activate_action_button), g_action_map_lookup_action(G_ACTION_MAP(app), "tick-simplex"));
+
+  gtk_window_present(GTK_WINDOW(context->window));
+  (void)wizardry_app_ir;
 }
 
 int main(int argc, char **argv) {

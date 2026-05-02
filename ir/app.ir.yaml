@@ -5,15 +5,41 @@
     "id": "owl-native",
     "name": "Owl Native",
     "targets": ["macos", "linux"],
+    "actions": [
+      {"id": "refresh_snapshot", "title": "Refresh"},
+      {"id": "focus_inbox", "title": "Inbox"},
+      {"id": "focus_favorites", "title": "Favorites"},
+      {"id": "focus_people", "title": "People"},
+      {"id": "focus_groups", "title": "Groups"},
+      {"id": "send_message", "title": "Send Message"},
+      {"id": "archive_message", "title": "Remove From Inbox"},
+      {"id": "delete_message", "title": "Delete"},
+      {"id": "toggle_star", "title": "Star"},
+      {"id": "mark_read", "title": "Mark Read"},
+      {"id": "open_settings", "title": "Settings"},
+      {"id": "choose_mail_root", "title": "Choose Mail Root"},
+      {"id": "install_simplex_cli", "title": "Install SimpleX CLI"},
+      {"id": "provision_simplex_identity", "title": "Provision SimpleX Identity"},
+      {"id": "tick_simplex", "title": "Check SimpleX"},
+      {"id": "bind_contact", "title": "Bind Contact"},
+      {"id": "compose_simplex", "title": "Use SimpleX"},
+      {"id": "compose_email", "title": "Use Email"},
+      {"id": "quit_app", "title": "Quit"}
+    ],
+    "state": {
+      "mailRoot": "~/mail",
+      "selectedRoute": "inbox",
+      "selectedTransport": "simplex"
+    },
     "window": {
       "id": "window.main",
       "name": "mainWindow",
       "type": "Window",
       "title": "Owl Native",
-      "width": 112,
+      "width": 128,
       "minWidth": 96,
-      "height": 72,
-      "minHeight": 56,
+      "height": 82,
+      "minHeight": 58,
       "menuBar": {
         "id": "menubar.main",
         "type": "MenuBar",
@@ -23,32 +49,30 @@
             "type": "Menu",
             "title": "Owl Native",
             "children": [
-              {
-                "id": "menuitem.openSettings",
-                "type": "MenuItem",
-                "title": "Settings",
-                "action": "open_settings"
-              },
-              {
-                "id": "menuitem.quit",
-                "type": "MenuItem",
-                "title": "Quit",
-                "action": "quit_app"
-              }
+              {"id": "menuitem.refresh", "type": "MenuItem", "title": "Refresh", "action": "refresh_snapshot", "shortcut": "cmd+r"},
+              {"id": "menuitem.settings", "type": "MenuItem", "title": "Settings", "action": "open_settings", "shortcut": "cmd+,"},
+              {"id": "menuitem.quit", "type": "MenuItem", "title": "Quit", "action": "quit_app", "shortcut": "cmd+q"}
             ]
           },
           {
-            "id": "menu.file",
+            "id": "menu.view",
             "type": "Menu",
-            "title": "File",
+            "title": "View",
             "children": [
-              {
-                "id": "menuitem.save",
-                "type": "MenuItem",
-                "title": "Save",
-                "action": "save_document",
-                "shortcut": "cmd+s"
-              }
+              {"id": "menuitem.inbox", "type": "MenuItem", "title": "Inbox", "action": "focus_inbox", "shortcut": "cmd+1"},
+              {"id": "menuitem.favorites", "type": "MenuItem", "title": "Favorites", "action": "focus_favorites", "shortcut": "cmd+2"},
+              {"id": "menuitem.people", "type": "MenuItem", "title": "People", "action": "focus_people", "shortcut": "cmd+3"},
+              {"id": "menuitem.groups", "type": "MenuItem", "title": "Groups", "action": "focus_groups", "shortcut": "cmd+4"}
+            ]
+          },
+          {
+            "id": "menu.transport",
+            "type": "Menu",
+            "title": "Transport",
+            "children": [
+              {"id": "menuitem.simplex", "type": "MenuItem", "title": "Compose With SimpleX", "action": "compose_simplex"},
+              {"id": "menuitem.email", "type": "MenuItem", "title": "Compose With Email", "action": "compose_email"},
+              {"id": "menuitem.tickSimplex", "type": "MenuItem", "title": "Check SimpleX", "action": "tick_simplex"}
             ]
           }
         ]
@@ -57,81 +81,39 @@
         "id": "toolbar.main",
         "type": "Toolbar",
         "children": [
-          {
-            "id": "toolbar.button.save",
-            "type": "Button",
-            "title": "Save",
-            "action": "save_document"
-          },
-          {
-            "id": "toolbar.spacer.1",
-            "type": "Spacer"
-          },
-          {
-            "id": "toolbar.button.settings",
-            "type": "Button",
-            "title": "Settings",
-            "action": "open_settings"
-          }
+          {"id": "toolbar.refresh", "type": "Button", "title": "Refresh", "action": "refresh_snapshot"},
+          {"id": "toolbar.inbox", "type": "Button", "title": "Inbox", "action": "focus_inbox"},
+          {"id": "toolbar.spacer", "type": "Spacer"},
+          {"id": "toolbar.simplex", "type": "Button", "title": "Check SimpleX", "action": "tick_simplex"},
+          {"id": "toolbar.settings", "type": "Button", "title": "Settings", "action": "open_settings"}
         ]
       },
       "content": {
         "id": "content.main",
         "type": "Content",
         "child": {
-          "id": "stack.root",
-          "type": "Stack",
-          "axis": "vertical",
-          "spacing": 16,
+          "id": "split.messenger",
+          "type": "Split",
           "children": [
             {
-              "id": "section.hero",
-              "type": "Section",
-              "title": "Overview",
-              "child": {
-                "id": "stack.hero",
-                "type": "Stack",
-                "axis": "vertical",
-                "spacing": 12,
-                "children": [
-                  {
-                    "id": "text.headline",
-                    "type": "Text",
-                    "style": "title",
-                    "value": "Owl Native"
-                  },
-                  {
-                    "id": "text.summary",
-                    "type": "Text",
-                    "style": "body",
-                    "value": "Native desktop app scaffolded by App Forge."
-                  },
-                  {
-                    "id": "group.form",
-                    "type": "Group",
-                    "title": "Quick action",
-                    "child": {
-                      "id": "form.settings",
-                      "type": "Form",
-                      "children": [
-                        {
-                          "id": "input.projectName",
-                          "type": "Input",
-                          "label": "Project name",
-                          "stateKey": "project_name",
-                          "placeholder": "Owl Native"
-                        },
-                        {
-                          "id": "button.primary",
-                          "type": "Button",
-                          "title": "Save draft",
-                          "action": "save_document"
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
+              "id": "sidebar.contacts",
+              "type": "Sidebar",
+              "children": [
+                {"id": "list.inbox", "type": "List", "title": "Inbox", "action": "focus_inbox"},
+                {"id": "list.favorites", "type": "List", "title": "Favorites", "action": "focus_favorites"},
+                {"id": "list.people", "type": "List", "title": "People", "action": "focus_people"},
+                {"id": "list.groups", "type": "List", "title": "Groups", "action": "focus_groups"}
+              ]
+            },
+            {
+              "id": "detail.timeline",
+              "type": "Detail",
+              "children": [
+                {"id": "section.timeline", "type": "Section", "title": "Timeline"},
+                {"id": "form.compose", "type": "Form", "title": "Compose"},
+                {"id": "select.transport", "type": "Select", "title": "Transport", "action": "compose_simplex"},
+                {"id": "button.send", "type": "Button", "title": "Send", "action": "send_message"}
+              ]
             }
           ]
         }
@@ -140,14 +122,54 @@
         "id": "statusbar.main",
         "type": "StatusBar",
         "children": [
-          {
-            "id": "statusbar.text",
-            "type": "Text",
-            "style": "caption",
-            "value": "Ready"
-          }
+          {"id": "statusbar.backend", "type": "Text", "style": "caption", "value": "Owl mail root: ~/mail"},
+          {"id": "statusbar.transport", "type": "Text", "style": "caption", "value": "SimpleX preferred when available"}
         ]
       }
+    },
+    "mock": {
+      "contacts": [
+        {
+          "id": "alice-ledger",
+          "kind": "person",
+          "name": "Alice Ledger",
+          "email": "alice@example.org",
+          "simplex_address": "simplex://alice-ledger",
+          "favorite": true
+        },
+        {
+          "id": "river-stone",
+          "kind": "group",
+          "name": "River Stone",
+          "email": "",
+          "simplex_address": "simplex://river-stone",
+          "favorite": true
+        }
+      ],
+      "messages": [
+        {
+          "id": "seed-email-1",
+          "thread_id": "alice-ledger",
+          "transport": "email",
+          "lock": "open",
+          "subject": "Longer email-style note",
+          "body": "This is a longer email-shaped message rendered in the same continuous contact timeline as short chat messages.",
+          "received_at": "2026-04-20T10:00:00Z",
+          "in_inbox": true,
+          "from_self": false
+        },
+        {
+          "id": "seed-simplex-1",
+          "thread_id": "alice-ledger",
+          "transport": "simplex",
+          "lock": "closed",
+          "subject": "",
+          "body": "Short secure reply.",
+          "received_at": "2026-04-20T10:03:00Z",
+          "in_inbox": false,
+          "from_self": true
+        }
+      ]
     }
   },
   "extensions": []
