@@ -318,6 +318,29 @@ SH
   ' >/dev/null
 }
 
+bundled_simplex_local_transport_is_end_to_end() {
+  root="$tmpdir/simplex-local/mail"
+  wire_in="$root/.transport/simplex/default/local-wire/incoming"
+  mkdir -p "$tmpdir/home"
+  backend prepare "$root" >/dev/null
+  backend bind-contact "$root" dana "Dana Local" person dana@example.org simplex://dana yes >/dev/null
+  backend configure-simplex-local-transport "$root" default | jq -e '.hook_ready == true and (.hook_path | endswith("owl-native-simplex-local-hook.sh"))' >/dev/null
+  backend bootstrap-status "$root" default | jq -e '.hook_ready == true and (.hook_path | length > 0)' >/dev/null
+  backend send-message "$root" dana simplex "Local outbound" "$(b64 'local outbound body')" >/dev/null
+  mkdir -p "$wire_in"
+  jq -n '{thread_id:"dana",body:"local inbound body",subject:"Local inbound",from_self:false,in_inbox:true}' >"$wire_in/inbound.json"
+  tick=$(backend tick-simplex "$root" default)
+  printf '%s\n' "$tick" | jq -e '.ok == true and .imported == 1 and .outbox.sent == 1 and .outbox.waiting == 0 and .outbox.failed == 0' >/dev/null
+  [ -n "$(find "$root/.transport/simplex/default/local-wire/sent" -type f -name '*.json' -print -quit 2>/dev/null)" ] || return 1
+  [ -z "$(find "$root/.owl-native/simplex/outbox" -type f -name '*.json' -print -quit 2>/dev/null)" ] || return 1
+  snapshot=$(backend snapshot "$root")
+  printf '%s\n' "$snapshot" | jq -e '
+    ([.threads[] | select(.id == "dana")][0].messages | map(select(.body == "local outbound body" and .status == "sent")) | length) == 1 and
+    ([.threads[] | select(.id == "dana")][0].messages | map(select(.body == "local inbound body" and .in_inbox == true)) | length) == 1 and
+    (.inbox | map(select(.transport == "simplex" and .body == "local inbound body")) | length) == 1
+  ' >/dev/null
+}
+
 install_simplex_cli_delegates_to_wizardry_installer() {
   root="$tmpdir/install-wizardry/mail"
   fake_dir="$tmpdir/fake-wizardry"
@@ -378,6 +401,7 @@ run_case "Owl actions are hard allowlisted and pass through" owl_actions_are_har
 run_case "UI prefs are plaintext XDG state" ui_prefs_are_plaintext_xdg_state
 run_case "message detail returns SimpleX and email messages" message_detail_returns_simplex_and_email_messages
 run_case "SimpleX tick uses transport hook for poll and send" simplex_tick_uses_transport_hook_for_poll_and_send
+run_case "bundled SimpleX local transport is end-to-end" bundled_simplex_local_transport_is_end_to_end
 run_case "install SimpleX CLI delegates to Wizardry installable" install_simplex_cli_delegates_to_wizardry_installer
 run_case "invalid action fails" invalid_action_fails
 
@@ -386,4 +410,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "15/15 backend contract tests passed"
+printf '%s\n' "16/16 backend contract tests passed"

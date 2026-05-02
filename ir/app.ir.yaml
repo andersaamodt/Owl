@@ -22,6 +22,7 @@
       {"id": "choose_mail_root", "title": "Choose Mail Root"},
       {"id": "install_simplex_cli", "title": "Install SimpleX CLI"},
       {"id": "provision_simplex_identity", "title": "Provision SimpleX Identity"},
+      {"id": "configure_simplex_local_transport", "title": "Enable Local SimpleX Transport"},
       {"id": "tick_simplex", "title": "Check SimpleX"},
       {"id": "bind_contact", "title": "Bind Contact"},
       {"id": "compose_simplex", "title": "Use SimpleX"},

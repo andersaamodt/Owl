@@ -78,6 +78,10 @@ static const char *wizardry_app_ir =
   "        \"title\": \"Provision SimpleX Identity\"\n"
   "      },\n"
   "      {\n"
+  "        \"id\": \"configure_simplex_local_transport\",\n"
+  "        \"title\": \"Enable Local SimpleX Transport\"\n"
+  "      },\n"
+  "      {\n"
   "        \"id\": \"tick_simplex\",\n"
   "        \"title\": \"Check SimpleX\"\n"
   "      },\n"
@@ -747,6 +751,7 @@ static void app_action_activated(GSimpleAction *action, GVariant *parameter, gpo
   if (g_strcmp0(action_name, "choose-mail-root") == 0) { set_status(context, "choose mail root"); return; }
   if (g_strcmp0(action_name, "install-simplex-cli") == 0) { set_backend_status(context, "SimpleX CLI install action completed.", "install-simplex-cli", NULL, NULL); return; }
   if (g_strcmp0(action_name, "provision-simplex-identity") == 0) { set_backend_status(context, "Provisioned SimpleX identity.", "provision-simplex-identity", "default", NULL); return; }
+  if (g_strcmp0(action_name, "configure-simplex-local-transport") == 0) { set_backend_status(context, "Enabled local SimpleX transport.", "configure-simplex-local-transport", "default", NULL); return; }
   if (g_strcmp0(action_name, "tick-simplex") == 0) { set_backend_status(context, "Checked SimpleX incoming queue.", "tick-simplex", NULL, NULL); return; }
   if (g_strcmp0(action_name, "bind-contact") == 0) { set_status(context, "bind contact"); return; }
   if (g_strcmp0(action_name, "compose-simplex") == 0) { set_status(context, "SimpleX selected as preferred secure transport."); return; }
@@ -779,6 +784,7 @@ static void setup_actions(GtkApplication *app, AppContext *context) {
   add_app_action(app, context, "choose-mail-root");
   add_app_action(app, context, "install-simplex-cli");
   add_app_action(app, context, "provision-simplex-identity");
+  add_app_action(app, context, "configure-simplex-local-transport");
   add_app_action(app, context, "tick-simplex");
   add_app_action(app, context, "bind-contact");
   add_app_action(app, context, "compose-simplex");

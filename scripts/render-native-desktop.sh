@@ -53,6 +53,9 @@ while IFS= read -r action_id; do
     provision-simplex-identity)
       printf '  if (g_strcmp0(action_name, "%s") == 0) { set_backend_status(context, "Provisioned SimpleX identity.", "provision-simplex-identity", "default", NULL); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
       ;;
+    configure-simplex-local-transport)
+      printf '  if (g_strcmp0(action_name, "%s") == 0) { set_backend_status(context, "Enabled local SimpleX transport.", "configure-simplex-local-transport", "default", NULL); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
+      ;;
     quit-app)
       printf '  if (g_strcmp0(action_name, "%s") == 0) { g_application_quit(G_APPLICATION(context->app)); return; }\n' "$linux_action_id" >>"$linux_handlers_tmp"
       ;;

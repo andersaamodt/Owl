@@ -80,6 +80,10 @@ private let canonicalIR = #"""
         "title": "Provision SimpleX Identity"
       },
       {
+        "id": "configure_simplex_local_transport",
+        "title": "Enable Local SimpleX Transport"
+      },
+      {
         "id": "tick_simplex",
         "title": "Check SimpleX"
       },
@@ -531,6 +535,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     transportMenu.addItem(.separator())
     transportMenu.addItem(actionItem("Install SimpleX CLI", action: "install_simplex_cli"))
     transportMenu.addItem(actionItem("Provision SimpleX Identity", action: "provision_simplex_identity"))
+    transportMenu.addItem(actionItem("Enable Local SimpleX Transport", action: "configure_simplex_local_transport"))
     transportMenu.addItem(actionItem("Check SimpleX", action: "tick_simplex"))
     transportMenuItem.submenu = transportMenu
     mainMenu.addItem(transportMenuItem)
@@ -846,6 +851,8 @@ private struct SimpleXBootstrap: Decodable, Sendable {
   var binary_path: String
   var profile_prefix: String
   var profile_ready: Bool
+  var hook_path: String
+  var hook_ready: Bool
   var last_error: String
 
   init(
@@ -856,6 +863,8 @@ private struct SimpleXBootstrap: Decodable, Sendable {
     binary_path: String = "",
     profile_prefix: String = "",
     profile_ready: Bool = false,
+    hook_path: String = "",
+    hook_ready: Bool = false,
     last_error: String = ""
   ) {
     self.ok = ok
@@ -865,6 +874,8 @@ private struct SimpleXBootstrap: Decodable, Sendable {
     self.binary_path = binary_path
     self.profile_prefix = profile_prefix
     self.profile_ready = profile_ready
+    self.hook_path = hook_path
+    self.hook_ready = hook_ready
     self.last_error = last_error
   }
 }
@@ -1521,6 +1532,13 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  func configureSimpleXLocalTransport() {
+    let root = mailRoot
+    runMessageAction(status: "Local SimpleX transport enabled") {
+      try await OwlBackend.runJSON(action: "configure-simplex-local-transport", root: root, args: ["default"])
+    }
+  }
+
   func tickSimpleX() {
     let root = mailRoot
     runMessageAction(status: "SimpleX incoming queue checked") {
@@ -1562,6 +1580,8 @@ private final class OwlSession: ObservableObject {
         runSymbolicAction("install_simplex_cli")
       case "provision_simplex_identity":
         runSymbolicAction("provision_simplex_identity")
+      case "configure_simplex_local_transport":
+        runSymbolicAction("configure_simplex_local_transport")
       case "tick_simplex":
         runSymbolicAction("tick_simplex")
       case "bind_contact":
@@ -1633,6 +1653,8 @@ private final class OwlSession: ObservableObject {
         installSimpleX()
       case "provision_simplex_identity":
         provisionSimpleX()
+      case "configure_simplex_local_transport":
+        configureSimpleXLocalTransport()
       case "tick_simplex":
         tickSimpleX()
       case "bind_contact":
@@ -2818,9 +2840,20 @@ private struct SettingsView: View {
             Text(session.bootstrap.profile_ready ? "ready" : "missing")
           }
           GridRow {
+            Text("Transport")
+              .foregroundStyle(.secondary)
+            Text(session.bootstrap.hook_ready ? "ready" : "not configured")
+          }
+          GridRow {
             Text("Binary")
               .foregroundStyle(.secondary)
             Text(session.bootstrap.binary_path.isEmpty ? session.snapshot.simplex.system_root : session.bootstrap.binary_path)
+              .lineLimit(2)
+          }
+          GridRow {
+            Text("Hook")
+              .foregroundStyle(.secondary)
+            Text(session.bootstrap.hook_path.isEmpty ? "none" : session.bootstrap.hook_path)
               .lineLimit(2)
           }
         }
@@ -2830,6 +2863,9 @@ private struct SettingsView: View {
           }
           Button { session.provisionSimpleX() } label: {
             Label("Provision Identity", systemImage: "person.badge.key")
+          }
+          Button { session.configureSimpleXLocalTransport() } label: {
+            Label("Enable Local Transport", systemImage: "externaldrive.connected.to.line.below")
           }
           Button { session.tickSimpleX() } label: {
             Label("Check", systemImage: "arrow.clockwise")

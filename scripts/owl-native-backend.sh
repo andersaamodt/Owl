@@ -69,6 +69,7 @@ Actions:
   bootstrap-status ROOT [IDENTITY]
   install-simplex-cli ROOT
   provision-simplex-identity ROOT [IDENTITY] [DISPLAY_NAME] [FULL_NAME]
+  configure-simplex-local-transport ROOT [IDENTITY]
   set-simplex-transport-hook ROOT IDENTITY HOOK_PATH
   simplex-transport-status ROOT [IDENTITY]
   tick-simplex ROOT
@@ -234,6 +235,10 @@ simplex_profile_prefix() {
 
 simplex_profile_conf() {
   printf '%s\n' "$(simplex_identity_dir "${1:-default}")/profile.conf"
+}
+
+default_simplex_transport_hook() {
+  printf '%s\n' "$script_dir/owl-native-simplex-local-hook.sh"
 }
 
 ensure_roots() {
@@ -1212,6 +1217,12 @@ bootstrap_status_action() {
   else
     profile_ready=false
   fi
+  hook=$(simplex_transport_hook_path "$ident" 2>/dev/null || printf '')
+  if [ -n "$hook" ] && [ -x "$hook" ]; then
+    hook_ready=true
+  else
+    hook_ready=false
+  fi
   supported=true
   [ -n "$asset" ] || supported=false
   jq -n \
@@ -1222,12 +1233,14 @@ bootstrap_status_action() {
     --arg binary_path "$binary" \
     --arg install_source "$source" \
     --arg profile_prefix "$profile_prefix" \
+    --arg hook_path "$hook" \
     --arg last_error "$error" \
     --arg platform_os "$(simplex_platform_os)" \
     --arg platform_arch "$(simplex_platform_arch)" \
     --argjson supported "$supported" \
     --argjson profile_ready "$profile_ready" \
-    '{ok:true,identity:$identity,supported:$supported,install_state:$install_state,install_source:$install_source,asset_name:$asset_name,version:$version,binary_path:$binary_path,profile_prefix:$profile_prefix,profile_ready:$profile_ready,last_error:$last_error,platform_os:$platform_os,platform_arch:$platform_arch}'
+    --argjson hook_ready "$hook_ready" \
+    '{ok:true,identity:$identity,supported:$supported,install_state:$install_state,install_source:$install_source,asset_name:$asset_name,version:$version,binary_path:$binary_path,profile_prefix:$profile_prefix,profile_ready:$profile_ready,hook_path:$hook_path,hook_ready:$hook_ready,last_error:$last_error,platform_os:$platform_os,platform_arch:$platform_arch}'
 }
 
 install_simplex_cli_action() {
@@ -1390,6 +1403,14 @@ set_simplex_transport_hook_action() {
   simplex_transport_status_action "$ident"
 }
 
+configure_simplex_local_transport_action() {
+  ident=$(safe_slug "${1:-default}")
+  hook_path=$(default_simplex_transport_hook)
+  [ -x "$hook_path" ] || fail "bundled SimpleX local transport hook is not executable: $hook_path"
+  config_set "$(simplex_profile_conf "$ident")" transport_hook "$hook_path"
+  simplex_transport_status_action "$ident"
+}
+
 simplex_transport_status_action() {
   ident=$(safe_slug "${1:-default}")
   hook=$(simplex_transport_hook_path "$ident" 2>/dev/null || printf '')
@@ -1434,7 +1455,7 @@ process_simplex_outbox() {
       waiting=$((waiting + 1))
       continue
     fi
-    if "$hook" send "$ident" "$ROOT" "$simplex_outbox_file"; then
+    if "$hook" send "$ident" "$ROOT" "$simplex_outbox_file" >"$processed_root/last-send.log" 2>"$processed_root/last-send-error.log"; then
       rewrite_simplex_message_field "$id" status sent 2>/dev/null || true
       mv "$simplex_outbox_file" "$processed_root/$(basename "$simplex_outbox_file").sent.$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_outbox_file"
       sent=$((sent + 1))
@@ -1450,7 +1471,7 @@ tick_simplex_action() {
   ensure_roots
   ident=${1:-default}
   poll_error=
-  if ! run_simplex_poll_hook "$ident" 2>"$(simplex_processed_dir)/last-poll-error.log"; then
+  if ! run_simplex_poll_hook "$ident" >"$(simplex_processed_dir)/last-poll.log" 2>"$(simplex_processed_dir)/last-poll-error.log"; then
     poll_error=$(cat "$(simplex_processed_dir)/last-poll-error.log" 2>/dev/null | head -n 3 | paste -sd ' ' -)
   fi
   outbox_json=$(process_simplex_outbox "$ident")
@@ -1625,6 +1646,10 @@ case "$action" in
   provision-simplex-identity)
     ensure_roots
     provision_simplex_identity_action "${1:-default}" "${2:-Owl}" "${3:-Owl Native}"
+    ;;
+  configure-simplex-local-transport)
+    ensure_roots
+    configure_simplex_local_transport_action "${1:-default}"
     ;;
   set-simplex-transport-hook)
     ensure_roots

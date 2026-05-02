@@ -14,6 +14,10 @@ Owl Native is the native-desktop conversion of Owl. It is not a Wizardry-hosted 
   - `~/mail/.owl-native/simplex/outbox`
   - `~/mail/.system/simplex`
   - `~/mail/.transport/simplex`
+- Owl Native ships a filesystem SimpleX transport hook at
+  `scripts/owl-native-simplex-local-hook.sh`. It provides a concrete local
+  adapter path for end-to-end queue/send/poll/import testing while preserving
+  the same hook contract for a real SimpleX network adapter.
 
 ## Unified Messenger Model
 
