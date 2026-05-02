@@ -62,7 +62,10 @@ linux_actions_cover_ir() {
 swift_uses_native_desktop_idiom() {
   cd "$repo_dir"
   grep -q 'NavigationSplitView' generated/macos/Sources/App/App.swift
-  grep -q 'Settings {' generated/macos/Sources/App/App.swift
+  grep -q 'NSApplicationDelegate' generated/macos/Sources/App/App.swift
+  grep -q 'NSWindow(' generated/macos/Sources/App/App.swift
+  grep -q 'NSHostingView(rootView:' generated/macos/Sources/App/App.swift
+  grep -q 'app.run()' generated/macos/Sources/App/App.swift
   grep -q 'NSOpenPanel' generated/macos/Sources/App/App.swift
   grep -q 'setActivationPolicy(.regular)' generated/macos/Sources/App/App.swift
   grep -q 'Process()' generated/macos/Sources/App/App.swift

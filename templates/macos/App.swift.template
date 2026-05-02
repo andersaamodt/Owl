@@ -12,50 +12,156 @@ private let generatedAppID = "__APP_ID__"
 private let generatedAppVersion = "__APP_VERSION__"
 
 @main
-struct OwlNativeGeneratedApp: App {
-  @StateObject private var session = OwlSession()
+private enum OwlNativeGeneratedApp {
+  @MainActor private static var appDelegate: OwlNativeAppDelegate?
 
-  init() {
-    let _ = NSApplication.shared.setActivationPolicy(.regular)
-    NSApplication.shared.activate(ignoringOtherApps: true)
+  @MainActor
+  static func main() {
+    let app = NSApplication.shared
+    let delegate = OwlNativeAppDelegate()
+    appDelegate = delegate
+    app.delegate = delegate
+    app.setActivationPolicy(.regular)
+    app.run()
+  }
+}
+
+@MainActor
+private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+  private let session = OwlSession()
+  private var window: NSWindow?
+  private var settingsWindow: NSWindow?
+
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    NSApp.mainMenu = makeMainMenu()
+    showMainWindow()
+    activateApplication()
   }
 
-  var body: some Scene {
-    WindowGroup("__WINDOW_TITLE__") {
-      RootView()
-        .environmentObject(session)
-        .frame(minWidth: 920, minHeight: 620)
+  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    showMainWindow()
+    return true
+  }
+
+  private func showMainWindow() {
+    if let window {
+      window.makeKeyAndOrderFront(nil)
+      activateApplication()
+      return
     }
-    .commands {
-      CommandMenu("Owl") {
-        Button("Refresh") { session.perform(action: "refresh_snapshot") }
-          .keyboardShortcut("r", modifiers: [.command])
-        Button("Check SimpleX") { session.perform(action: "tick_simplex") }
-        Divider()
-        Button("Settings") { session.perform(action: "open_settings") }
-          .keyboardShortcut(",", modifiers: [.command])
-      }
-      CommandMenu("Mailbox") {
-        Button("Inbox") { session.perform(action: "focus_inbox") }
-          .keyboardShortcut("1", modifiers: [.command])
-        Button("Favorites") { session.perform(action: "focus_favorites") }
-          .keyboardShortcut("2", modifiers: [.command])
-        Button("People") { session.perform(action: "focus_people") }
-          .keyboardShortcut("3", modifiers: [.command])
-        Button("Groups") { session.perform(action: "focus_groups") }
-          .keyboardShortcut("4", modifiers: [.command])
-      }
-      CommandMenu("Transport") {
-        Button("Use SimpleX") { session.perform(action: "compose_simplex") }
-        Button("Use Email") { session.perform(action: "compose_email") }
-      }
+
+    let rootView = RootView()
+      .environmentObject(session)
+      .frame(minWidth: 920, minHeight: 620)
+    let hostingView = NSHostingView(rootView: rootView)
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 1180, height: 760),
+      styleMask: [.titled, .closable, .miniaturizable, .resizable],
+      backing: .buffered,
+      defer: false
+    )
+    window.title = "__WINDOW_TITLE__"
+    window.contentView = hostingView
+    window.isReleasedWhenClosed = false
+    window.delegate = self
+    window.center()
+    window.makeKeyAndOrderFront(nil)
+    self.window = window
+  }
+
+  @objc func showSettingsWindow(_ sender: Any?) {
+    if let settingsWindow {
+      settingsWindow.makeKeyAndOrderFront(nil)
+      activateApplication()
+      return
     }
-    Settings {
-      SettingsView()
-        .environmentObject(session)
-        .frame(width: 540)
-        .padding(20)
+
+    let settingsView = SettingsView()
+      .environmentObject(session)
+      .frame(width: 540)
+      .padding(20)
+    let hostingView = NSHostingView(rootView: settingsView)
+    let settingsWindow = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 620, height: 520),
+      styleMask: [.titled, .closable, .miniaturizable, .resizable],
+      backing: .buffered,
+      defer: false
+    )
+    settingsWindow.title = "Settings"
+    settingsWindow.contentView = hostingView
+    settingsWindow.isReleasedWhenClosed = false
+    settingsWindow.delegate = self
+    settingsWindow.center()
+    settingsWindow.makeKeyAndOrderFront(nil)
+    self.settingsWindow = settingsWindow
+    activateApplication()
+  }
+
+  private func makeMainMenu() -> NSMenu {
+    let mainMenu = NSMenu()
+
+    let appMenuItem = NSMenuItem()
+    let appMenu = NSMenu(title: generatedAppName)
+    appMenu.addItem(NSMenuItem(title: "About \(generatedAppName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+    appMenu.addItem(.separator())
+    appMenu.addItem(actionItem("Settings...", action: "open_settings", key: ",", modifiers: [.command]))
+    appMenu.addItem(.separator())
+    appMenu.addItem(actionItem("Quit \(generatedAppName)", action: "quit_app", key: "q", modifiers: [.command]))
+    appMenuItem.submenu = appMenu
+    mainMenu.addItem(appMenuItem)
+
+    let owlMenuItem = NSMenuItem()
+    let owlMenu = NSMenu(title: "Owl")
+    owlMenu.addItem(actionItem("Refresh", action: "refresh_snapshot", key: "r", modifiers: [.command]))
+    owlMenu.addItem(actionItem("Check SimpleX", action: "tick_simplex"))
+    owlMenuItem.submenu = owlMenu
+    mainMenu.addItem(owlMenuItem)
+
+    let mailboxMenuItem = NSMenuItem()
+    let mailboxMenu = NSMenu(title: "Mailbox")
+    mailboxMenu.addItem(actionItem("Inbox", action: "focus_inbox", key: "1", modifiers: [.command]))
+    mailboxMenu.addItem(actionItem("Favorites", action: "focus_favorites", key: "2", modifiers: [.command]))
+    mailboxMenu.addItem(actionItem("People", action: "focus_people", key: "3", modifiers: [.command]))
+    mailboxMenu.addItem(actionItem("Groups", action: "focus_groups", key: "4", modifiers: [.command]))
+    mailboxMenuItem.submenu = mailboxMenu
+    mainMenu.addItem(mailboxMenuItem)
+
+    let transportMenuItem = NSMenuItem()
+    let transportMenu = NSMenu(title: "Transport")
+    transportMenu.addItem(actionItem("Use SimpleX", action: "compose_simplex"))
+    transportMenu.addItem(actionItem("Use Email", action: "compose_email"))
+    transportMenuItem.submenu = transportMenu
+    mainMenu.addItem(transportMenuItem)
+
+    return mainMenu
+  }
+
+  private func actionItem(_ title: String, action: String, key: String = "", modifiers: NSEvent.ModifierFlags = []) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: #selector(performMenuAction(_:)), keyEquivalent: key)
+    item.target = self
+    item.representedObject = action
+    item.keyEquivalentModifierMask = modifiers
+    return item
+  }
+
+  @objc private func performMenuAction(_ sender: NSMenuItem) {
+    if let action = sender.representedObject as? String {
+      session.perform(action: action)
     }
+  }
+
+  func windowWillClose(_ notification: Notification) {
+    guard let closedWindow = notification.object as? NSWindow else { return }
+    if closedWindow == settingsWindow {
+      settingsWindow = nil
+    }
+    if closedWindow == window {
+      window = nil
+    }
+  }
+
+  private func activateApplication() {
+    NSRunningApplication.current.activate(options: [.activateAllWindows])
   }
 }
 
@@ -617,7 +723,7 @@ __SWIFT_ACTION_CASES__
       case "focus_groups":
         if let first = snapshot.groups.first { selectThread(first) }
       case "open_settings":
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        (NSApp.delegate as? OwlNativeAppDelegate)?.showSettingsWindow(nil)
       case "choose_mail_root":
         chooseMailRoot()
       case "compose_simplex":
