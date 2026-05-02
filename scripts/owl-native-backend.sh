@@ -483,8 +483,7 @@ snapshot_action() {
           in_inbox: ($list == "accepted" or $list == "quarantine"),
           read: (($m.read // false) == true),
           starred: (($m.starred // false) == true),
-          attachments: (($m.attachments // 0) | tonumber? // 0),
-          raw: $m
+          attachments: (($m.attachments // 0) | tonumber? // 0)
         };
     def simplex_msg:
       . as $m
@@ -516,8 +515,7 @@ snapshot_action() {
           in_inbox: (($m.in_inbox // false) == true),
           read: (($m.read // false) == true),
           starred: false,
-          attachments: 0,
-          raw: $m
+          attachments: 0
         };
     def thread_from_contact:
       {

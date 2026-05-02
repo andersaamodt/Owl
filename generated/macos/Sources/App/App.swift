@@ -1067,15 +1067,27 @@ private enum OwlBackend {
     process.executableURL = URL(fileURLWithPath: "/bin/sh")
     process.arguments = [script.path, action, root] + args
 
-    let stdout = Pipe()
-    let stderr = Pipe()
-    process.standardOutput = stdout
-    process.standardError = stderr
+    let fm = FileManager.default
+    let temp = fm.temporaryDirectory
+    let stdoutURL = temp.appendingPathComponent("owl-native-stdout-\(UUID().uuidString).json")
+    let stderrURL = temp.appendingPathComponent("owl-native-stderr-\(UUID().uuidString).log")
+    fm.createFile(atPath: stdoutURL.path, contents: nil)
+    fm.createFile(atPath: stderrURL.path, contents: nil)
+    let stdoutHandle = try FileHandle(forWritingTo: stdoutURL)
+    let stderrHandle = try FileHandle(forWritingTo: stderrURL)
+    defer {
+      stdoutHandle.closeFile()
+      stderrHandle.closeFile()
+      try? fm.removeItem(at: stdoutURL)
+      try? fm.removeItem(at: stderrURL)
+    }
+    process.standardOutput = stdoutHandle
+    process.standardError = stderrHandle
     try process.run()
     process.waitUntilExit()
 
-    let out = stdout.fileHandleForReading.readDataToEndOfFile()
-    let err = stderr.fileHandleForReading.readDataToEndOfFile()
+    let out = (try? Data(contentsOf: stdoutURL)) ?? Data()
+    let err = (try? Data(contentsOf: stderrURL)) ?? Data()
     guard process.terminationStatus == 0 else {
       let message = String(data: err, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
         ?? String(data: out, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
