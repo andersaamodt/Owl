@@ -2438,33 +2438,20 @@ private struct CardStackFrame<Content: View>: View {
       .fill(Color(nsColor: .controlBackgroundColor).opacity(isSelected ? 0.98 : 0.94))
       .overlay {
         RoundedRectangle(cornerRadius: 8)
-          .fill(tint.opacity(isSelected ? 0.10 : 0.065))
+          .fill(tint.opacity(isSelected ? 0.022 : 0.014))
       }
       .overlay(alignment: .leading) {
         RoundedRectangle(cornerRadius: 8)
-          .fill(tint.opacity(isSelected ? 0.64 : 0.48))
+          .fill(tint.opacity(isSelected ? 0.72 : 0.58))
           .frame(width: 5)
-      }
-      .overlay {
-        RoundedRectangle(cornerRadius: 8)
-          .fill(
-            LinearGradient(
-              colors: [
-                Color.white.opacity(isSelected ? 0.30 : 0.20),
-                Color.clear
-              ],
-              startPoint: .top,
-              endPoint: .bottom
-            )
-          )
       }
   }
 
   private func stackedFill(_ index: Int) -> LinearGradient {
     LinearGradient(
       colors: [
-        tint.opacity(0.10 - Double(index) * 0.012),
-        Color(nsColor: .controlBackgroundColor).opacity(0.90)
+        tint.opacity(0.014 - Double(index) * 0.002),
+        Color(nsColor: .controlBackgroundColor).opacity(0.94)
       ],
       startPoint: .topLeading,
       endPoint: .bottomTrailing
@@ -2500,7 +2487,7 @@ private struct CardStackFrame<Content: View>: View {
             .offset(x: 8, y: -8)
         }
       }
-      .shadow(color: tint.opacity(isSelected ? 0.12 : 0.07), radius: isSelected ? 10 : 7, x: 0, y: 4)
+      .shadow(color: tint.opacity(isSelected ? 0.10 : 0.05), radius: isSelected ? 10 : 7, x: 0, y: 4)
       .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
   }
 
@@ -3319,25 +3306,12 @@ private struct MessageBubble: View {
       .fill(Color(nsColor: .controlBackgroundColor).opacity(message.from_self ? 0.97 : 0.93))
       .overlay {
         RoundedRectangle(cornerRadius: 8)
-          .fill(messageTint.opacity(message.from_self ? 0.105 : 0.07))
+          .fill(messageTint.opacity(message.from_self ? 0.030 : 0.020))
       }
       .overlay(alignment: message.from_self ? .trailing : .leading) {
         RoundedRectangle(cornerRadius: 8)
-          .fill(messageTint.opacity(message.from_self ? 0.62 : 0.50))
+          .fill(messageTint.opacity(message.from_self ? 0.70 : 0.58))
           .frame(width: 4)
-      }
-      .overlay {
-        RoundedRectangle(cornerRadius: 8)
-          .fill(
-            LinearGradient(
-              colors: [
-                Color.white.opacity(message.from_self ? 0.24 : 0.16),
-                Color.clear
-              ],
-              startPoint: .top,
-              endPoint: .bottom
-            )
-          )
       }
   }
 
