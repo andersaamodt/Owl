@@ -2,6 +2,7 @@
 import AppKit
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 private let canonicalIR = #"""
 {
@@ -385,6 +386,7 @@ private let canonicalIR = #"""
 private let generatedAppName = "Owl Native"
 private let generatedAppID = "owl-native"
 private let generatedAppVersion = "0.1.0"
+private let messageDragPayloadPrefix = "owl-native-message:"
 
 @main
 private enum OwlNativeGeneratedApp {
@@ -1423,6 +1425,35 @@ private final class OwlSession: ObservableObject {
     if let message = activeMessage { markRead(message, read: false) }
   }
 
+  func message(withID id: String) -> MessageItem? {
+    if let message = snapshot.messages.first(where: { $0.id == id }) {
+      return message
+    }
+    if let message = snapshot.inbox.first(where: { $0.id == id }) {
+      return message
+    }
+    for thread in snapshot.threads {
+      if let message = thread.messages.first(where: { $0.id == id }) {
+        return message
+      }
+    }
+    return nil
+  }
+
+  func handleMessageDrop(id: String, action: MessageDropAction) {
+    guard let message = message(withID: id) else {
+      statusText = "Dropped message is no longer available."
+      return
+    }
+    selectedMessageID = message.id
+    switch action {
+    case .archive:
+      archive(message)
+    case .trash:
+      delete(message)
+    }
+  }
+
   func runMessageAction(status: String, action: @escaping () async throws -> Data) {
     isBusy = true
     Task {
@@ -1758,14 +1789,17 @@ private struct RootView: View {
   @EnvironmentObject private var session: OwlSession
 
   var body: some View {
-    VStack(spacing: 0) {
-      PrimaryTabBar()
-      Divider()
-      MainContentView()
-      Divider()
-      StatusStrip()
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+    ZStack {
+      VStack(spacing: 0) {
+        PrimaryTabBar()
+        Divider()
+        MainContentView()
+        Divider()
+        StatusStrip()
+          .padding(.horizontal, 14)
+          .padding(.vertical, 7)
+      }
+      MessageDropDock()
     }
     .toolbar {
       ToolbarItemGroup(placement: .primaryAction) {
@@ -1777,6 +1811,160 @@ private struct RootView: View {
         }
       }
     }
+  }
+}
+
+private enum MessageDropAction {
+  case trash
+  case archive
+
+  var label: String {
+    switch self {
+    case .trash: return "Trash"
+    case .archive: return "Archive"
+    }
+  }
+
+  var systemImage: String {
+    switch self {
+    case .trash: return "trash"
+    case .archive: return "archivebox"
+    }
+  }
+}
+
+private struct MessageDropDock: View {
+  var body: some View {
+    VStack {
+      Spacer()
+      HStack(alignment: .bottom) {
+        MessageDropTarget(action: .trash)
+        Spacer()
+        MessageDropTarget(action: .archive)
+      }
+      .padding(.horizontal, 22)
+      .padding(.bottom, 46)
+    }
+    .allowsHitTesting(true)
+  }
+}
+
+private struct MessageDropTarget: View {
+  @EnvironmentObject private var session: OwlSession
+  let action: MessageDropAction
+  @State private var isTargeted = false
+
+  var body: some View {
+    VStack(spacing: 5) {
+      ZStack {
+        Circle()
+          .fill(backgroundColor)
+          .frame(width: 50, height: 50)
+        icon
+          .font(.title3.weight(.semibold))
+          .foregroundStyle(iconColor)
+      }
+      Text(action.label)
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(iconColor)
+    }
+    .padding(8)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+    .overlay(
+      RoundedRectangle(cornerRadius: 8)
+        .stroke(iconColor.opacity(isTargeted ? 0.85 : 0.3), lineWidth: isTargeted ? 2 : 1)
+    )
+    .scaleEffect(isTargeted ? 1.06 : 1.0)
+    .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isTargeted)
+    .onDrop(of: [UTType.plainText], isTargeted: $isTargeted, perform: handleDrop(providers:))
+    .help("Drop a message card to \(action.label.lowercased()) it")
+  }
+
+  @ViewBuilder
+  private var icon: some View {
+    switch action {
+    case .trash:
+      PrioritiesTrashIcon()
+        .stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+        .frame(width: 28, height: 28)
+    case .archive:
+      Image(systemName: action.systemImage)
+    }
+  }
+
+  private var iconColor: Color {
+    switch action {
+    case .trash: return .red
+    case .archive: return .accentColor
+    }
+  }
+
+  private var backgroundColor: Color {
+    isTargeted ? iconColor.opacity(0.24) : iconColor.opacity(0.12)
+  }
+
+  private func handleDrop(providers: [NSItemProvider]) -> Bool {
+    guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
+      return false
+    }
+    provider.loadObject(ofClass: NSString.self) { object, _ in
+      guard let rawValue = object as? String else { return }
+      let messageID: String
+      if rawValue.hasPrefix(messageDragPayloadPrefix) {
+        messageID = String(rawValue.dropFirst(messageDragPayloadPrefix.count))
+      } else {
+        messageID = rawValue
+      }
+      Task { @MainActor in
+        session.handleMessageDrop(id: messageID, action: action)
+      }
+    }
+    return true
+  }
+}
+
+private struct PrioritiesTrashIcon: Shape {
+  func path(in rect: CGRect) -> Path {
+    func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+      CGPoint(x: rect.minX + (x / 24.0) * rect.width, y: rect.minY + (y / 24.0) * rect.height)
+    }
+
+    var path = Path()
+    path.move(to: point(4, 7))
+    path.addLine(to: point(20, 7))
+    path.move(to: point(10, 11))
+    path.addLine(to: point(10, 17))
+    path.move(to: point(14, 11))
+    path.addLine(to: point(14, 17))
+    path.move(to: point(5, 7))
+    path.addLine(to: point(6, 19))
+    path.addQuadCurve(to: point(8, 21), control: point(6, 21))
+    path.addLine(to: point(16, 21))
+    path.addQuadCurve(to: point(18, 19), control: point(18, 21))
+    path.addLine(to: point(19, 7))
+    path.move(to: point(9, 7))
+    path.addLine(to: point(9, 4))
+    path.addQuadCurve(to: point(10, 3), control: point(9, 3))
+    path.addLine(to: point(14, 3))
+    path.addQuadCurve(to: point(15, 4), control: point(15, 3))
+    path.addLine(to: point(15, 7))
+    return path
+  }
+}
+
+private struct DraggableMessageCardModifier: ViewModifier {
+  let message: MessageItem
+
+  func body(content: Content) -> some View {
+    content.onDrag {
+      NSItemProvider(object: "\(messageDragPayloadPrefix)\(message.id)" as NSString)
+    }
+  }
+}
+
+private extension View {
+  func draggableMessageCard(_ message: MessageItem) -> some View {
+    modifier(DraggableMessageCardModifier(message: message))
   }
 }
 
@@ -2341,6 +2529,7 @@ private struct NewSenderMessageStackCard: View {
       }
     }
     .buttonStyle(.plain)
+    .draggableMessageCard(message)
     .contextMenu { MessageContextMenu(message: message) }
   }
 }
@@ -2702,6 +2891,7 @@ private struct MessageReaderCard: View {
         }
       }
     }
+    .draggableMessageCard(message)
     .contextMenu { MessageContextMenu(message: message) }
   }
 }
@@ -2763,6 +2953,7 @@ private struct InboxStackCard: View {
       }
     }
     .contentShape(RoundedRectangle(cornerRadius: 8))
+    .draggableMessageCard(message)
     .onTapGesture { session.openTimeline(for: message) }
     .contextMenu { MessageContextMenu(message: message) }
   }
@@ -2879,6 +3070,7 @@ private struct MessageBubble: View {
       .onTapGesture { session.selectMessage(message) }
       if !message.from_self { Spacer(minLength: 80) }
     }
+    .draggableMessageCard(message)
   }
 
   private var messageBackground: some View {

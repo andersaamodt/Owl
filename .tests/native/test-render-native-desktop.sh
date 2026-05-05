@@ -113,6 +113,22 @@ swift_new_and_inbox_use_card_stack_layout() {
   ' generated/macos/Sources/App/App.swift
 }
 
+swift_message_cards_are_drag_droppable() {
+  cd "$repo_dir"
+  grep -q 'PrioritiesTrashIcon' generated/macos/Sources/App/App.swift
+  grep -q 'MessageDropTarget(action: .trash)' generated/macos/Sources/App/App.swift
+  grep -q 'MessageDropTarget(action: .archive)' generated/macos/Sources/App/App.swift
+  grep -q 'func draggableMessageCard(_ message: MessageItem)' generated/macos/Sources/App/App.swift
+  grep -q 'onDrop(of: \[UTType.plainText\]' generated/macos/Sources/App/App.swift
+  grep -q 'session.handleMessageDrop(id: messageID, action: action)' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct MailboxMessageRow/ { in_view = 1 }
+    /private struct DraftsView/ { in_view = 0 }
+    in_view && /draggableMessageCard/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -135,6 +151,7 @@ run_case "Linux actions cover IR" linux_actions_cover_ir
 run_case "Swift uses native desktop idiom" swift_uses_native_desktop_idiom
 run_case "Swift has unified SimpleX/email UI" swift_unified_simplex_email_ui_exists
 run_case "Swift New Senders and Inbox use card-stack layout" swift_new_and_inbox_use_card_stack_layout
+run_case "Swift message cards are drag droppable" swift_message_cards_are_drag_droppable
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -142,4 +159,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "8/8 native render tests passed"
+printf '%s\n' "9/9 native render tests passed"
