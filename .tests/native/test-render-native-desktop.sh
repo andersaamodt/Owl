@@ -168,6 +168,26 @@ swift_inbox_cards_open_reader_before_mail() {
   ' generated/macos/Sources/App/App.swift
 }
 
+swift_message_surfaces_use_colored_backgrounds() {
+  cd "$repo_dir"
+  grep -Fq 'private var cardFill: LinearGradient' generated/macos/Sources/App/App.swift
+  grep -Fq 'tint.opacity(isSelected ? 0.24 : 0.16)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var messageTint: Color' generated/macos/Sources/App/App.swift
+  grep -Fq 'messageTint.opacity(message.from_self ? 0.24 : 0.15)' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct CardStackFrame/ { in_view = 1 }
+    /private struct NewSendersView/ { in_view = 0 }
+    in_view && /[.]stroke[(]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct MessageBubble/ { in_view = 1 }
+    /private struct MessageContextMenu/ { in_view = 0 }
+    in_view && /[.]stroke[(]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -193,6 +213,7 @@ run_case "Swift New Senders and Inbox use card-stack layout" swift_new_and_inbox
 run_case "Swift message cards are drag droppable" swift_message_cards_are_drag_droppable
 run_case "Swift message timestamps are friendly" swift_message_timestamps_are_friendly
 run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_reader_before_mail
+run_case "Swift message surfaces use colored backgrounds" swift_message_surfaces_use_colored_backgrounds
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -200,4 +221,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "11/11 native render tests passed"
+printf '%s\n' "12/12 native render tests passed"

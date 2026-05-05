@@ -1930,26 +1930,41 @@ private struct CardStackFrame<Content: View>: View {
     min(max(depth - 1, 0), 4)
   }
 
+  private var cardFill: LinearGradient {
+    LinearGradient(
+      colors: [
+        tint.opacity(isSelected ? 0.24 : 0.16),
+        Color(nsColor: .controlBackgroundColor).opacity(0.96),
+        tint.opacity(isSelected ? 0.12 : 0.08)
+      ],
+      startPoint: .topLeading,
+      endPoint: .bottomTrailing
+    )
+  }
+
+  private func stackedFill(_ index: Int) -> LinearGradient {
+    LinearGradient(
+      colors: [
+        tint.opacity(0.10 - Double(index) * 0.012),
+        Color(nsColor: .controlBackgroundColor).opacity(0.90)
+      ],
+      startPoint: .topLeading,
+      endPoint: .bottomTrailing
+    )
+  }
+
   var body: some View {
     content
       .padding(14)
       .background(
         RoundedRectangle(cornerRadius: 8)
-          .fill(Color(nsColor: .controlBackgroundColor))
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: 8)
-          .stroke(tint.opacity(isSelected ? 0.42 : 0.18), lineWidth: isSelected ? 1.4 : 1)
+          .fill(cardFill)
       )
       .background {
         ZStack {
           ForEach(0..<backCount, id: \.self) { index in
             RoundedRectangle(cornerRadius: 8)
-              .fill(Color(nsColor: .controlBackgroundColor).opacity(0.96))
-              .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                  .stroke(tint.opacity(0.12), lineWidth: 1)
-              )
+              .fill(stackedFill(index))
               .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
               .offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 2.2)
               .rotationEffect(.degrees(stackRotation(index)))
@@ -1967,7 +1982,8 @@ private struct CardStackFrame<Content: View>: View {
             .offset(x: 8, y: -8)
         }
       }
-      .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 3)
+      .shadow(color: tint.opacity(isSelected ? 0.20 : 0.11), radius: isSelected ? 11 : 8, x: 0, y: 4)
+      .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
   }
 
   private func stackRotation(_ index: Int) -> Double {
@@ -2772,8 +2788,8 @@ private struct MessageBubble: View {
       .padding(message.isLongBlock ? 14 : 10)
       .frame(maxWidth: message.isLongBlock ? 620 : 430, alignment: .leading)
       .background(messageBackground)
-      .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(message.in_inbox ? 0.12 : 0.2)))
       .opacity(message.in_inbox ? 0.62 : 1.0)
+      .shadow(color: messageTint.opacity(message.from_self ? 0.16 : 0.10), radius: 6, x: 0, y: 2)
       .contextMenu { MessageContextMenu(message: message) }
       .onTapGesture { session.selectMessage(message) }
       if !message.from_self { Spacer(minLength: 80) }
@@ -2783,7 +2799,24 @@ private struct MessageBubble: View {
 
   private var messageBackground: some View {
     RoundedRectangle(cornerRadius: 8)
-      .fill(message.from_self ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor))
+      .fill(
+        LinearGradient(
+          colors: [
+            messageTint.opacity(message.from_self ? 0.24 : 0.15),
+            Color(nsColor: .controlBackgroundColor).opacity(message.from_self ? 0.84 : 0.94),
+            messageTint.opacity(message.from_self ? 0.12 : 0.08)
+          ],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
+      )
+  }
+
+  private var messageTint: Color {
+    if message.from_self {
+      return .accentColor
+    }
+    return message.isSimpleX ? .green : .red
   }
 }
 
