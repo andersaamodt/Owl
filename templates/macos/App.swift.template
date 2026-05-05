@@ -685,6 +685,7 @@ private final class OwlSession: ObservableObject {
   @Published var selectedRoute: String = "new"
   @Published var focusedMessageID: String?
   @Published var selectedMessageID: String?
+  @Published var draggingMessageID: String?
   @Published var selectedNewSenderID: String?
   @Published var selectedMailThreadID: String?
   @Published var mailRoot: String = defaultMailRoot()
@@ -1066,6 +1067,7 @@ private final class OwlSession: ObservableObject {
   }
 
   func handleMessageDrop(id: String, action: MessageDropAction) {
+    endDraggingMessage(id)
     guard let message = message(withID: id) else {
       statusText = "Dropped message is no longer available."
       return
@@ -1077,6 +1079,22 @@ private final class OwlSession: ObservableObject {
     case .trash:
       delete(message)
     }
+  }
+
+  func beginDraggingMessage(_ message: MessageItem) {
+    draggingMessageID = message.id
+    let expectedID = message.id
+    Task {
+      try? await Task.sleep(nanoseconds: 30_000_000_000)
+      if self.draggingMessageID == expectedID {
+        self.draggingMessageID = nil
+      }
+    }
+  }
+
+  func endDraggingMessage(_ id: String? = nil) {
+    guard id == nil || draggingMessageID == id else { return }
+    draggingMessageID = nil
   }
 
   func runMessageAction(status: String, action: @escaping () async throws -> Data) {
@@ -1371,17 +1389,18 @@ private struct RootView: View {
   @EnvironmentObject private var session: OwlSession
 
   var body: some View {
-    ZStack {
-      VStack(spacing: 0) {
-        PrimaryTabBar()
-        Divider()
-        MainContentView()
-        Divider()
-        StatusStrip()
-          .padding(.horizontal, 14)
-          .padding(.vertical, 7)
-      }
+    VStack(spacing: 0) {
+      PrimaryTabBar()
+      Divider()
+      MainContentView()
+      Divider()
+      StatusStrip()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+    }
+    .overlay(alignment: .bottom) {
       MessageDropDock()
+        .padding(.bottom, 44)
     }
     .toolbar {
       ToolbarItemGroup(placement: .primaryAction) {
@@ -1417,16 +1436,13 @@ private enum MessageDropAction {
 
 private struct MessageDropDock: View {
   var body: some View {
-    VStack {
+    HStack(alignment: .bottom) {
+      MessageDropTarget(action: .trash)
       Spacer()
-      HStack(alignment: .bottom) {
-        MessageDropTarget(action: .trash)
-        Spacer()
-        MessageDropTarget(action: .archive)
-      }
-      .padding(.horizontal, 22)
-      .padding(.bottom, 46)
+      MessageDropTarget(action: .archive)
     }
+    .padding(.horizontal, 22)
+    .frame(maxWidth: .infinity)
     .allowsHitTesting(true)
   }
 }
@@ -1535,12 +1551,17 @@ private struct PrioritiesTrashIcon: Shape {
 }
 
 private struct DraggableMessageCardModifier: ViewModifier {
+  @EnvironmentObject private var session: OwlSession
   let message: MessageItem
 
   func body(content: Content) -> some View {
-    content.onDrag {
-      NSItemProvider(object: "\(messageDragPayloadPrefix)\(message.id)" as NSString)
-    }
+    content
+      .opacity(session.draggingMessageID == message.id ? 0 : 1)
+      .animation(.easeOut(duration: 0.12), value: session.draggingMessageID)
+      .onDrag {
+        session.beginDraggingMessage(message)
+        return NSItemProvider(object: "\(messageDragPayloadPrefix)\(message.id)" as NSString)
+      }
   }
 }
 

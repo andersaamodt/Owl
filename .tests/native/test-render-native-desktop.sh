@@ -119,6 +119,10 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'MessageDropTarget(action: .trash)' generated/macos/Sources/App/App.swift
   grep -q 'MessageDropTarget(action: .archive)' generated/macos/Sources/App/App.swift
   grep -q 'func draggableMessageCard(_ message: MessageItem)' generated/macos/Sources/App/App.swift
+  grep -q '@Published var draggingMessageID: String?' generated/macos/Sources/App/App.swift
+  grep -q 'session.beginDraggingMessage(message)' generated/macos/Sources/App/App.swift
+  grep -q 'session.draggingMessageID == message.id ? 0 : 1' generated/macos/Sources/App/App.swift
+  grep -q 'endDraggingMessage(id)' generated/macos/Sources/App/App.swift
   grep -q 'onDrop(of: \[UTType.plainText\]' generated/macos/Sources/App/App.swift
   grep -q 'session.handleMessageDrop(id: messageID, action: action)' generated/macos/Sources/App/App.swift
   ! awk '
