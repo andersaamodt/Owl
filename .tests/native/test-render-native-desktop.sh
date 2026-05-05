@@ -153,6 +153,10 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'PrioritiesTrashIcon' generated/macos/Sources/App/App.swift
   grep -q 'MessageDropTarget(action: .trash)' generated/macos/Sources/App/App.swift
   grep -q 'MessageDropTarget(action: .archive)' generated/macos/Sources/App/App.swift
+  grep -Fq '.contentShape(Circle())' generated/macos/Sources/App/App.swift
+  grep -Fq 'case .trash: return .white' generated/macos/Sources/App/App.swift
+  grep -Fq 'Color.red.opacity(0.78)' generated/macos/Sources/App/App.swift
+  grep -Fq 'Color.purple.opacity(0.15)' generated/macos/Sources/App/App.swift
   grep -q 'func draggableMessageCard(_ message: MessageItem)' generated/macos/Sources/App/App.swift
   grep -q '@Published var draggingMessageID: String?' generated/macos/Sources/App/App.swift
   grep -q 'session.beginDraggingMessage(message)' generated/macos/Sources/App/App.swift

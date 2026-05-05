@@ -2070,29 +2070,21 @@ private struct MessageDropTarget: View {
   @State private var isTargeted = false
 
   var body: some View {
-    VStack(spacing: 5) {
-      ZStack {
-        Circle()
-          .fill(backgroundColor)
-          .frame(width: 50, height: 50)
-        icon
-          .font(.title3.weight(.semibold))
-          .foregroundStyle(iconColor)
-      }
-      Text(action.label)
-        .font(.caption2.weight(.semibold))
+    ZStack {
+      Circle()
+        .fill(backgroundColor)
+      icon
+        .font(.title3.weight(.semibold))
         .foregroundStyle(iconColor)
     }
-    .padding(8)
-    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-    .overlay(
-      RoundedRectangle(cornerRadius: 8)
-        .stroke(iconColor.opacity(isTargeted ? 0.85 : 0.3), lineWidth: isTargeted ? 2 : 1)
-    )
-    .scaleEffect(isTargeted ? 1.06 : 1.0)
+    .frame(width: 54, height: 54)
+    .contentShape(Circle())
+    .shadow(color: iconColor.opacity(isTargeted ? 0.28 : 0.16), radius: isTargeted ? 9 : 5, x: 0, y: 3)
+    .scaleEffect(isTargeted ? 1.10 : 1.0)
     .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isTargeted)
     .onDrop(of: [UTType.plainText], isTargeted: $isTargeted, perform: handleDrop(providers:))
     .help("Drop a message card to \(action.label.lowercased()) it")
+    .accessibilityLabel(action.label)
   }
 
   @ViewBuilder
@@ -2109,13 +2101,18 @@ private struct MessageDropTarget: View {
 
   private var iconColor: Color {
     switch action {
-    case .trash: return .red
-    case .archive: return .accentColor
+    case .trash: return .white
+    case .archive: return .purple
     }
   }
 
   private var backgroundColor: Color {
-    isTargeted ? iconColor.opacity(0.24) : iconColor.opacity(0.12)
+    switch action {
+    case .trash:
+      return isTargeted ? Color.red.opacity(0.92) : Color.red.opacity(0.78)
+    case .archive:
+      return isTargeted ? Color.purple.opacity(0.24) : Color.purple.opacity(0.15)
+    }
   }
 
   private func handleDrop(providers: [NSItemProvider]) -> Bool {
