@@ -1071,6 +1071,79 @@ private func defaultMailRoot() -> String {
   FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("mail").path
 }
 
+private enum FriendlyTime {
+  static func relative(_ rawValue: String, now: Date = Date()) -> String {
+    guard let date = parse(rawValue) else {
+      return rawValue
+    }
+    let delta = Int(now.timeIntervalSince(date))
+    if delta < -60 {
+      return "in \(compactDuration(abs(delta)))"
+    }
+    if delta < 60 {
+      return "now"
+    }
+    return "\(compactDuration(delta)) ago"
+  }
+
+  private static func compactDuration(_ seconds: Int) -> String {
+    if seconds < 60 {
+      return "\(max(1, seconds))s"
+    }
+    let minutes = seconds / 60
+    if minutes < 60 {
+      return "\(minutes)m"
+    }
+    let hours = minutes / 60
+    if hours < 24 {
+      return "\(hours)h"
+    }
+    let days = hours / 24
+    if days < 7 {
+      return "\(days)d"
+    }
+    let weeks = days / 7
+    if weeks < 5 {
+      return "\(weeks)w"
+    }
+    let months = days / 30
+    if months < 12 {
+      return "\(max(1, months))mo"
+    }
+    let years = days / 365
+    return "\(max(1, years))y"
+  }
+
+  private static func parse(_ rawValue: String) -> Date? {
+    let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return nil }
+    let isoFormatter = ISO8601DateFormatter()
+    isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = isoFormatter.date(from: trimmed) {
+      return date
+    }
+    let isoFormatterWithoutFractionalSeconds = ISO8601DateFormatter()
+    isoFormatterWithoutFractionalSeconds.formatOptions = [.withInternetDateTime]
+    if let date = isoFormatterWithoutFractionalSeconds.date(from: trimmed) {
+      return date
+    }
+    for format in ["yyyy-MM-dd'T'HH:mm:ssXXXXX", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"] {
+      let formatter = DateFormatter()
+      formatter.locale = Locale(identifier: "en_US_POSIX")
+      formatter.dateFormat = format
+      formatter.timeZone = TimeZone(secondsFromGMT: 0)
+      if let date = formatter.date(from: trimmed) {
+        return date
+      }
+    }
+    return nil
+  }
+}
+
+private func friendlyTime(_ rawValue: String) -> String {
+  FriendlyTime.relative(rawValue)
+}
+
 @MainActor
 private final class OwlSession: ObservableObject {
   @Published var snapshot: Snapshot = SeedData.snapshot
@@ -2140,7 +2213,7 @@ private struct SidebarThreadRow: View {
           if thread.hasEmailPath {
             Image(systemName: "lock.open")
           }
-          Text(thread.latest_at.isEmpty ? "No messages" : thread.latest_at)
+          Text(thread.latest_at.isEmpty ? "No messages" : friendlyTime(thread.latest_at))
             .lineLimit(1)
         }
         .font(.caption2)
@@ -2399,7 +2472,7 @@ private struct NewSendersView: View {
     case .messages:
       return "\(session.newSenderMessages.count) quarantined message\(session.newSenderMessages.count == 1 ? "" : "s")"
     case .reader:
-      return selectedMessage.map { "\($0.contact_name) - \($0.received_at)" } ?? "No message selected"
+      return selectedMessage.map { "\($0.contact_name) - \(friendlyTime($0.received_at))" } ?? "No message selected"
     }
   }
 }
@@ -2454,7 +2527,7 @@ private struct NewSenderStackCard: View {
             Text(thread.displayName)
               .font(.headline)
             Spacer()
-            Text(thread.latest_at)
+            Text(friendlyTime(thread.latest_at))
               .font(.caption)
               .foregroundStyle(.secondary)
           }
@@ -2534,7 +2607,7 @@ private struct NewSenderMessageStackCard: View {
               .font(.headline)
               .lineLimit(1)
             Spacer()
-            Text(message.received_at)
+            Text(friendlyTime(message.received_at))
               .font(.caption)
               .foregroundStyle(.secondary)
           }
@@ -2653,7 +2726,7 @@ private struct MessageListRow: View {
               .background(Capsule().fill(Color.accentColor.opacity(0.15)))
           }
           Spacer()
-          Text(message.received_at)
+          Text(friendlyTime(message.received_at))
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
@@ -2677,7 +2750,7 @@ private struct MessageReaderView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       if let message {
-        HeaderView(title: message.subject.isEmpty ? message.contact_name : message.subject, subtitle: "\(message.contact_name) - \(message.received_at)")
+        HeaderView(title: message.subject.isEmpty ? message.contact_name : message.subject, subtitle: "\(message.contact_name) - \(friendlyTime(message.received_at))")
         Divider()
         ScrollView {
           VStack(alignment: .leading, spacing: 14) {
@@ -2804,7 +2877,7 @@ private struct MailboxMessageRow: View {
                 .foregroundStyle(.yellow)
             }
             Spacer()
-            Text(message.received_at)
+            Text(friendlyTime(message.received_at))
               .font(.caption)
               .foregroundStyle(.secondary)
           }
@@ -2836,7 +2909,7 @@ private struct DraftsView: View {
             Text(draft.subject.isEmpty ? "Untitled Draft" : draft.subject)
               .font(.body.weight(.semibold))
             Spacer()
-            Text(draft.updated_at)
+            Text(friendlyTime(draft.updated_at))
               .font(.caption)
               .foregroundStyle(.secondary)
           }
@@ -2864,7 +2937,7 @@ private struct EventsView: View {
             Text(event.kind.isEmpty ? "Event" : event.kind)
               .font(.body.weight(.semibold))
             Spacer()
-            Text(event.created_at)
+            Text(friendlyTime(event.created_at))
               .font(.caption)
               .foregroundStyle(.secondary)
           }
@@ -2891,7 +2964,7 @@ private struct MessageReaderCard: View {
           Text(message.contact_name)
             .font(.headline)
           Spacer()
-          Text(message.received_at)
+          Text(friendlyTime(message.received_at))
             .font(.caption)
             .foregroundStyle(.secondary)
         }
@@ -2947,7 +3020,7 @@ private struct InboxStackCard: View {
               .foregroundStyle(.yellow)
           }
           Spacer()
-          Text(message.received_at)
+          Text(friendlyTime(message.received_at))
             .font(.caption)
             .foregroundStyle(.secondary)
         }
@@ -3050,7 +3123,7 @@ private struct MessageBubble: View {
           TransportMark(message: message)
           Text(message.from_self ? "You" : message.contact_name)
             .font(.caption.weight(.semibold))
-          Text(message.received_at)
+          Text(friendlyTime(message.received_at))
             .font(.caption2)
             .foregroundStyle(.secondary)
           if message.in_inbox {

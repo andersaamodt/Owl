@@ -142,6 +142,17 @@ swift_message_cards_are_drag_droppable() {
   ' generated/macos/Sources/App/App.swift
 }
 
+swift_message_timestamps_are_friendly() {
+  cd "$repo_dir"
+  grep -q 'private enum FriendlyTime' generated/macos/Sources/App/App.swift
+  grep -Fq 'return "\(compactDuration(delta)) ago"' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text(friendlyTime(message.received_at))' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text(thread.latest_at.isEmpty ? "No messages" : friendlyTime(thread.latest_at))' generated/macos/Sources/App/App.swift
+  grep -Fq 'HeaderView(title: message.subject.isEmpty ? message.contact_name : message.subject, subtitle: "\(message.contact_name) - \(friendlyTime(message.received_at))")' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Text(message.received_at)' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Text(thread.latest_at)' generated/macos/Sources/App/App.swift
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -165,6 +176,7 @@ run_case "Swift uses native desktop idiom" swift_uses_native_desktop_idiom
 run_case "Swift has unified SimpleX/email UI" swift_unified_simplex_email_ui_exists
 run_case "Swift New Senders and Inbox use card-stack layout" swift_new_and_inbox_use_card_stack_layout
 run_case "Swift message cards are drag droppable" swift_message_cards_are_drag_droppable
+run_case "Swift message timestamps are friendly" swift_message_timestamps_are_friendly
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -172,4 +184,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "9/9 native render tests passed"
+printf '%s\n' "10/10 native render tests passed"
