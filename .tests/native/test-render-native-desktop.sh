@@ -222,7 +222,6 @@ swift_uses_toasts_not_status_bar() {
   grep -Fq '@Published var toastMessage: String' generated/macos/Sources/App/App.swift
   grep -Fq 'showToast(statusText, busy: isBusy)' generated/macos/Sources/App/App.swift
   grep -Fq '.transition(.move(edge: .top).combined(with: .opacity))' generated/macos/Sources/App/App.swift
-  grep -Fq '"type": "Toast"' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private struct StatusStrip' generated/macos/Sources/App/App.swift
   ! grep -Fq 'StatusStrip()' generated/macos/Sources/App/App.swift
   ! grep -Fq 'v\\(generatedAppVersion)' generated/macos/Sources/App/App.swift

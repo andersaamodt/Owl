@@ -117,11 +117,6 @@
             }
           ]
         }
-      },
-      "feedback": {
-        "id": "feedback.toast",
-        "type": "Toast",
-        "value": "Transient sync and action feedback"
       }
     },
     "mock": {
