@@ -62,6 +62,9 @@ linux_actions_cover_ir() {
 swift_uses_native_desktop_idiom() {
   cd "$repo_dir"
   grep -q 'PrimaryTabBar' generated/macos/Sources/App/App.swift
+  grep -q 'NSTitlebarAccessoryViewController' generated/macos/Sources/App/App.swift
+  grep -q 'window.titleVisibility = .hidden' generated/macos/Sources/App/App.swift
+  grep -q 'installTitlebarTabs(in: window)' generated/macos/Sources/App/App.swift
   grep -q 'NewSendersView' generated/macos/Sources/App/App.swift
   grep -q 'MailView' generated/macos/Sources/App/App.swift
   grep -q 'TabButton(title: "New Senders"' generated/macos/Sources/App/App.swift
@@ -79,6 +82,12 @@ swift_uses_native_desktop_idiom() {
   grep -q 'let editMenu = NSMenu(title: "Edit")' generated/macos/Sources/App/App.swift
   grep -q 'let messageMenu = NSMenu(title: "Message")' generated/macos/Sources/App/App.swift
   grep -q 'set-ui-pref' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct RootView/ { in_view = 1 }
+    /private enum MessageDropAction/ { in_view = 0 }
+    in_view && /PrimaryTabBar[(][)]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
   ! grep -q 'WKWebView' generated/macos/Sources/App/App.swift
   ! grep -q 'UserDefaults' generated/macos/Sources/App/App.swift
 }

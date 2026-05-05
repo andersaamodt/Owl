@@ -408,6 +408,8 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
   private let session = OwlSession()
   private var window: NSWindow?
   private var settingsWindow: NSWindow?
+  private var titlebarTabsController: NSHostingController<AnyView>?
+  private var titlebarTabsAccessory: NSTitlebarAccessoryViewController?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.mainMenu = makeMainMenu()
@@ -438,12 +440,27 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
       defer: false
     )
     window.title = "Owl Native"
+    window.titleVisibility = .hidden
     window.contentView = hostingView
     window.isReleasedWhenClosed = false
     window.delegate = self
+    installTitlebarTabs(in: window)
     window.center()
     window.makeKeyAndOrderFront(nil)
     self.window = window
+  }
+
+  private func installTitlebarTabs(in window: NSWindow) {
+    let tabsView = PrimaryTabBar()
+      .environmentObject(session)
+    let controller = NSHostingController(rootView: AnyView(tabsView))
+    controller.view.frame = NSRect(x: 0, y: 0, width: 360, height: 34)
+    let accessory = NSTitlebarAccessoryViewController()
+    accessory.view = controller.view
+    accessory.layoutAttribute = .left
+    window.addTitlebarAccessoryViewController(accessory)
+    titlebarTabsController = controller
+    titlebarTabsAccessory = accessory
   }
 
   @objc func showSettingsWindow(_ sender: Any?) {
@@ -1808,8 +1825,6 @@ private struct RootView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      PrimaryTabBar()
-      Divider()
       MainContentView()
       Divider()
       StatusStrip()
@@ -2003,18 +2018,9 @@ private struct PrimaryTabBar: View {
       TabButton(title: "Mail", count: session.snapshot.threads.count, selected: session.selectedRoute == "mail") {
         session.openMail()
       }
-      Spacer()
-      Button { session.refresh() } label: {
-        Label("Refresh", systemImage: "arrow.clockwise")
-      }
-      .buttonStyle(.borderless)
-      Button { (NSApp.delegate as? OwlNativeAppDelegate)?.showSettingsWindow(nil) } label: {
-        Label("Settings", systemImage: "gearshape")
-      }
-      .buttonStyle(.borderless)
     }
-    .padding(.horizontal, 18)
-    .padding(.vertical, 10)
+    .padding(.horizontal, 6)
+    .frame(height: 34)
   }
 }
 
