@@ -14,10 +14,6 @@ static const char *wizardry_app_ir =
   "    ],\n"
   "    \"actions\": [\n"
   "      {\n"
-  "        \"id\": \"refresh_snapshot\",\n"
-  "        \"title\": \"Refresh\"\n"
-  "      },\n"
-  "      {\n"
   "        \"id\": \"focus_new\",\n"
   "        \"title\": \"New Senders\"\n"
   "      },\n"
@@ -126,13 +122,6 @@ static const char *wizardry_app_ir =
   "            \"title\": \"Owl Native\",\n"
   "            \"children\": [\n"
   "              {\n"
-  "                \"id\": \"menuitem.refresh\",\n"
-  "                \"type\": \"MenuItem\",\n"
-  "                \"title\": \"Refresh\",\n"
-  "                \"action\": \"refresh_snapshot\",\n"
-  "                \"shortcut\": \"cmd+r\"\n"
-  "              },\n"
-  "              {\n"
   "                \"id\": \"menuitem.settings\",\n"
   "                \"type\": \"MenuItem\",\n"
   "                \"title\": \"Settings\",\n"
@@ -214,12 +203,6 @@ static const char *wizardry_app_ir =
   "        \"id\": \"toolbar.main\",\n"
   "        \"type\": \"Toolbar\",\n"
   "        \"children\": [\n"
-  "          {\n"
-  "            \"id\": \"toolbar.refresh\",\n"
-  "            \"type\": \"Button\",\n"
-  "            \"title\": \"Refresh\",\n"
-  "            \"action\": \"refresh_snapshot\"\n"
-  "          },\n"
   "          {\n"
   "            \"id\": \"toolbar.inbox\",\n"
   "            \"type\": \"Button\",\n"
@@ -735,7 +718,6 @@ static void app_action_activated(GSimpleAction *action, GVariant *parameter, gpo
   (void)parameter;
   AppContext *context = (AppContext *)user_data;
   const char *action_name = g_action_get_name(G_ACTION(action));
-  if (g_strcmp0(action_name, "refresh-snapshot") == 0) { refresh_from_backend(context); return; }
   if (g_strcmp0(action_name, "focus-new") == 0) { set_status(context, "focus new"); return; }
   if (g_strcmp0(action_name, "focus-inbox") == 0) { set_status(context, "focus inbox"); return; }
   if (g_strcmp0(action_name, "focus-mail") == 0) { set_status(context, "focus mail"); return; }
@@ -768,7 +750,6 @@ static void add_app_action(GtkApplication *app, AppContext *context, const char 
 }
 
 static void setup_actions(GtkApplication *app, AppContext *context) {
-  add_app_action(app, context, "refresh-snapshot");
   add_app_action(app, context, "focus-new");
   add_app_action(app, context, "focus-inbox");
   add_app_action(app, context, "focus-mail");
@@ -795,7 +776,6 @@ static void setup_actions(GtkApplication *app, AppContext *context) {
 static void setup_menus(GtkApplication *app) {
   GMenu *menubar = g_menu_new();
   GMenu *app_menu = g_menu_new();
-  g_menu_append(app_menu, "Refresh", "app.refresh-snapshot");
   g_menu_append(app_menu, "Settings", "app.open-settings");
   g_menu_append(app_menu, "Quit", "app.quit-app");
   g_menu_append_submenu(menubar, "Owl Native", G_MENU_MODEL(app_menu));
@@ -834,11 +814,8 @@ static void activate(GtkApplication *app, gpointer user_data) {
   gtk_window_set_default_size(GTK_WINDOW(context->window), 1120, 740);
 
   GtkWidget *header = gtk_header_bar_new();
-  GtkWidget *refresh_button = gtk_button_new_from_icon_name("view-refresh-symbolic");
   GtkWidget *simplex_button = gtk_button_new_from_icon_name("changes-prevent-symbolic");
-  gtk_widget_set_tooltip_text(refresh_button, "Refresh");
   gtk_widget_set_tooltip_text(simplex_button, "Check SimpleX");
-  gtk_header_bar_pack_start(GTK_HEADER_BAR(header), refresh_button);
   gtk_header_bar_pack_start(GTK_HEADER_BAR(header), simplex_button);
   gtk_window_set_titlebar(GTK_WINDOW(context->window), header);
 
@@ -867,7 +844,6 @@ static void activate(GtkApplication *app, gpointer user_data) {
   gtk_window_set_child(GTK_WINDOW(context->window), root);
   refresh_from_backend(context);
 
-  g_signal_connect(refresh_button, "clicked", G_CALLBACK(activate_action_button), g_action_map_lookup_action(G_ACTION_MAP(app), "refresh-snapshot"));
   g_signal_connect(simplex_button, "clicked", G_CALLBACK(activate_action_button), g_action_map_lookup_action(G_ACTION_MAP(app), "tick-simplex"));
 
   gtk_window_present(GTK_WINDOW(context->window));

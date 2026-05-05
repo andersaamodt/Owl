@@ -17,10 +17,6 @@ private let canonicalIR = #"""
     ],
     "actions": [
       {
-        "id": "refresh_snapshot",
-        "title": "Refresh"
-      },
-      {
         "id": "focus_new",
         "title": "New Senders"
       },
@@ -129,13 +125,6 @@ private let canonicalIR = #"""
             "title": "Owl Native",
             "children": [
               {
-                "id": "menuitem.refresh",
-                "type": "MenuItem",
-                "title": "Refresh",
-                "action": "refresh_snapshot",
-                "shortcut": "cmd+r"
-              },
-              {
                 "id": "menuitem.settings",
                 "type": "MenuItem",
                 "title": "Settings",
@@ -217,12 +206,6 @@ private let canonicalIR = #"""
         "id": "toolbar.main",
         "type": "Toolbar",
         "children": [
-          {
-            "id": "toolbar.refresh",
-            "type": "Button",
-            "title": "Refresh",
-            "action": "refresh_snapshot"
-          },
           {
             "id": "toolbar.inbox",
             "type": "Button",
@@ -417,8 +400,13 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     activateApplication()
   }
 
+  func applicationDidBecomeActive(_ notification: Notification) {
+    session.refreshIfStale()
+  }
+
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
     showMainWindow()
+    session.refreshIfStale(force: true)
     return true
   }
 
@@ -426,6 +414,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     if let window {
       window.makeKeyAndOrderFront(nil)
       activateApplication()
+      session.refreshIfStale()
       return
     }
 
@@ -448,6 +437,10 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     window.center()
     window.makeKeyAndOrderFront(nil)
     self.window = window
+  }
+
+  func windowDidBecomeKey(_ notification: Notification) {
+    session.refreshIfStale()
   }
 
   private func installTitlebarTabs(in window: NSWindow) {
@@ -528,8 +521,6 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
 
     let viewMenuItem = NSMenuItem()
     let viewMenu = NSMenu(title: "View")
-    viewMenu.addItem(actionItem("Refresh", action: "refresh_snapshot", key: "r", modifiers: [.command]))
-    viewMenu.addItem(.separator())
     viewMenu.addItem(actionItem("New Senders", action: "focus_new", key: "1", modifiers: [.command]))
     viewMenu.addItem(actionItem("Inbox", action: "focus_inbox", key: "2", modifiers: [.command]))
     viewMenu.addItem(actionItem("Mail", action: "focus_mail", key: "3", modifiers: [.command]))
@@ -1169,6 +1160,8 @@ private final class OwlSession: ObservableObject {
   @Published var remoteHostDraft: String = ""
   @Published var remoteKeyPathDraft: String = ""
   @Published var remotePortDraft: String = ""
+  private var lastRefreshAt: Date?
+  private let refreshStaleInterval: TimeInterval = 20
 
   init() {
     snapshot = SeedData.snapshot
@@ -1270,9 +1263,10 @@ private final class OwlSession: ObservableObject {
   }
 
   func refresh() {
+    lastRefreshAt = Date()
     let root = mailRoot
     isBusy = true
-    statusText = "Refreshing \(root)"
+    statusText = "Syncing \(root)"
     Task {
       do {
         let next = try await OwlBackend.snapshot(root: root)
@@ -1285,6 +1279,16 @@ private final class OwlSession: ObservableObject {
       }
     }
     refreshBootstrapStatus()
+  }
+
+  func refreshIfStale(force: Bool = false) {
+    if isBusy && !force {
+      return
+    }
+    if !force, let lastRefreshAt, Date().timeIntervalSince(lastRefreshAt) < refreshStaleInterval {
+      return
+    }
+    refresh()
   }
 
   func refreshBootstrapStatus() {
@@ -1747,8 +1751,6 @@ private final class OwlSession: ObservableObject {
 
   func perform(action: String) {
     switch action {
-      case "refresh_snapshot":
-        runSymbolicAction("refresh_snapshot")
       case "focus_new":
         runSymbolicAction("focus_new")
       case "focus_inbox":
@@ -1798,8 +1800,6 @@ private final class OwlSession: ObservableObject {
 
   private func runSymbolicAction(_ action: String) {
     switch action {
-      case "refresh_snapshot":
-        refresh()
       case "focus_new":
         openNewSenders()
       case "focus_inbox":
@@ -1967,16 +1967,6 @@ private struct RootView: View {
     .overlay(alignment: .bottom) {
       MessageDropDock()
         .padding(.bottom, 44)
-    }
-    .toolbar {
-      ToolbarItemGroup(placement: .primaryAction) {
-        Button { session.refresh() } label: {
-          Label("Refresh", systemImage: "arrow.clockwise")
-        }
-        Button { session.tickSimpleX() } label: {
-          Label("Check SimpleX", systemImage: "lock.fill")
-        }
-      }
     }
   }
 }
@@ -3462,9 +3452,6 @@ private struct SettingsView: View {
             .frame(width: 360)
           Button { session.chooseMailRoot() } label: {
             Label("Choose", systemImage: "folder")
-          }
-          Button { session.refresh() } label: {
-            Label("Refresh", systemImage: "arrow.clockwise")
           }
         }
       }

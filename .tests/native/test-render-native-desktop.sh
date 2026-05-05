@@ -202,6 +202,20 @@ swift_new_sender_actions_skip_full_refresh() {
   ' generated/macos/Sources/App/App.swift
 }
 
+native_ui_has_no_manual_refresh_controls() {
+  cd "$repo_dir"
+  grep -Fq 'func applicationDidBecomeActive' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.refreshIfStale()' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.refreshIfStale(force: true)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func windowDidBecomeKey' generated/macos/Sources/App/App.swift
+  grep -Fq 'func refreshIfStale(force: Bool = false)' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'refresh_snapshot' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
+  ! grep -Fq 'toolbar.refresh' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
+  ! grep -Fq 'menuitem.refresh' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
+  ! grep -Fq 'Label("Refresh"' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'view-refresh-symbolic' generated/linux/src/main.c
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -229,6 +243,7 @@ run_case "Swift message timestamps are friendly" swift_message_timestamps_are_fr
 run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_reader_before_mail
 run_case "Swift message surfaces use colored backgrounds" swift_message_surfaces_use_colored_backgrounds
 run_case "Swift new sender actions skip full refresh" swift_new_sender_actions_skip_full_refresh
+run_case "Native UI has no manual refresh controls" native_ui_has_no_manual_refresh_controls
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -236,4 +251,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "13/13 native render tests passed"
+printf '%s\n' "14/14 native render tests passed"

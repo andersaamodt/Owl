@@ -6,7 +6,6 @@
     "name": "Owl Native",
     "targets": ["macos", "linux"],
     "actions": [
-      {"id": "refresh_snapshot", "title": "Refresh"},
       {"id": "focus_new", "title": "New Senders"},
       {"id": "focus_inbox", "title": "Inbox"},
       {"id": "focus_mail", "title": "Mail"},
@@ -52,7 +51,6 @@
             "type": "Menu",
             "title": "Owl Native",
             "children": [
-              {"id": "menuitem.refresh", "type": "MenuItem", "title": "Refresh", "action": "refresh_snapshot", "shortcut": "cmd+r"},
               {"id": "menuitem.settings", "type": "MenuItem", "title": "Settings", "action": "open_settings", "shortcut": "cmd+,"},
               {"id": "menuitem.quit", "type": "MenuItem", "title": "Quit", "action": "quit_app", "shortcut": "cmd+q"}
             ]
@@ -84,7 +82,6 @@
         "id": "toolbar.main",
         "type": "Toolbar",
         "children": [
-          {"id": "toolbar.refresh", "type": "Button", "title": "Refresh", "action": "refresh_snapshot"},
           {"id": "toolbar.inbox", "type": "Button", "title": "Inbox", "action": "focus_inbox"},
           {"id": "toolbar.spacer", "type": "Spacer"},
           {"id": "toolbar.simplex", "type": "Button", "title": "Check SimpleX", "action": "tick_simplex"},
