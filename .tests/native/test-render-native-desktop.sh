@@ -113,6 +113,10 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil' generated/macos/Sources/App/App.swift
   grep -Fq 'badge: stackDepth > 3 ? String(stackDepth) : nil' generated/macos/Sources/App/App.swift
   grep -Fq 'LazyVStack(spacing: 32)' generated/macos/Sources/App/App.swift
+  grep -Fq 'ForEach(inboxStackCards)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var inboxStackCards: [MessageItem]' generated/macos/Sources/App/App.swift
+  grep -Fq 'let grouped = Dictionary(grouping: session.snapshot.inbox, by: { inboxStackKey(for: $0) })' generated/macos/Sources/App/App.swift
+  grep -Fq '.id(inboxStackID(for: message))' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: 560)' generated/macos/Sources/App/App.swift
   grep -Fq 'offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)' generated/macos/Sources/App/App.swift
   grep -Fq '.background(Capsule().fill(tint.opacity(0.86)))' generated/macos/Sources/App/App.swift

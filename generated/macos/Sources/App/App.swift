@@ -3029,13 +3029,13 @@ private struct InboxView: View {
               .frame(maxWidth: .infinity, minHeight: 420)
           } else {
             LazyVStack(spacing: 32) {
-              ForEach(session.snapshot.inbox) { message in
+              ForEach(inboxStackCards) { message in
                 InboxStackCard(
                   message: message,
                   stackDepth: inboxStackDepth(for: message),
-                  isFocused: session.focusedMessageID == message.id
+                  isFocused: isFocusedStack(message)
                 )
-                .id(message.id)
+                .id(inboxStackID(for: message))
                 .frame(maxWidth: 560)
               }
             }
@@ -3044,22 +3044,49 @@ private struct InboxView: View {
           }
         }
         .onAppear {
-          if let target = session.focusedMessageID {
+          if let target = focusedStackID {
             proxy.scrollTo(target, anchor: .center)
           }
         }
         .onChange(of: session.focusedMessageID) { target in
-          if let target {
-            withAnimation { proxy.scrollTo(target, anchor: .center) }
+          if target != nil, let stackID = focusedStackID {
+            withAnimation { proxy.scrollTo(stackID, anchor: .center) }
           }
         }
       }
     }
   }
 
+  private var inboxStackCards: [MessageItem] {
+    let grouped = Dictionary(grouping: session.snapshot.inbox, by: { inboxStackKey(for: $0) })
+    return grouped.values.compactMap { messages in
+      messages.sorted { $0.received_at > $1.received_at }.first
+    }
+    .sorted { $0.received_at > $1.received_at }
+  }
+
+  private var focusedStackID: String? {
+    guard let focusedMessage = session.activeMessage else { return nil }
+    return inboxStackID(for: focusedMessage)
+  }
+
   private func inboxStackDepth(for message: MessageItem) -> Int {
-    let peerCount = session.snapshot.inbox.filter { $0.thread_id == message.thread_id }.count
+    let key = inboxStackKey(for: message)
+    let peerCount = session.snapshot.inbox.filter { inboxStackKey(for: $0) == key }.count
     return max(1, peerCount)
+  }
+
+  private func isFocusedStack(_ message: MessageItem) -> Bool {
+    guard let focusedMessage = session.activeMessage else { return false }
+    return inboxStackKey(for: focusedMessage) == inboxStackKey(for: message)
+  }
+
+  private func inboxStackID(for message: MessageItem) -> String {
+    "inbox-stack:\(inboxStackKey(for: message))"
+  }
+
+  private func inboxStackKey(for message: MessageItem) -> String {
+    message.thread_id.isEmpty ? message.id : message.thread_id
   }
 }
 
