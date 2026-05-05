@@ -18,6 +18,15 @@ Owl Native is the native-desktop conversion of Owl. It is not a Wizardry-hosted 
   `scripts/owl-native-simplex-local-hook.sh`. It provides a concrete local
   adapter path for end-to-end queue/send/poll/import testing while preserving
   the same hook contract for a real SimpleX network adapter.
+- For `new.andersaamodt.com` Secure Chat, Owl Native can use
+  `scripts/owl-native-secure-chat-hook.sh`. It pulls website Secure Chat
+  messages over SSH from the production daemon into Owl's file-backed SimpleX
+  inbox and sends replies back through the same daemon-owned SimpleX identity.
+  Configure it with:
+
+```sh
+sh scripts/owl-native-backend.sh configure-secure-chat-transport ~/mail default
+```
 
 ## Unified Messenger Model
 

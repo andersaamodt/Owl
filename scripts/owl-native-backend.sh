@@ -70,6 +70,7 @@ Actions:
   install-simplex-cli ROOT
   provision-simplex-identity ROOT [IDENTITY] [DISPLAY_NAME] [FULL_NAME]
   configure-simplex-local-transport ROOT [IDENTITY]
+  configure-secure-chat-transport ROOT [IDENTITY] [SSH_HOST] [EXPORT_COMMAND] [SEND_COMMAND]
   set-simplex-transport-hook ROOT IDENTITY HOOK_PATH
   simplex-transport-status ROOT [IDENTITY]
   tick-simplex ROOT
@@ -239,6 +240,10 @@ simplex_profile_conf() {
 
 default_simplex_transport_hook() {
   printf '%s\n' "$script_dir/owl-native-simplex-local-hook.sh"
+}
+
+secure_chat_transport_hook() {
+  printf '%s\n' "$script_dir/owl-native-secure-chat-hook.sh"
 }
 
 ensure_roots() {
@@ -1411,6 +1416,30 @@ configure_simplex_local_transport_action() {
   simplex_transport_status_action "$ident"
 }
 
+configure_secure_chat_transport_action() {
+  ident=$(safe_slug "${1:-default}")
+  ssh_host=${2:-andersaamodt.com}
+  export_command=${3:-/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-export}
+  send_command=${4:-/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-send}
+  case "$ssh_host$export_command$send_command" in
+    *"$nl"*|*"$cr"*) usage_error "Secure Chat transport settings must be single-line values" ;;
+  esac
+  case "$export_command" in /*) ;; *) usage_error "Secure Chat export command must be absolute" ;; esac
+  case "$send_command" in /*) ;; *) usage_error "Secure Chat send command must be absolute" ;; esac
+  hook_path=$(secure_chat_transport_hook)
+  [ -x "$hook_path" ] || fail "bundled Secure Chat transport hook is not executable: $hook_path"
+  conf=$(simplex_profile_conf "$ident")
+  config_set "$conf" transport_hook "$hook_path"
+  config_set "$conf" secure_chat_ssh_host "$ssh_host"
+  config_set "$conf" secure_chat_export_command "$export_command"
+  config_set "$conf" secure_chat_send_command "$send_command"
+  simplex_transport_status_action "$ident" | jq \
+    --arg ssh_host "$ssh_host" \
+    --arg export_command "$export_command" \
+    --arg send_command "$send_command" \
+    '. + {secure_chat_ssh_host:$ssh_host,secure_chat_export_command:$export_command,secure_chat_send_command:$send_command}'
+}
+
 simplex_transport_status_action() {
   ident=$(safe_slug "${1:-default}")
   hook=$(simplex_transport_hook_path "$ident" 2>/dev/null || printf '')
@@ -1483,7 +1512,11 @@ tick_simplex_action() {
     subject=$(jq -r '.subject // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     from_self=$(jq -r '.from_self // false' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     in_inbox=$(jq -r '.in_inbox // true' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    simplex_address=$(jq -r '.simplex_address // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     [ -n "$body" ] || continue
+    if [ -n "$simplex_address" ] && [ ! -f "$(native_contact_file "$thread_id")" ]; then
+      save_contact_binding "$thread_id" "$thread_id" person "" "$simplex_address" no >/dev/null
+    fi
     append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" >/dev/null
     mkdir -p "$(simplex_processed_dir)"
     mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
@@ -1650,6 +1683,10 @@ case "$action" in
   configure-simplex-local-transport)
     ensure_roots
     configure_simplex_local_transport_action "${1:-default}"
+    ;;
+  configure-secure-chat-transport)
+    ensure_roots
+    configure_secure_chat_transport_action "${1:-default}" "${2:-andersaamodt.com}" "${3:-/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-export}" "${4:-/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-send}"
     ;;
   set-simplex-transport-hook)
     ensure_roots

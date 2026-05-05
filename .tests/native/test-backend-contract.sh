@@ -341,6 +341,74 @@ bundled_simplex_local_transport_is_end_to_end() {
   ' >/dev/null
 }
 
+secure_chat_transport_imports_and_replies_over_ssh_hook() {
+  root="$tmpdir/secure-chat-hook/mail"
+  fakebin="$tmpdir/secure-chat-hook/bin"
+  ssh_log="$tmpdir/secure-chat-hook/ssh.log"
+  mkdir -p "$tmpdir/home" "$fakebin"
+  cat >"$fakebin/ssh" <<'SH'
+#!/bin/sh
+set -eu
+host=${1-}
+cmd=${2-}
+arg1=${3-}
+arg2=${4-}
+printf '%s\t%s\t%s\t%s\n' "$host" "$cmd" "$arg1" "$arg2" >>"${OWL_TEST_SSH_LOG:?}"
+case "$cmd" in
+  */blog-secure-chat-owl-export)
+    jq -n --arg since "$arg1" '{
+      success:true,
+      cursor_seq:7,
+      messages:[{
+        id:"nostr-blog-secure-chat:npub1visitor:7",
+        seq:7,
+        npub:"npub1visitor",
+        thread_id:"npub1visitor",
+        body:"hello from website",
+        subject:"Website Secure Chat",
+        from_self:false,
+        in_inbox:true,
+        simplex_address:"secure-chat:26",
+        created_at:"2026-05-05T08:00:00Z"
+      }]
+    }'
+    ;;
+  */blog-secure-chat-owl-send)
+    [ "$arg1" = "npub1visitor" ] || exit 1
+    jq -n '{success:true,npub:"npub1visitor"}'
+    ;;
+  *)
+    exit 64
+    ;;
+esac
+SH
+  chmod +x "$fakebin/ssh"
+  backend prepare "$root" >/dev/null
+  backend configure-secure-chat-transport "$root" default test-host /remote/blog-secure-chat-owl-export /remote/blog-secure-chat-owl-send | jq -e '.hook_ready == true and .secure_chat_ssh_host == "test-host"' >/dev/null
+  tick=$(
+    PATH="$fakebin:$PATH" \
+    OWL_TEST_SSH_LOG="$ssh_log" \
+    HOME="$tmpdir/home" \
+    XDG_STATE_HOME="$tmpdir/state" \
+    XDG_CONFIG_HOME="$tmpdir/config" \
+    sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default
+  )
+  printf '%s\n' "$tick" | jq -e '.ok == true and .imported == 1 and .outbox.failed == 0' >/dev/null
+  snapshot=$(backend snapshot "$root")
+  printf '%s\n' "$snapshot" | jq -e '
+    ([.threads[] | select(.id == "npub1visitor")][0].simplex_address == "secure-chat:26") and
+    (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website")) | length) == 1
+  ' >/dev/null
+  backend send-message "$root" npub1visitor simplex "Reply" "$(b64 'reply body')" >/dev/null
+  PATH="$fakebin:$PATH" \
+    OWL_TEST_SSH_LOG="$ssh_log" \
+    HOME="$tmpdir/home" \
+    XDG_STATE_HOME="$tmpdir/state" \
+    XDG_CONFIG_HOME="$tmpdir/config" \
+    sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
+  grep -q '/remote/blog-secure-chat-owl-send	npub1visitor' "$ssh_log"
+}
+
 install_simplex_cli_delegates_to_wizardry_installer() {
   root="$tmpdir/install-wizardry/mail"
   fake_dir="$tmpdir/fake-wizardry"
@@ -402,6 +470,7 @@ run_case "UI prefs are plaintext XDG state" ui_prefs_are_plaintext_xdg_state
 run_case "message detail returns SimpleX and email messages" message_detail_returns_simplex_and_email_messages
 run_case "SimpleX tick uses transport hook for poll and send" simplex_tick_uses_transport_hook_for_poll_and_send
 run_case "bundled SimpleX local transport is end-to-end" bundled_simplex_local_transport_is_end_to_end
+run_case "Secure Chat transport imports and replies over SSH hook" secure_chat_transport_imports_and_replies_over_ssh_hook
 run_case "install SimpleX CLI delegates to Wizardry installable" install_simplex_cli_delegates_to_wizardry_installer
 run_case "invalid action fails" invalid_action_fails
 
@@ -410,4 +479,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "16/16 backend contract tests passed"
+printf '%s\n' "17/17 backend contract tests passed"

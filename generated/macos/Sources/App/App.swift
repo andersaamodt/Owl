@@ -2478,10 +2478,11 @@ private struct CardStackFrame<Content: View>: View {
         if let badge, !badge.isEmpty {
           Text(badge)
             .font(.caption.weight(.bold))
-            .foregroundStyle(tint)
+            .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(Capsule().fill(tint.opacity(0.16)))
+            .background(Capsule().fill(tint.opacity(0.86)))
+            .shadow(color: Color.black.opacity(0.18), radius: 2, x: 0, y: 1)
             .offset(x: 8, y: -8)
         }
       }
@@ -2622,6 +2623,10 @@ private struct NewSenderStackCard: View {
     thread.messages.filter { $0.list == "quarantine" }
   }
 
+  private var latestMessage: MessageItem? {
+    quarantineMessages.sorted(by: { $0.received_at > $1.received_at }).first
+  }
+
   var body: some View {
     Button(action: action) {
       CardStackFrame(
@@ -2641,7 +2646,7 @@ private struct NewSenderStackCard: View {
               .font(.caption)
               .foregroundStyle(.secondary)
           }
-          if let latest = quarantineMessages.sorted(by: { $0.received_at > $1.received_at }).first {
+          if let latest = latestMessage {
             Text(latest.subject.isEmpty ? "(no subject)" : latest.subject)
               .font(.subheadline.weight(.semibold))
               .lineLimit(1)
@@ -2650,17 +2655,12 @@ private struct NewSenderStackCard: View {
               .foregroundStyle(.secondary)
               .lineLimit(2)
           }
-          HStack(spacing: 8) {
-            Label("\(quarantineMessages.count) pending", systemImage: "tray")
-            if thread.hasEmailPath {
-              Label("Email", systemImage: "lock.open")
-            }
-            if thread.hasSimpleXPath {
-              Label("SimpleX", systemImage: "lock.fill")
+          HStack {
+            Spacer()
+            if let latest = latestMessage {
+              TransportPill(message: latest)
             }
           }
-          .font(.caption.weight(.semibold))
-          .foregroundStyle(.secondary)
         }
       }
     }

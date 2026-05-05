@@ -108,6 +108,9 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -q 'NewSenderStackCard' generated/macos/Sources/App/App.swift
   grep -q 'NewSenderMessageStackCard' generated/macos/Sources/App/App.swift
   grep -q 'InboxStackCard' generated/macos/Sources/App/App.swift
+  grep -Fq '.background(Capsule().fill(tint.opacity(0.86)))' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var latestMessage: MessageItem?' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Label("\\(quarantineMessages.count) pending", systemImage: "tray")' generated/macos/Sources/App/App.swift
   ! awk '
     /private struct NewSendersView/ { in_view = 1 }
     /private struct MailView/ { in_view = 0 }
