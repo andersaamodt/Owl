@@ -1237,10 +1237,10 @@ private final class OwlSession: ObservableObject {
 
   var activeMessage: MessageItem? {
     if let selectedMessageID {
-      return snapshot.messages.first(where: { $0.id == selectedMessageID })
+      return message(withID: selectedMessageID)
     }
     if let focusedMessageID {
-      return snapshot.messages.first(where: { $0.id == focusedMessageID })
+      return message(withID: focusedMessageID)
     }
     return nil
   }
@@ -1306,7 +1306,7 @@ private final class OwlSession: ObservableObject {
       selectedMailThreadID = String(selectedRoute.dropFirst("thread:".count))
       selectedRoute = "mail"
     }
-    if selectedRoute != "new" && selectedRoute != "inbox" && selectedRoute != "mail" {
+    if selectedRoute != "new" && selectedRoute != "inbox" && selectedRoute != "inbox-message" && selectedRoute != "mail" {
       selectedRoute = "new"
     }
     if selectedMailThreadID == nil {
@@ -1374,6 +1374,13 @@ private final class OwlSession: ObservableObject {
     selectedRoute = "inbox"
     focusedMessageID = messageID
     selectedMessageID = messageID
+    persistSelectedRoute()
+  }
+
+  func openInboxMessage(_ message: MessageItem) {
+    selectedRoute = "inbox-message"
+    focusedMessageID = message.id
+    selectedMessageID = message.id
     persistSelectedRoute()
   }
 
@@ -2085,7 +2092,7 @@ private struct PrimaryTabBar: View {
       TabButton(title: "New Senders", count: session.newSenderThreads.count, selected: session.selectedRoute == "new") {
         session.openNewSenders()
       }
-      TabButton(title: "Inbox", count: session.snapshot.inbox.count, selected: session.selectedRoute == "inbox") {
+      TabButton(title: "Inbox", count: session.snapshot.inbox.count, selected: session.selectedRoute == "inbox" || session.selectedRoute == "inbox-message") {
         session.openInbox(focusing: nil)
       }
       TabButton(title: "Mail", count: session.snapshot.threads.count, selected: session.selectedRoute == "mail") {
@@ -2299,6 +2306,8 @@ private struct MainContentView: View {
         NewSendersView()
       } else if session.selectedRoute == "inbox" {
         InboxView()
+      } else if session.selectedRoute == "inbox-message" {
+        MessageReaderView(message: session.activeMessage, emptyTitle: "No Inbox Message Selected")
       } else if session.selectedRoute == "mail" {
         MailView()
       } else {
@@ -2750,7 +2759,29 @@ private struct MessageReaderView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       if let message {
-        HeaderView(title: message.subject.isEmpty ? message.contact_name : message.subject, subtitle: "\(message.contact_name) - \(friendlyTime(message.received_at))")
+        HStack(alignment: .center, spacing: 12) {
+          Button { session.openInbox(focusing: message.id) } label: {
+            Image(systemName: "chevron.left")
+          }
+          .buttonStyle(.borderless)
+          .help("Back to Inbox")
+          VStack(alignment: .leading, spacing: 4) {
+            Text(message.subject.isEmpty ? message.contact_name : message.subject)
+              .font(.title2.weight(.semibold))
+              .lineLimit(1)
+            Text("\(message.contact_name) - \(friendlyTime(message.received_at))")
+              .font(.callout)
+              .foregroundStyle(.secondary)
+          }
+          Spacer()
+          Button { session.openTimeline(for: message) } label: {
+            Image(systemName: "bubble.left.and.bubble.right")
+          }
+          .buttonStyle(.borderless)
+          .help("Show this message in Mail")
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
         Divider()
         ScrollView {
           VStack(alignment: .leading, spacing: 14) {
@@ -2762,11 +2793,6 @@ private struct MessageReaderView: View {
                 }
                 .buttonStyle(.borderless)
               }
-              Spacer()
-              Button { session.openTimeline(for: message) } label: {
-                Label("Open in Mail", systemImage: "bubble.left.and.bubble.right")
-              }
-              .buttonStyle(.borderless)
             }
             Text(message.displayBody.isEmpty ? "No content" : message.displayBody)
               .font(.body)
@@ -3054,7 +3080,7 @@ private struct InboxStackCard: View {
     }
     .contentShape(RoundedRectangle(cornerRadius: 8))
     .draggableMessageCard(message)
-    .onTapGesture { session.openTimeline(for: message) }
+    .onTapGesture { session.openInboxMessage(message) }
     .contextMenu { MessageContextMenu(message: message) }
   }
 }

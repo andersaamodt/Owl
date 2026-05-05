@@ -153,6 +153,21 @@ swift_message_timestamps_are_friendly() {
   ! grep -Fq 'Text(thread.latest_at)' generated/macos/Sources/App/App.swift
 }
 
+swift_inbox_cards_open_reader_before_mail() {
+  cd "$repo_dir"
+  grep -Fq 'selectedRoute = "inbox-message"' generated/macos/Sources/App/App.swift
+  grep -Fq 'MessageReaderView(message: session.activeMessage, emptyTitle: "No Inbox Message Selected")' generated/macos/Sources/App/App.swift
+  grep -Fq '.onTapGesture { session.openInboxMessage(message) }' generated/macos/Sources/App/App.swift
+  grep -Fq '.help("Show this message in Mail")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: "bubble.left.and.bubble.right")' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct InboxStackCard/ { in_view = 1 }
+    /private struct TimelineView/ { in_view = 0 }
+    in_view && /openTimeline[(]for: message[)]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -177,6 +192,7 @@ run_case "Swift has unified SimpleX/email UI" swift_unified_simplex_email_ui_exi
 run_case "Swift New Senders and Inbox use card-stack layout" swift_new_and_inbox_use_card_stack_layout
 run_case "Swift message cards are drag droppable" swift_message_cards_are_drag_droppable
 run_case "Swift message timestamps are friendly" swift_message_timestamps_are_friendly
+run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_reader_before_mail
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -184,4 +200,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "10/10 native render tests passed"
+printf '%s\n' "11/11 native render tests passed"
