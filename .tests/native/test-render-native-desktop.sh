@@ -188,6 +188,20 @@ swift_message_surfaces_use_colored_backgrounds() {
   ' generated/macos/Sources/App/App.swift
 }
 
+swift_new_sender_actions_skip_full_refresh() {
+  cd "$repo_dir"
+  grep -Fq 'func applySenderMove(sender: String, to list: String)' generated/macos/Sources/App/App.swift
+  grep -Fq 'runMessageAction(status: "Moved sender to \(list)", refreshAfter: false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'self.applySenderMove(sender: sender, to: list)' generated/macos/Sources/App/App.swift
+  grep -Fq 'if refreshAfter {' generated/macos/Sources/App/App.swift
+  ! awk '
+    /func moveSelectedNewSender/ { in_view = 1 }
+    /func applySenderMove/ { in_view = 0 }
+    in_view && /self[.]refresh[(][)]|refresh[(][)]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -214,6 +228,7 @@ run_case "Swift message cards are drag droppable" swift_message_cards_are_drag_d
 run_case "Swift message timestamps are friendly" swift_message_timestamps_are_friendly
 run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_reader_before_mail
 run_case "Swift message surfaces use colored backgrounds" swift_message_surfaces_use_colored_backgrounds
+run_case "Swift new sender actions skip full refresh" swift_new_sender_actions_skip_full_refresh
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -221,4 +236,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "12/12 native render tests passed"
+printf '%s\n' "13/13 native render tests passed"

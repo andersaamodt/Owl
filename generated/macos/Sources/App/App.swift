@@ -1396,9 +1396,54 @@ private final class OwlSession: ObservableObject {
   func moveSelectedNewSender(to list: String) {
     guard let message = newSenderMessages.first else { return }
     let root = mailRoot
-    runMessageAction(status: "Moved sender to \(list)") {
+    let sender = message.sender
+    runMessageAction(status: "Moved sender to \(list)", refreshAfter: false) {
       try await OwlBackend.runJSON(action: "move-sender", root: root, args: ["quarantine", list, message.sender])
+    } afterSuccess: {
+      self.applySenderMove(sender: sender, to: list)
     }
+  }
+
+  func applySenderMove(sender: String, to list: String) {
+    func movedMessage(_ message: MessageItem) -> MessageItem {
+      guard message.sender == sender, message.list == "quarantine" else {
+        return message
+      }
+      var moved = message
+      moved.list = list
+      moved.status = list
+      return moved
+    }
+
+    func movedThread(_ thread: ThreadItem) -> ThreadItem {
+      var moved = thread
+      moved.messages = thread.messages.map(movedMessage)
+      moved.unread_count = moved.messages.filter { !$0.read && $0.list != "archive" && $0.list != "trash" }.count
+      return moved
+    }
+
+    let movedCount = snapshot.messages.filter { $0.sender == sender && $0.list == "quarantine" }.count
+    snapshot.messages = snapshot.messages.map(movedMessage)
+    snapshot.inbox = snapshot.inbox.map(movedMessage)
+    snapshot.threads = snapshot.threads.map(movedThread)
+    snapshot.favorites = snapshot.favorites.map(movedThread)
+    snapshot.individuals = snapshot.individuals.map(movedThread)
+    snapshot.groups = snapshot.groups.map(movedThread)
+    snapshot.mailboxes = snapshot.mailboxes.map { mailbox in
+      var updated = mailbox
+      if updated.id == "quarantine" {
+        updated.count = max(0, updated.count - movedCount)
+      } else if updated.id == list {
+        updated.count += movedCount
+      }
+      return updated
+    }
+    if selectedNewSenderID != nil, selectedNewSender?.messages.contains(where: { $0.list == "quarantine" }) != true {
+      selectedNewSenderID = newSenderThreads.first?.id
+    }
+    let firstMessage = newSenderMessages.first
+    selectedMessageID = firstMessage?.id
+    focusedMessageID = firstMessage?.id
   }
 
   func openMailbox(_ mailbox: MailboxItem) {
@@ -1569,14 +1614,22 @@ private final class OwlSession: ObservableObject {
     draggingMessageID = nil
   }
 
-  func runMessageAction(status: String, action: @escaping () async throws -> Data) {
+  func runMessageAction(
+    status: String,
+    refreshAfter: Bool = true,
+    action: @escaping () async throws -> Data,
+    afterSuccess: @escaping () -> Void = {}
+  ) {
     isBusy = true
     Task {
       do {
         _ = try await action()
+        afterSuccess()
         self.statusText = status
         self.isBusy = false
-        self.refresh()
+        if refreshAfter {
+          self.refresh()
+        }
       } catch {
         self.statusText = error.localizedDescription
         self.isBusy = false
