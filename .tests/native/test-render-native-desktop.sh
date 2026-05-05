@@ -132,6 +132,18 @@ swift_new_and_inbox_use_card_stack_layout() {
   ' generated/macos/Sources/App/App.swift
 }
 
+swift_cards_have_horizontal_flick_actions() {
+  cd "$repo_dir"
+  grep -Fq 'func moveNewSender(_ thread: ThreadItem, to list: String)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var newSenderFlickGesture: some Gesture' generated/macos/Sources/App/App.swift
+  grep -Fq 'let destination = projected >= 0 ? "accepted" : "spam"' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.moveNewSender(thread, to: destination)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var inboxArchiveFlickGesture: some Gesture' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.archive(message)' generated/macos/Sources/App/App.swift
+  grep -Fq '.simultaneousGesture(inboxArchiveFlickGesture)' generated/macos/Sources/App/App.swift
+  grep -Fq '.simultaneousGesture(newSenderFlickGesture)' generated/macos/Sources/App/App.swift
+}
+
 swift_message_cards_are_drag_droppable() {
   cd "$repo_dir"
   grep -q 'PrioritiesTrashIcon' generated/macos/Sources/App/App.swift
@@ -263,6 +275,7 @@ run_case "Linux actions cover IR" linux_actions_cover_ir
 run_case "Swift uses native desktop idiom" swift_uses_native_desktop_idiom
 run_case "Swift has unified SimpleX/email UI" swift_unified_simplex_email_ui_exists
 run_case "Swift New Senders and Inbox use card-stack layout" swift_new_and_inbox_use_card_stack_layout
+run_case "Swift cards have horizontal flick actions" swift_cards_have_horizontal_flick_actions
 run_case "Swift message cards are drag droppable" swift_message_cards_are_drag_droppable
 run_case "Swift message timestamps are friendly" swift_message_timestamps_are_friendly
 run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_reader_before_mail
@@ -277,4 +290,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "15/15 native render tests passed"
+printf '%s\n' "16/16 native render tests passed"

@@ -1089,6 +1089,20 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  func moveNewSender(_ thread: ThreadItem, to list: String) {
+    guard let message = thread.messages.first(where: { $0.list == "quarantine" }) else { return }
+    selectedNewSenderID = thread.id
+    selectedMessageID = message.id
+    focusedMessageID = message.id
+    let root = mailRoot
+    let sender = message.sender
+    runMessageAction(status: "Moved sender to \(list)", refreshAfter: false) {
+      try await OwlBackend.runJSON(action: "move-sender", root: root, args: ["quarantine", list, sender])
+    } afterSuccess: {
+      self.applySenderMove(sender: sender, to: list)
+    }
+  }
+
   func applySenderMove(sender: String, to list: String) {
     func movedMessage(_ message: MessageItem) -> MessageItem {
       guard message.sender == sender, message.list == "quarantine" else {
@@ -2274,6 +2288,8 @@ private struct NewSenderStackSurface: View {
 }
 
 private struct NewSenderStackCard: View {
+  @EnvironmentObject private var session: OwlSession
+  @State private var flickOffset: CGFloat = 0
   let thread: ThreadItem
   let isSelected: Bool
   let action: () -> Void
@@ -2324,6 +2340,33 @@ private struct NewSenderStackCard: View {
       }
     }
     .buttonStyle(.plain)
+    .offset(x: flickOffset)
+    .rotationEffect(.degrees(Double(flickOffset / 28)))
+    .opacity(flickOffset == 0 ? 1 : max(0.58, 1.0 - Double(abs(flickOffset) / 520.0)))
+    .simultaneousGesture(newSenderFlickGesture)
+    .animation(.spring(response: 0.24, dampingFraction: 0.82), value: flickOffset)
+  }
+
+  private var newSenderFlickGesture: some Gesture {
+    DragGesture(minimumDistance: 18)
+      .onChanged { value in
+        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+        flickOffset = value.translation.width
+      }
+      .onEnded { value in
+        let projected = value.predictedEndTranslation.width
+        guard abs(projected) > 170 || abs(value.translation.width) > 120 else {
+          flickOffset = 0
+          return
+        }
+        let destination = projected >= 0 ? "accepted" : "spam"
+        flickOffset = projected >= 0 ? 900 : -900
+        session.moveNewSender(thread, to: destination)
+        Task {
+          try? await Task.sleep(nanoseconds: 260_000_000)
+          flickOffset = 0
+        }
+      }
   }
 }
 
@@ -2796,6 +2839,7 @@ private struct MessageReaderCard: View {
 
 private struct InboxStackCard: View {
   @EnvironmentObject private var session: OwlSession
+  @State private var flickOffset: CGFloat = 0
   let message: MessageItem
   let stackDepth: Int
   let isFocused: Bool
@@ -2852,8 +2896,34 @@ private struct InboxStackCard: View {
     }
     .contentShape(RoundedRectangle(cornerRadius: 8))
     .draggableMessageCard(message)
+    .offset(x: flickOffset)
+    .rotationEffect(.degrees(Double(flickOffset / 34)))
+    .opacity(flickOffset == 0 ? 1 : max(0.62, 1.0 - Double(abs(flickOffset) / 560.0)))
+    .simultaneousGesture(inboxArchiveFlickGesture)
     .onTapGesture { session.openInboxMessage(message) }
     .contextMenu { MessageContextMenu(message: message) }
+    .animation(.spring(response: 0.24, dampingFraction: 0.82), value: flickOffset)
+  }
+
+  private var inboxArchiveFlickGesture: some Gesture {
+    DragGesture(minimumDistance: 18)
+      .onChanged { value in
+        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+        flickOffset = value.translation.width
+      }
+      .onEnded { value in
+        let projected = value.predictedEndTranslation.width
+        guard abs(projected) > 170 || abs(value.translation.width) > 120 else {
+          flickOffset = 0
+          return
+        }
+        flickOffset = projected >= 0 ? 900 : -900
+        session.archive(message)
+        Task {
+          try? await Task.sleep(nanoseconds: 260_000_000)
+          flickOffset = 0
+        }
+      }
   }
 }
 
