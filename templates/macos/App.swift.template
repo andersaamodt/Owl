@@ -2052,16 +2052,31 @@ private struct CardStackFrame<Content: View>: View {
     min(max(depth - 1, 0), 4)
   }
 
-  private var cardFill: LinearGradient {
-    LinearGradient(
-      colors: [
-        tint.opacity(isSelected ? 0.24 : 0.16),
-        Color(nsColor: .controlBackgroundColor).opacity(0.96),
-        tint.opacity(isSelected ? 0.12 : 0.08)
-      ],
-      startPoint: .topLeading,
-      endPoint: .bottomTrailing
-    )
+  private var cardBackground: some View {
+    RoundedRectangle(cornerRadius: 8)
+      .fill(Color(nsColor: .controlBackgroundColor).opacity(isSelected ? 0.98 : 0.94))
+      .overlay {
+        RoundedRectangle(cornerRadius: 8)
+          .fill(tint.opacity(isSelected ? 0.10 : 0.065))
+      }
+      .overlay(alignment: .leading) {
+        RoundedRectangle(cornerRadius: 8)
+          .fill(tint.opacity(isSelected ? 0.64 : 0.48))
+          .frame(width: 5)
+      }
+      .overlay {
+        RoundedRectangle(cornerRadius: 8)
+          .fill(
+            LinearGradient(
+              colors: [
+                Color.white.opacity(isSelected ? 0.30 : 0.20),
+                Color.clear
+              ],
+              startPoint: .top,
+              endPoint: .bottom
+            )
+          )
+      }
   }
 
   private func stackedFill(_ index: Int) -> LinearGradient {
@@ -2079,8 +2094,7 @@ private struct CardStackFrame<Content: View>: View {
     content
       .padding(14)
       .background(
-        RoundedRectangle(cornerRadius: 8)
-          .fill(cardFill)
+        cardBackground
       )
       .background {
         ZStack {
@@ -2105,7 +2119,7 @@ private struct CardStackFrame<Content: View>: View {
             .offset(x: 8, y: -8)
         }
       }
-      .shadow(color: tint.opacity(isSelected ? 0.20 : 0.11), radius: isSelected ? 11 : 8, x: 0, y: 4)
+      .shadow(color: tint.opacity(isSelected ? 0.12 : 0.07), radius: isSelected ? 10 : 7, x: 0, y: 4)
       .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
   }
 
@@ -2911,7 +2925,7 @@ private struct MessageBubble: View {
       .frame(maxWidth: message.isLongBlock ? 620 : 430, alignment: .leading)
       .background(messageBackground)
       .opacity(message.in_inbox ? 0.62 : 1.0)
-      .shadow(color: messageTint.opacity(message.from_self ? 0.16 : 0.10), radius: 6, x: 0, y: 2)
+      .shadow(color: messageTint.opacity(message.from_self ? 0.10 : 0.07), radius: 6, x: 0, y: 2)
       .contextMenu { MessageContextMenu(message: message) }
       .onTapGesture { session.selectMessage(message) }
       if !message.from_self { Spacer(minLength: 80) }
@@ -2921,17 +2935,29 @@ private struct MessageBubble: View {
 
   private var messageBackground: some View {
     RoundedRectangle(cornerRadius: 8)
-      .fill(
-        LinearGradient(
-          colors: [
-            messageTint.opacity(message.from_self ? 0.24 : 0.15),
-            Color(nsColor: .controlBackgroundColor).opacity(message.from_self ? 0.84 : 0.94),
-            messageTint.opacity(message.from_self ? 0.12 : 0.08)
-          ],
-          startPoint: .topLeading,
-          endPoint: .bottomTrailing
-        )
-      )
+      .fill(Color(nsColor: .controlBackgroundColor).opacity(message.from_self ? 0.97 : 0.93))
+      .overlay {
+        RoundedRectangle(cornerRadius: 8)
+          .fill(messageTint.opacity(message.from_self ? 0.105 : 0.07))
+      }
+      .overlay(alignment: message.from_self ? .trailing : .leading) {
+        RoundedRectangle(cornerRadius: 8)
+          .fill(messageTint.opacity(message.from_self ? 0.62 : 0.50))
+          .frame(width: 4)
+      }
+      .overlay {
+        RoundedRectangle(cornerRadius: 8)
+          .fill(
+            LinearGradient(
+              colors: [
+                Color.white.opacity(message.from_self ? 0.24 : 0.16),
+                Color.clear
+              ],
+              startPoint: .top,
+              endPoint: .bottom
+            )
+          )
+      }
   }
 
   private var messageTint: Color {
