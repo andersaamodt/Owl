@@ -790,8 +790,25 @@ private final class OwlSession: ObservableObject {
   @Published var selectedTransport: Transport = .simplex
   @Published var composeSubject: String = ""
   @Published var composeBody: String = ""
-  @Published var statusText: String = "Ready"
-  @Published var isBusy: Bool = false
+  @Published var statusText: String = "Ready" {
+    didSet {
+      if statusText != "Ready" {
+        showToast(statusText, busy: isBusy)
+      }
+    }
+  }
+  @Published var isBusy: Bool = false {
+    didSet {
+      if isBusy {
+        showToast(statusText, busy: true, autoDismiss: false)
+      } else if statusText != "Ready" {
+        showToast(statusText)
+      }
+    }
+  }
+  @Published var toastMessage: String = ""
+  @Published var toastBusy: Bool = false
+  @Published var toastVisible: Bool = false
   @Published var bootstrap: SimpleXBootstrap = SimpleXBootstrap()
   @Published var contactDraftName: String = ""
   @Published var contactDraftEmail: String = ""
@@ -804,6 +821,7 @@ private final class OwlSession: ObservableObject {
   @Published var remotePortDraft: String = ""
   private var lastRefreshAt: Date?
   private let refreshStaleInterval: TimeInterval = 20
+  private var toastGeneration = 0
 
   init() {
     snapshot = SeedData.snapshot
@@ -941,6 +959,27 @@ private final class OwlSession: ObservableObject {
         self.bootstrap = next
       } catch {
         self.bootstrap = SimpleXBootstrap(install_state: "unknown", last_error: error.localizedDescription)
+      }
+    }
+  }
+
+  func showToast(_ message: String, busy: Bool = false, autoDismiss: Bool = true) {
+    guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    toastGeneration += 1
+    let generation = toastGeneration
+    toastMessage = message
+    toastBusy = busy
+    withAnimation(.easeOut(duration: 0.16)) {
+      toastVisible = true
+    }
+    if autoDismiss && !busy {
+      Task {
+        try? await Task.sleep(nanoseconds: 3_200_000_000)
+        if self.toastGeneration == generation {
+          withAnimation(.easeIn(duration: 0.16)) {
+            self.toastVisible = false
+          }
+        }
       }
     }
   }
@@ -1560,14 +1599,40 @@ private struct RootView: View {
   var body: some View {
     VStack(spacing: 0) {
       MainContentView()
-      Divider()
-      StatusStrip()
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+    }
+    .overlay(alignment: .topTrailing) {
+      ToastOverlay()
+        .padding(.top, 14)
+        .padding(.trailing, 16)
     }
     .overlay(alignment: .bottom) {
       MessageDropDock()
-        .padding(.bottom, 44)
+        .padding(.bottom, 24)
+    }
+  }
+}
+
+private struct ToastOverlay: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    if session.toastVisible {
+      HStack(spacing: 8) {
+        if session.toastBusy {
+          ProgressView()
+            .scaleEffect(0.62)
+        }
+        Text(session.toastMessage)
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(.primary)
+          .lineLimit(2)
+      }
+      .padding(.horizontal, 12)
+      .padding(.vertical, 9)
+      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+      .shadow(color: Color.black.opacity(0.14), radius: 10, x: 0, y: 5)
+      .frame(maxWidth: 360, alignment: .trailing)
+      .transition(.move(edge: .top).combined(with: .opacity))
     }
   }
 }
@@ -1824,11 +1889,6 @@ private struct SidebarView: View {
       }
     }
     .listStyle(.sidebar)
-    .safeAreaInset(edge: .bottom) {
-      StatusStrip()
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-    }
   }
 }
 
@@ -3016,28 +3076,6 @@ private struct TransportPill: View {
       .padding(.vertical, 3)
       .background(Capsule().fill((message.isSimpleX ? Color.green : Color.red).opacity(0.12)))
       .foregroundStyle(message.isSimpleX ? .green : .red)
-  }
-}
-
-private struct StatusStrip: View {
-  @EnvironmentObject private var session: OwlSession
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack {
-        if session.isBusy {
-          ProgressView()
-            .scaleEffect(0.6)
-        }
-        Text(session.statusText)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .lineLimit(2)
-      }
-      Text("v\(generatedAppVersion) - \(generatedAppID)")
-        .font(.caption2)
-        .foregroundStyle(.tertiary)
-    }
   }
 }
 

@@ -118,13 +118,10 @@
           ]
         }
       },
-      "statusBar": {
-        "id": "statusbar.main",
-        "type": "StatusBar",
-        "children": [
-          {"id": "statusbar.backend", "type": "Text", "style": "caption", "value": "Owl mail root: ~/mail"},
-          {"id": "statusbar.transport", "type": "Text", "style": "caption", "value": "SimpleX preferred when available"}
-        ]
+      "feedback": {
+        "id": "feedback.toast",
+        "type": "Toast",
+        "value": "Transient sync and action feedback"
       }
     },
     "mock": {

@@ -216,6 +216,19 @@ native_ui_has_no_manual_refresh_controls() {
   ! grep -Fq 'view-refresh-symbolic' generated/linux/src/main.c
 }
 
+swift_uses_toasts_not_status_bar() {
+  cd "$repo_dir"
+  grep -Fq 'private struct ToastOverlay' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var toastMessage: String' generated/macos/Sources/App/App.swift
+  grep -Fq 'showToast(statusText, busy: isBusy)' generated/macos/Sources/App/App.swift
+  grep -Fq '.transition(.move(edge: .top).combined(with: .opacity))' generated/macos/Sources/App/App.swift
+  grep -Fq '"type": "Toast"' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'private struct StatusStrip' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'StatusStrip()' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'v\\(generatedAppVersion)' generated/macos/Sources/App/App.swift
+  ! grep -Fq '"type": "StatusBar"' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -244,6 +257,7 @@ run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_read
 run_case "Swift message surfaces use colored backgrounds" swift_message_surfaces_use_colored_backgrounds
 run_case "Swift new sender actions skip full refresh" swift_new_sender_actions_skip_full_refresh
 run_case "Native UI has no manual refresh controls" native_ui_has_no_manual_refresh_controls
+run_case "Swift uses toasts not status bar" swift_uses_toasts_not_status_bar
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -251,4 +265,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "14/14 native render tests passed"
+printf '%s\n' "15/15 native render tests passed"
