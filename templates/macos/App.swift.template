@@ -2027,6 +2027,45 @@ private enum NewSendersFlowStage {
   case reader
 }
 
+private struct MessageSurfaceBackground: View {
+  let tint: Color
+  let tintOpacity: Double
+  let edgeOpacity: Double
+  let edge: Alignment
+  let edgeWidth: CGFloat
+  let controlOpacity: Double
+
+  init(
+    tint: Color,
+    tintOpacity: Double,
+    edgeOpacity: Double,
+    edge: Alignment = .leading,
+    edgeWidth: CGFloat = 5,
+    controlOpacity: Double = 0.94
+  ) {
+    self.tint = tint
+    self.tintOpacity = tintOpacity
+    self.edgeOpacity = edgeOpacity
+    self.edge = edge
+    self.edgeWidth = edgeWidth
+    self.controlOpacity = controlOpacity
+  }
+
+  var body: some View {
+    RoundedRectangle(cornerRadius: 8)
+      .fill(Color(nsColor: .controlBackgroundColor).opacity(controlOpacity))
+      .overlay {
+        RoundedRectangle(cornerRadius: 8)
+          .fill(tint.opacity(tintOpacity))
+      }
+      .overlay(alignment: edge) {
+        RoundedRectangle(cornerRadius: 8)
+          .fill(tint.opacity(edgeOpacity))
+          .frame(width: edgeWidth)
+      }
+  }
+}
+
 private struct CardStackFrame<Content: View>: View {
   let depth: Int
   let badge: String?
@@ -2053,17 +2092,12 @@ private struct CardStackFrame<Content: View>: View {
   }
 
   private var cardBackground: some View {
-    RoundedRectangle(cornerRadius: 8)
-      .fill(Color(nsColor: .controlBackgroundColor).opacity(isSelected ? 0.98 : 0.94))
-      .overlay {
-        RoundedRectangle(cornerRadius: 8)
-          .fill(tint.opacity(isSelected ? 0.022 : 0.014))
-      }
-      .overlay(alignment: .leading) {
-        RoundedRectangle(cornerRadius: 8)
-          .fill(tint.opacity(isSelected ? 0.72 : 0.58))
-          .frame(width: 5)
-      }
+    MessageSurfaceBackground(
+      tint: tint,
+      tintOpacity: isSelected ? 0.022 : 0.014,
+      edgeOpacity: isSelected ? 0.72 : 0.58,
+      controlOpacity: isSelected ? 0.98 : 0.94
+    )
   }
 
   private func stackedFill(_ index: Int) -> LinearGradient {
@@ -2532,6 +2566,18 @@ private struct MessageReaderView: View {
             }
           }
           .padding(18)
+          .frame(maxWidth: 760, alignment: .leading)
+          .background(
+            MessageSurfaceBackground(
+              tint: message.isSimpleX ? .green : .red,
+              tintOpacity: 0.110,
+              edgeOpacity: 0.64,
+              edgeWidth: 4,
+              controlOpacity: 0.98
+            )
+          )
+          .shadow(color: (message.isSimpleX ? Color.green : Color.red).opacity(0.05), radius: 8, x: 0, y: 3)
+          .padding(18)
         }
       } else {
         EmptyStateView(title: emptyTitle, subtitle: "Select a message.")
@@ -2921,17 +2967,14 @@ private struct MessageBubble: View {
   }
 
   private var messageBackground: some View {
-    RoundedRectangle(cornerRadius: 8)
-      .fill(Color(nsColor: .controlBackgroundColor).opacity(message.from_self ? 0.97 : 0.93))
-      .overlay {
-        RoundedRectangle(cornerRadius: 8)
-          .fill(messageTint.opacity(message.from_self ? 0.030 : 0.020))
-      }
-      .overlay(alignment: message.from_self ? .trailing : .leading) {
-        RoundedRectangle(cornerRadius: 8)
-          .fill(messageTint.opacity(message.from_self ? 0.70 : 0.58))
-          .frame(width: 4)
-      }
+    MessageSurfaceBackground(
+      tint: messageTint,
+      tintOpacity: message.from_self ? 0.030 : 0.020,
+      edgeOpacity: message.from_self ? 0.70 : 0.58,
+      edge: message.from_self ? .trailing : .leading,
+      edgeWidth: 4,
+      controlOpacity: message.from_self ? 0.97 : 0.93
+    )
   }
 
   private var messageTint: Color {

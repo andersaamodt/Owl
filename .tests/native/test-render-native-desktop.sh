@@ -173,12 +173,13 @@ swift_inbox_cards_open_reader_before_mail() {
 
 swift_message_surfaces_use_colored_backgrounds() {
   cd "$repo_dir"
+  grep -Fq 'private struct MessageSurfaceBackground: View' generated/macos/Sources/App/App.swift
   grep -Fq 'private var cardBackground: some View' generated/macos/Sources/App/App.swift
-  grep -Fq 'tint.opacity(isSelected ? 0.022 : 0.014)' generated/macos/Sources/App/App.swift
-  grep -Fq '.overlay(alignment: .leading)' generated/macos/Sources/App/App.swift
+  grep -Fq 'tintOpacity: isSelected ? 0.022 : 0.014' generated/macos/Sources/App/App.swift
   grep -Fq 'private var messageTint: Color' generated/macos/Sources/App/App.swift
-  grep -Fq 'messageTint.opacity(message.from_self ? 0.030 : 0.020)' generated/macos/Sources/App/App.swift
-  grep -Fq '.overlay(alignment: message.from_self ? .trailing : .leading)' generated/macos/Sources/App/App.swift
+  grep -Fq 'tintOpacity: message.from_self ? 0.030 : 0.020' generated/macos/Sources/App/App.swift
+  grep -Fq 'tintOpacity: 0.110' generated/macos/Sources/App/App.swift
+  grep -Fq 'edgeOpacity: 0.64' generated/macos/Sources/App/App.swift
   ! awk '
     /private struct CardStackFrame/ { in_view = 1 }
     /private struct NewSendersView/ { in_view = 0 }
