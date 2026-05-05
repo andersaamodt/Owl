@@ -108,6 +108,13 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -q 'NewSenderStackCard' generated/macos/Sources/App/App.swift
   grep -q 'NewSenderMessageStackCard' generated/macos/Sources/App/App.swift
   grep -q 'InboxStackCard' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var stackBadgeText: String?' generated/macos/Sources/App/App.swift
+  grep -Fq 'guard depth > 3, let badge, !badge.isEmpty else { return nil }' generated/macos/Sources/App/App.swift
+  grep -Fq 'badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil' generated/macos/Sources/App/App.swift
+  grep -Fq 'badge: stackDepth > 3 ? String(stackDepth) : nil' generated/macos/Sources/App/App.swift
+  grep -Fq 'LazyVStack(spacing: 32)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(maxWidth: 560)' generated/macos/Sources/App/App.swift
+  grep -Fq 'offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)' generated/macos/Sources/App/App.swift
   grep -Fq '.background(Capsule().fill(tint.opacity(0.86)))' generated/macos/Sources/App/App.swift
   grep -Fq 'private var latestMessage: MessageItem?' generated/macos/Sources/App/App.swift
   ! grep -Fq 'Label("\\(quarantineMessages.count) pending", systemImage: "tray")' generated/macos/Sources/App/App.swift

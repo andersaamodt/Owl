@@ -2091,6 +2091,11 @@ private struct CardStackFrame<Content: View>: View {
     min(max(depth - 1, 0), 4)
   }
 
+  private var stackBadgeText: String? {
+    guard depth > 3, let badge, !badge.isEmpty else { return nil }
+    return badge
+  }
+
   private var cardBackground: some View {
     MessageSurfaceBackground(
       tint: tint,
@@ -2103,8 +2108,8 @@ private struct CardStackFrame<Content: View>: View {
   private func stackedFill(_ index: Int) -> LinearGradient {
     LinearGradient(
       colors: [
-        tint.opacity(0.014 - Double(index) * 0.002),
-        Color(nsColor: .controlBackgroundColor).opacity(0.94)
+        tint.opacity(0.055 - Double(index) * 0.006),
+        Color(nsColor: .controlBackgroundColor).opacity(0.98)
       ],
       startPoint: .topLeading,
       endPoint: .bottomTrailing
@@ -2122,14 +2127,14 @@ private struct CardStackFrame<Content: View>: View {
           ForEach(0..<backCount, id: \.self) { index in
             RoundedRectangle(cornerRadius: 8)
               .fill(stackedFill(index))
-              .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
-              .offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 2.2)
+              .shadow(color: Color.black.opacity(0.13), radius: 5, x: 0, y: 2)
+              .offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)
               .rotationEffect(.degrees(stackRotation(index)))
           }
         }
       }
       .overlay(alignment: .topTrailing) {
-        if let badge, !badge.isEmpty {
+        if let badge = stackBadgeText {
           Text(badge)
             .font(.caption.weight(.bold))
             .foregroundStyle(.white)
@@ -2145,11 +2150,11 @@ private struct CardStackFrame<Content: View>: View {
   }
 
   private func stackRotation(_ index: Int) -> Double {
-    [-3.2, 2.8, -2.2, 1.7][index % 4]
+    [-4.2, 3.6, -3.0, 2.4][index % 4]
   }
 
   private func stackOffsetX(_ index: Int) -> CGFloat {
-    [-3.0, 2.0, -1.5, 1.0][index % 4]
+    [-8.0, 6.0, -5.0, 4.0][index % 4]
   }
 }
 
@@ -2252,13 +2257,13 @@ private struct NewSenderStackSurface: View {
         EmptyStateView(title: "No New Senders", subtitle: "New sender cards will appear here.")
           .frame(maxWidth: .infinity, minHeight: 360)
       } else {
-        LazyVStack(spacing: 18) {
+        LazyVStack(spacing: 30) {
           ForEach(session.newSenderThreads) { thread in
             NewSenderStackCard(thread: thread, isSelected: session.selectedNewSenderID == thread.id) {
               session.selectNewSender(thread)
               stage = .messages
             }
-            .frame(maxWidth: 560)
+            .frame(maxWidth: 500)
           }
         }
         .frame(maxWidth: .infinity)
@@ -2285,7 +2290,7 @@ private struct NewSenderStackCard: View {
     Button(action: action) {
       CardStackFrame(
         depth: max(1, quarantineMessages.count),
-        badge: quarantineMessages.isEmpty ? nil : String(quarantineMessages.count),
+        badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil,
         tint: .orange,
         isSelected: isSelected
       ) {
@@ -2333,14 +2338,14 @@ private struct NewSenderMessageStackSurface: View {
           EmptyStateView(title: "No Messages", subtitle: "This sender has no pending messages.")
             .frame(maxWidth: .infinity, minHeight: 360)
         } else {
-          LazyVStack(spacing: 18) {
+          LazyVStack(spacing: 30) {
             ForEach(session.newSenderMessages) { message in
               NewSenderMessageStackCard(message: message, isSelected: session.selectedMessageID == message.id) {
                 session.selectMessage(message)
                 stage = .reader
               }
               .id(message.id)
-              .frame(maxWidth: 640)
+              .frame(maxWidth: 540)
             }
           }
           .frame(maxWidth: .infinity)
@@ -2599,7 +2604,7 @@ private struct InboxView: View {
             EmptyStateView(title: "Inbox Is Clear", subtitle: "Inbox cards will appear here.")
               .frame(maxWidth: .infinity, minHeight: 420)
           } else {
-            LazyVStack(spacing: 20) {
+            LazyVStack(spacing: 32) {
               ForEach(session.snapshot.inbox) { message in
                 InboxStackCard(
                   message: message,
@@ -2607,7 +2612,7 @@ private struct InboxView: View {
                   isFocused: session.focusedMessageID == message.id
                 )
                 .id(message.id)
-                .frame(maxWidth: 680)
+                .frame(maxWidth: 560)
               }
             }
             .frame(maxWidth: .infinity)
@@ -2798,7 +2803,7 @@ private struct InboxStackCard: View {
   var body: some View {
     CardStackFrame(
       depth: stackDepth,
-      badge: stackDepth > 1 ? String(stackDepth) : nil,
+      badge: stackDepth > 3 ? String(stackDepth) : nil,
       tint: message.isSimpleX ? .green : .red,
       isSelected: isFocused
     ) {
