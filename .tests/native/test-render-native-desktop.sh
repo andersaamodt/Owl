@@ -70,7 +70,7 @@ swift_uses_native_desktop_idiom() {
   grep -q 'TabButton(title: "New Senders"' generated/macos/Sources/App/App.swift
   grep -q 'TabButton(title: "Inbox"' generated/macos/Sources/App/App.swift
   grep -q 'TabButton(title: "Mail"' generated/macos/Sources/App/App.swift
-  grep -q 'ArchiveTabButton(count: session.archiveCount' generated/macos/Sources/App/App.swift
+  grep -q 'ArchiveTabButton(selected: session.selectedRoute == "archive")' generated/macos/Sources/App/App.swift
   grep -q 'func openArchive()' generated/macos/Sources/App/App.swift
   grep -q 'case "focus_archive":' generated/macos/Sources/App/App.swift
   grep -q 'NSApplicationDelegate' generated/macos/Sources/App/App.swift

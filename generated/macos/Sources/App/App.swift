@@ -1180,10 +1180,6 @@ private final class OwlSession: ObservableObject {
     snapshot.inbox.filter { !$0.read }.count
   }
 
-  var archiveCount: Int {
-    snapshot.mailboxes.first(where: { $0.id == "archive" })?.count ?? snapshot.overview.counts.archive_messages
-  }
-
   var selectedThreadID: String? {
     if let selectedMailThreadID {
       return selectedMailThreadID
@@ -2270,10 +2266,10 @@ private struct PrimaryTabBar: View {
       TabButton(title: "Inbox", count: session.snapshot.inbox.count, selected: session.selectedRoute == "inbox" || session.selectedRoute == "inbox-message") {
         session.openInbox(focusing: nil)
       }
-      TabButton(title: "Mail", count: session.snapshot.threads.count, selected: session.selectedRoute == "mail") {
+      TabButton(title: "Mail", selected: session.selectedRoute == "mail") {
         session.openMail()
       }
-      ArchiveTabButton(count: session.archiveCount, selected: session.selectedRoute == "archive") {
+      ArchiveTabButton(selected: session.selectedRoute == "archive") {
         session.openArchive()
       }
     }
@@ -2283,7 +2279,6 @@ private struct PrimaryTabBar: View {
 }
 
 private struct ArchiveTabButton: View {
-  let count: Int
   let selected: Bool
   let action: () -> Void
 
@@ -2295,7 +2290,6 @@ private struct ArchiveTabButton: View {
         if selected {
           Text("Archive")
             .font(.callout.weight(.semibold))
-          CountBadge(count: count)
         }
       }
       .padding(.horizontal, selected ? 12 : 9)
@@ -2309,7 +2303,7 @@ private struct ArchiveTabButton: View {
 
 private struct TabButton: View {
   let title: String
-  let count: Int
+  var count: Int? = nil
   let selected: Bool
   let action: () -> Void
 
@@ -2318,7 +2312,9 @@ private struct TabButton: View {
       HStack(spacing: 7) {
         Text(title)
           .font(.callout.weight(selected ? .semibold : .regular))
-        CountBadge(count: count)
+        if let count {
+          CountBadge(count: count)
+        }
       }
       .padding(.horizontal, 12)
       .padding(.vertical, 6)
