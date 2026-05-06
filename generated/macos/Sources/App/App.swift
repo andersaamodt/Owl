@@ -2605,8 +2605,10 @@ private struct NewSendersView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      newSendersHeader
-      Divider()
+      if stage != .senders {
+        newSendersHeader
+        Divider()
+      }
       Group {
         switch stage {
         case .senders:
@@ -2630,13 +2632,6 @@ private struct NewSendersView: View {
           Label("Back", systemImage: "chevron.left")
         }
         .fixedSize()
-      }
-      VStack(alignment: .leading, spacing: 4) {
-        Text(headerTitle)
-          .font(.title2.weight(.semibold))
-        Text(headerSubtitle)
-          .font(.callout)
-          .foregroundStyle(.secondary)
       }
       Spacer()
       if stage != .senders, session.selectedNewSender != nil {
@@ -2908,8 +2903,6 @@ private struct ContactListView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      HeaderView(title: "Mail", subtitle: "\(session.snapshot.threads.count) contacts")
-      Divider()
       List(selection: $session.selectedMailThreadID) {
         if !session.snapshot.favorites.isEmpty {
           Section("Favorites") {
@@ -3059,8 +3052,6 @@ private struct InboxView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      HeaderView(title: "Inbox", subtitle: "\(session.snapshot.inbox.count) item\(session.snapshot.inbox.count == 1 ? "" : "s")")
-      Divider()
       ScrollViewReader { proxy in
         ScrollView {
           if session.snapshot.inbox.isEmpty {
