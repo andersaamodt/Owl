@@ -29,6 +29,10 @@ private let canonicalIR = #"""
         "title": "Mail"
       },
       {
+        "id": "focus_archive",
+        "title": "Archive"
+      },
+      {
         "id": "focus_favorites",
         "title": "Favorites"
       },
@@ -506,6 +510,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     viewMenu.addItem(actionItem("New Senders", action: "focus_new", key: "1", modifiers: [.command]))
     viewMenu.addItem(actionItem("Inbox", action: "focus_inbox", key: "2", modifiers: [.command]))
     viewMenu.addItem(actionItem("Mail", action: "focus_mail", key: "3", modifiers: [.command]))
+    viewMenu.addItem(actionItem("Archive", action: "focus_archive", key: "4", modifiers: [.command]))
     viewMenuItem.submenu = viewMenu
     mainMenu.addItem(viewMenuItem)
 
@@ -1175,6 +1180,10 @@ private final class OwlSession: ObservableObject {
     snapshot.inbox.filter { !$0.read }.count
   }
 
+  var archiveCount: Int {
+    snapshot.mailboxes.first(where: { $0.id == "archive" })?.count ?? snapshot.overview.counts.archive_messages
+  }
+
   var selectedThreadID: String? {
     if let selectedMailThreadID {
       return selectedMailThreadID
@@ -1208,6 +1217,9 @@ private final class OwlSession: ObservableObject {
   }
 
   var selectedMailboxID: String? {
+    if selectedRoute == "archive" {
+      return "archive"
+    }
     guard selectedRoute.hasPrefix("mailbox:") else { return nil }
     return String(selectedRoute.dropFirst("mailbox:".count))
   }
@@ -1331,7 +1343,8 @@ private final class OwlSession: ObservableObject {
       selectedMailThreadID = String(selectedRoute.dropFirst("thread:".count))
       selectedRoute = "mail"
     }
-    if selectedRoute != "new" && selectedRoute != "inbox" && selectedRoute != "inbox-message" && selectedRoute != "mail" {
+    let stableRoutes = ["new", "inbox", "inbox-message", "mail", "archive", "drafts", "events", "settings"]
+    if !stableRoutes.contains(selectedRoute) && !selectedRoute.hasPrefix("mailbox:") {
       selectedRoute = "new"
     }
     if selectedMailThreadID == nil {
@@ -1380,6 +1393,13 @@ private final class OwlSession: ObservableObject {
       syncTransportDefault(for: thread)
       loadContactDraft(from: thread)
     }
+    persistSelectedRoute()
+  }
+
+  func openArchive() {
+    selectedRoute = "archive"
+    focusedMessageID = nil
+    selectedMessageID = nil
     persistSelectedRoute()
   }
 
@@ -1792,6 +1812,8 @@ private final class OwlSession: ObservableObject {
         runSymbolicAction("focus_inbox")
       case "focus_mail":
         runSymbolicAction("focus_mail")
+      case "focus_archive":
+        runSymbolicAction("focus_archive")
       case "focus_favorites":
         runSymbolicAction("focus_favorites")
       case "focus_people":
@@ -1841,6 +1863,8 @@ private final class OwlSession: ObservableObject {
         openInbox(focusing: nil)
       case "focus_mail":
         openMail()
+      case "focus_archive":
+        openArchive()
       case "focus_drafts":
         openDrafts()
       case "focus_events":
@@ -2001,9 +2025,17 @@ private struct RootView: View {
         .padding(.trailing, 16)
     }
     .overlay(alignment: .bottom) {
-      MessageDropDock()
-        .padding(.bottom, 24)
+      if showsMessageDropDock {
+        MessageDropDock()
+          .padding(.bottom, 24)
+      }
     }
+  }
+
+  private var showsMessageDropDock: Bool {
+    session.selectedRoute == "new" ||
+      session.selectedRoute == "inbox" ||
+      session.selectedRoute == "inbox-message"
   }
 }
 
@@ -2241,9 +2273,37 @@ private struct PrimaryTabBar: View {
       TabButton(title: "Mail", count: session.snapshot.threads.count, selected: session.selectedRoute == "mail") {
         session.openMail()
       }
+      ArchiveTabButton(count: session.archiveCount, selected: session.selectedRoute == "archive") {
+        session.openArchive()
+      }
     }
     .padding(.horizontal, 6)
     .frame(height: 34)
+  }
+}
+
+private struct ArchiveTabButton: View {
+  let count: Int
+  let selected: Bool
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      HStack(spacing: 7) {
+        Image(systemName: "archivebox")
+          .font(.callout.weight(selected ? .semibold : .regular))
+        if selected {
+          Text("Archive")
+            .font(.callout.weight(.semibold))
+          CountBadge(count: count)
+        }
+      }
+      .padding(.horizontal, selected ? 12 : 9)
+      .padding(.vertical, 6)
+      .background(Capsule().fill(selected ? Color.accentColor.opacity(0.16) : Color.clear))
+    }
+    .buttonStyle(.plain)
+    .help("Archive")
   }
 }
 
@@ -2446,7 +2506,9 @@ private struct MainContentView: View {
         InboxView()
       } else if session.selectedRoute == "inbox-message" {
         MessageReaderView(message: session.activeMessage, emptyTitle: "No Inbox Message Selected")
-      } else if session.selectedRoute == "mail" {
+      } else if session.selectedRoute == "archive" {
+        MailboxView()
+      } else if session.selectedRoute == "mail" || session.selectedRoute.hasPrefix("mailbox:") {
         MailView()
       } else {
         NewSendersView()
@@ -2889,7 +2951,9 @@ private struct MailView: View {
       ContactListView()
         .frame(minWidth: 240, idealWidth: 290, maxWidth: 360)
       Divider()
-      if session.selectedThread != nil {
+      if session.selectedRoute.hasPrefix("mailbox:") {
+        MailboxView()
+      } else if session.selectedThread != nil {
         TimelineView()
       } else {
         EmptyStateView(title: "No Contact Selected", subtitle: "Choose a contact or group.")
@@ -2904,6 +2968,10 @@ private struct ContactListView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       List(selection: $session.selectedMailThreadID) {
+        Section("Mailboxes") {
+          SidebarMailboxRow(mailbox: trashMailbox)
+            .onTapGesture { session.openMailbox(trashMailbox) }
+        }
         if !session.snapshot.favorites.isEmpty {
           Section("Favorites") {
             ForEach(session.snapshot.favorites) { thread in
@@ -2930,6 +2998,11 @@ private struct ContactListView: View {
       }
       .listStyle(.sidebar)
     }
+  }
+
+  private var trashMailbox: MailboxItem {
+    session.snapshot.mailboxes.first(where: { $0.id == "trash" }) ??
+      MailboxItem(id: "trash", title: "Trash", count: session.snapshot.overview.counts.trash_messages)
   }
 }
 

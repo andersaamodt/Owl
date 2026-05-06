@@ -26,6 +26,10 @@ static const char *wizardry_app_ir =
   "        \"title\": \"Mail\"\n"
   "      },\n"
   "      {\n"
+  "        \"id\": \"focus_archive\",\n"
+  "        \"title\": \"Archive\"\n"
+  "      },\n"
+  "      {\n"
   "        \"id\": \"focus_favorites\",\n"
   "        \"title\": \"Favorites\"\n"
   "      },\n"
@@ -703,6 +707,7 @@ static void app_action_activated(GSimpleAction *action, GVariant *parameter, gpo
   if (g_strcmp0(action_name, "focus-new") == 0) { set_status(context, "focus new"); return; }
   if (g_strcmp0(action_name, "focus-inbox") == 0) { set_status(context, "focus inbox"); return; }
   if (g_strcmp0(action_name, "focus-mail") == 0) { set_status(context, "focus mail"); return; }
+  if (g_strcmp0(action_name, "focus-archive") == 0) { set_status(context, "focus archive"); return; }
   if (g_strcmp0(action_name, "focus-favorites") == 0) { set_status(context, "focus favorites"); return; }
   if (g_strcmp0(action_name, "focus-people") == 0) { set_status(context, "focus people"); return; }
   if (g_strcmp0(action_name, "focus-groups") == 0) { set_status(context, "focus groups"); return; }
@@ -735,6 +740,7 @@ static void setup_actions(GtkApplication *app, AppContext *context) {
   add_app_action(app, context, "focus-new");
   add_app_action(app, context, "focus-inbox");
   add_app_action(app, context, "focus-mail");
+  add_app_action(app, context, "focus-archive");
   add_app_action(app, context, "focus-favorites");
   add_app_action(app, context, "focus-people");
   add_app_action(app, context, "focus-groups");

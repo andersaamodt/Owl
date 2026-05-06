@@ -9,6 +9,7 @@
       {"id": "focus_new", "title": "New Senders"},
       {"id": "focus_inbox", "title": "Inbox"},
       {"id": "focus_mail", "title": "Mail"},
+      {"id": "focus_archive", "title": "Archive"},
       {"id": "focus_favorites", "title": "Favorites"},
       {"id": "focus_people", "title": "People"},
       {"id": "focus_groups", "title": "Groups"},

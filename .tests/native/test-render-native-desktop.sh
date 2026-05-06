@@ -70,6 +70,9 @@ swift_uses_native_desktop_idiom() {
   grep -q 'TabButton(title: "New Senders"' generated/macos/Sources/App/App.swift
   grep -q 'TabButton(title: "Inbox"' generated/macos/Sources/App/App.swift
   grep -q 'TabButton(title: "Mail"' generated/macos/Sources/App/App.swift
+  grep -q 'ArchiveTabButton(count: session.archiveCount' generated/macos/Sources/App/App.swift
+  grep -q 'func openArchive()' generated/macos/Sources/App/App.swift
+  grep -q 'case "focus_archive":' generated/macos/Sources/App/App.swift
   grep -q 'NSApplicationDelegate' generated/macos/Sources/App/App.swift
   grep -q 'NSWindow(' generated/macos/Sources/App/App.swift
   grep -q 'NSHostingView(rootView:' generated/macos/Sources/App/App.swift
@@ -120,6 +123,9 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'private var inboxStackCards: [MessageItem]' generated/macos/Sources/App/App.swift
   grep -Fq 'let grouped = Dictionary(grouping: session.snapshot.inbox, by: { inboxStackKey(for: $0) })' generated/macos/Sources/App/App.swift
   grep -Fq '.id(inboxStackID(for: message))' generated/macos/Sources/App/App.swift
+  grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.selectedRoute == "archive"' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: 560)' generated/macos/Sources/App/App.swift
   grep -Fq 'offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)' generated/macos/Sources/App/App.swift
   grep -Fq '.background(Capsule().fill(tint.opacity(0.86)))' generated/macos/Sources/App/App.swift
@@ -157,6 +163,9 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'PrioritiesTrashIcon' generated/macos/Sources/App/App.swift
   grep -q 'MessageDropTarget(action: .trash)' generated/macos/Sources/App/App.swift
   grep -q 'MessageDropTarget(action: .archive)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var showsMessageDropDock: Bool' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.selectedRoute == "inbox-message"' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'session.selectedRoute == "mail" ||' generated/macos/Sources/App/App.swift
   grep -Fq '.contentShape(Circle())' generated/macos/Sources/App/App.swift
   grep -Fq 'case .trash: return .white' generated/macos/Sources/App/App.swift
   grep -Fq 'Color.red.opacity(0.78)' generated/macos/Sources/App/App.swift
