@@ -2166,15 +2166,57 @@ private struct PrioritiesTrashIcon: Shape {
 
 private struct DraggableMessageCardModifier: ViewModifier {
   @EnvironmentObject private var session: OwlSession
+  @State private var dragOffset: CGSize = .zero
+  @State private var isPointerDragging = false
   let message: MessageItem
 
   func body(content: Content) -> some View {
     content
-      .opacity(session.draggingMessageID == message.id ? 0 : 1)
-      .animation(.easeOut(duration: 0.12), value: session.draggingMessageID)
+      .offset(dragOffset)
+      .rotationEffect(.degrees(Double(dragOffset.width / 34.0)))
+      .opacity(cardOpacity)
+      .zIndex(isPointerDragging ? 20 : 0)
+      .simultaneousGesture(cardDragGesture)
+      .animation(.spring(response: 0.24, dampingFraction: 0.82), value: dragOffset)
       .onDrag {
         session.beginDraggingMessage(message)
         return NSItemProvider(object: "\(messageDragPayloadPrefix)\(message.id)" as NSString)
+      }
+  }
+
+  private var cardOpacity: Double {
+    if isPointerDragging {
+      return max(0.64, 1.0 - Double(abs(dragOffset.width) / 620.0))
+    }
+    return session.draggingMessageID == message.id ? 0 : 1
+  }
+
+  private var cardDragGesture: some Gesture {
+    DragGesture(minimumDistance: 4)
+      .onChanged { value in
+        if !isPointerDragging {
+          isPointerDragging = true
+          session.beginDraggingMessage(message)
+        }
+        dragOffset = value.translation
+      }
+      .onEnded { value in
+        let projected = value.predictedEndTranslation.width
+        let shouldFlickArchive = message.in_inbox && (abs(projected) > 180 || abs(value.translation.width) > 130)
+        if shouldFlickArchive {
+          dragOffset = CGSize(width: projected >= 0 ? 980 : -980, height: value.translation.height)
+          session.archive(message)
+          Task {
+            try? await Task.sleep(nanoseconds: 260_000_000)
+            dragOffset = .zero
+            isPointerDragging = false
+            session.endDraggingMessage(message.id)
+          }
+        } else {
+          dragOffset = .zero
+          isPointerDragging = false
+          session.endDraggingMessage(message.id)
+        }
       }
   }
 }
@@ -3244,7 +3286,6 @@ private struct MessageReaderCard: View {
 
 private struct InboxStackCard: View {
   @EnvironmentObject private var session: OwlSession
-  @State private var flickOffset: CGFloat = 0
   let message: MessageItem
   let stackDepth: Int
   let isFocused: Bool
@@ -3301,34 +3342,8 @@ private struct InboxStackCard: View {
     }
     .contentShape(RoundedRectangle(cornerRadius: 8))
     .draggableMessageCard(message)
-    .offset(x: flickOffset)
-    .rotationEffect(.degrees(Double(flickOffset / 34)))
-    .opacity(flickOffset == 0 ? 1 : max(0.62, 1.0 - Double(abs(flickOffset) / 560.0)))
-    .simultaneousGesture(inboxArchiveFlickGesture)
     .onTapGesture { session.openInboxMessage(message) }
     .contextMenu { MessageContextMenu(message: message) }
-    .animation(.spring(response: 0.24, dampingFraction: 0.82), value: flickOffset)
-  }
-
-  private var inboxArchiveFlickGesture: some Gesture {
-    DragGesture(minimumDistance: 18)
-      .onChanged { value in
-        guard abs(value.translation.width) > abs(value.translation.height) else { return }
-        flickOffset = value.translation.width
-      }
-      .onEnded { value in
-        let projected = value.predictedEndTranslation.width
-        guard abs(projected) > 170 || abs(value.translation.width) > 120 else {
-          flickOffset = 0
-          return
-        }
-        flickOffset = projected >= 0 ? 900 : -900
-        session.archive(message)
-        Task {
-          try? await Task.sleep(nanoseconds: 260_000_000)
-          flickOffset = 0
-        }
-      }
   }
 }
 

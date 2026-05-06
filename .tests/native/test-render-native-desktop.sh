@@ -142,10 +142,11 @@ swift_cards_have_horizontal_flick_actions() {
   grep -Fq 'private var newSenderFlickGesture: some Gesture' generated/macos/Sources/App/App.swift
   grep -Fq 'let destination = projected >= 0 ? "accepted" : "spam"' generated/macos/Sources/App/App.swift
   grep -Fq 'session.moveNewSender(thread, to: destination)' generated/macos/Sources/App/App.swift
-  grep -Fq 'private var inboxArchiveFlickGesture: some Gesture' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var cardDragGesture: some Gesture' generated/macos/Sources/App/App.swift
+  grep -Fq 'let shouldFlickArchive = message.in_inbox && (abs(projected) > 180 || abs(value.translation.width) > 130)' generated/macos/Sources/App/App.swift
   grep -Fq 'session.archive(message)' generated/macos/Sources/App/App.swift
-  grep -Fq '.simultaneousGesture(inboxArchiveFlickGesture)' generated/macos/Sources/App/App.swift
   grep -Fq '.simultaneousGesture(newSenderFlickGesture)' generated/macos/Sources/App/App.swift
+  grep -Fq '.simultaneousGesture(cardDragGesture)' generated/macos/Sources/App/App.swift
 }
 
 swift_message_cards_are_drag_droppable() {
@@ -160,7 +161,9 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'func draggableMessageCard(_ message: MessageItem)' generated/macos/Sources/App/App.swift
   grep -q '@Published var draggingMessageID: String?' generated/macos/Sources/App/App.swift
   grep -q 'session.beginDraggingMessage(message)' generated/macos/Sources/App/App.swift
-  grep -q 'session.draggingMessageID == message.id ? 0 : 1' generated/macos/Sources/App/App.swift
+  grep -q 'return session.draggingMessageID == message.id ? 0 : 1' generated/macos/Sources/App/App.swift
+  grep -Fq '.offset(dragOffset)' generated/macos/Sources/App/App.swift
+  grep -Fq '.zIndex(isPointerDragging ? 20 : 0)' generated/macos/Sources/App/App.swift
   grep -q 'endDraggingMessage(id)' generated/macos/Sources/App/App.swift
   grep -q 'onDrop(of: \[UTType.plainText\]' generated/macos/Sources/App/App.swift
   grep -q 'session.handleMessageDrop(id: messageID, action: action)' generated/macos/Sources/App/App.swift
