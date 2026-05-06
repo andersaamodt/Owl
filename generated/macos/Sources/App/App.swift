@@ -2149,20 +2149,15 @@ private struct SenderDropTarget: View {
   @State private var isTargeted = false
 
   var body: some View {
-    VStack(spacing: 5) {
-      ZStack {
-        Circle()
-          .fill(action.tint.opacity(isTargeted ? 0.24 : 0.15))
-        Image(systemName: action.systemImage)
-          .font(.title3.weight(.bold))
-          .foregroundStyle(action.tint)
-      }
-      .frame(width: 54, height: 54)
-      Text(action.label)
-        .font(.caption2.weight(.semibold))
+    ZStack {
+      Circle()
+        .fill(action.tint.opacity(isTargeted ? 0.24 : 0.15))
+      Image(systemName: action.systemImage)
+        .font(.title3.weight(.bold))
         .foregroundStyle(action.tint)
     }
-    .contentShape(Rectangle())
+    .frame(width: 54, height: 54)
+    .contentShape(Circle())
     .shadow(color: action.tint.opacity(isTargeted ? 0.24 : 0.10), radius: isTargeted ? 9 : 4, x: 0, y: 3)
     .scaleEffect(isTargeted ? 1.08 : 1.0)
     .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isTargeted)

@@ -152,6 +152,12 @@ swift_cards_have_horizontal_flick_actions() {
   grep -Fq 'SenderDropTarget(action: .accept)' generated/macos/Sources/App/App.swift
   grep -Fq 'SenderDropTarget(action: .reject)' generated/macos/Sources/App/App.swift
   grep -Fq 'SenderDropTarget(action: .spam)' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct SenderDropTarget/ { in_view = 1 }
+    /private struct MessageDropDock/ { in_view = 0 }
+    in_view && /Text[(]action[.]label[)]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
   grep -Fq 'func handleSenderDrop(threadID: String, action: SenderDropAction)' generated/macos/Sources/App/App.swift
   grep -Fq 'private let senderDragPayloadPrefix = "owl-native-sender:"' generated/macos/Sources/App/App.swift
   grep -Fq 'return NSItemProvider(object: "\(senderDragPayloadPrefix)\(thread.id)" as NSString)' generated/macos/Sources/App/App.swift
