@@ -145,6 +145,18 @@ swift_new_and_inbox_use_card_stack_layout() {
   ' generated/macos/Sources/App/App.swift
 }
 
+swift_mail_favorites_move_between_sections() {
+  cd "$repo_dir"
+  grep -Fq 'func applyContactBinding(threadID: String, name: String, email: String, simplex: String, favorite: Bool)' generated/macos/Sources/App/App.swift
+  grep -Fq 'withAnimation(.spring(response: 0.30, dampingFraction: 0.86))' generated/macos/Sources/App/App.swift
+  grep -Fq 'snapshot.favorites.removeAll { $0.id == threadID }' generated/macos/Sources/App/App.swift
+  grep -Fq 'snapshot.favorites.insert(updated, at: 0)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var favoriteThreads: [ThreadItem]' generated/macos/Sources/App/App.swift
+  grep -Fq 'uniqueThreads(session.snapshot.favorites + session.snapshot.individuals.filter { $0.favorite } + session.snapshot.groups.filter { $0.favorite })' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.snapshot.individuals.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.snapshot.groups.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }' generated/macos/Sources/App/App.swift
+}
+
 swift_cards_have_horizontal_flick_actions() {
   cd "$repo_dir"
   grep -Fq 'func moveNewSender(_ thread: ThreadItem, to list: String)' generated/macos/Sources/App/App.swift
@@ -315,6 +327,7 @@ run_case "Linux actions cover IR" linux_actions_cover_ir
 run_case "Swift uses native desktop idiom" swift_uses_native_desktop_idiom
 run_case "Swift has unified SimpleX/email UI" swift_unified_simplex_email_ui_exists
 run_case "Swift New Senders and Inbox use card-stack layout" swift_new_and_inbox_use_card_stack_layout
+run_case "Swift Mail favorites move between sections" swift_mail_favorites_move_between_sections
 run_case "Swift cards have horizontal flick actions" swift_cards_have_horizontal_flick_actions
 run_case "Swift message cards are drag droppable" swift_message_cards_are_drag_droppable
 run_case "Swift message timestamps are friendly" swift_message_timestamps_are_friendly
@@ -330,4 +343,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "16/16 native render tests passed"
+printf '%s\n' "17/17 native render tests passed"

@@ -1368,16 +1368,57 @@ private final class OwlSession: ObservableObject {
     guard let thread = selectedThread else { return }
     let root = mailRoot
     let kind = thread.kind == "group" ? "group" : "person"
+    let name = contactDraftName
+    let email = contactDraftEmail
+    let simplex = contactDraftSimpleX
+    let favorite = contactDraftFavorite
     let args = [
       thread.id,
-      contactDraftName,
+      name,
       kind,
-      contactDraftEmail,
-      contactDraftSimpleX,
-      contactDraftFavorite ? "yes" : "no"
+      email,
+      simplex,
+      favorite ? "yes" : "no"
     ]
-    runMessageAction(status: "Contact binding saved") {
+    withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
+      applyContactBinding(threadID: thread.id, name: name, email: email, simplex: simplex, favorite: favorite)
+    }
+    runMessageAction(status: "Contact binding saved", refreshAfter: false) {
       try await OwlBackend.runJSON(action: "bind-contact", root: root, args: args)
+    }
+  }
+
+  func applyContactBinding(threadID: String, name: String, email: String, simplex: String, favorite: Bool) {
+    func updatedThread(_ thread: ThreadItem) -> ThreadItem {
+      guard thread.id == threadID else { return thread }
+      var updated = thread
+      updated.name = name
+      updated.email = email
+      updated.simplex_address = simplex
+      updated.favorite = favorite
+      updated.messages = thread.messages.map { message in
+        var updatedMessage = message
+        updatedMessage.contact_name = name
+        return updatedMessage
+      }
+      return updated
+    }
+
+    snapshot.threads = snapshot.threads.map(updatedThread)
+    snapshot.individuals = snapshot.individuals.map(updatedThread)
+    snapshot.groups = snapshot.groups.map(updatedThread)
+    snapshot.favorites = snapshot.favorites.map(updatedThread)
+
+    guard let updated = snapshot.threads.first(where: { $0.id == threadID }) ??
+      snapshot.individuals.first(where: { $0.id == threadID }) ??
+      snapshot.groups.first(where: { $0.id == threadID }) ??
+      snapshot.favorites.first(where: { $0.id == threadID }) else {
+      return
+    }
+
+    snapshot.favorites.removeAll { $0.id == threadID }
+    if favorite {
+      snapshot.favorites.insert(updated, at: 0)
     }
   }
 
@@ -2061,9 +2102,9 @@ private struct SidebarView: View {
           .tag("events")
           .onTapGesture { session.openEvents() }
       }
-      if !session.snapshot.favorites.isEmpty {
+      if !favoriteThreads.isEmpty {
         Section("Favorites") {
-          ForEach(session.snapshot.favorites) { thread in
+          ForEach(favoriteThreads) { thread in
             SidebarThreadRow(thread: thread)
               .tag("thread:\(thread.id)")
               .onTapGesture { session.selectThread(thread) }
@@ -2071,7 +2112,7 @@ private struct SidebarView: View {
         }
       }
       Section("Individuals") {
-        ForEach(session.snapshot.individuals) { thread in
+        ForEach(individualThreads) { thread in
           SidebarThreadRow(thread: thread)
             .tag("thread:\(thread.id)")
             .onTapGesture { session.selectThread(thread) }
@@ -2081,7 +2122,7 @@ private struct SidebarView: View {
         Divider()
       }
       Section("Groups") {
-        ForEach(session.snapshot.groups) { thread in
+        ForEach(groupThreads) { thread in
           SidebarThreadRow(thread: thread)
             .tag("thread:\(thread.id)")
             .onTapGesture { session.selectThread(thread) }
@@ -2094,6 +2135,44 @@ private struct SidebarView: View {
       }
     }
     .listStyle(.sidebar)
+    .animation(.spring(response: 0.30, dampingFraction: 0.86), value: favoriteThreadIDs)
+    .animation(.spring(response: 0.30, dampingFraction: 0.86), value: individualThreadIDs)
+    .animation(.spring(response: 0.30, dampingFraction: 0.86), value: groupThreadIDs)
+  }
+
+  private var favoriteThreads: [ThreadItem] {
+    uniqueThreads(session.snapshot.favorites + session.snapshot.individuals.filter { $0.favorite } + session.snapshot.groups.filter { $0.favorite })
+  }
+
+  private var individualThreads: [ThreadItem] {
+    session.snapshot.individuals.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }
+  }
+
+  private var groupThreads: [ThreadItem] {
+    session.snapshot.groups.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }
+  }
+
+  private var favoriteThreadIDs: [String] {
+    favoriteThreads.map(\.id)
+  }
+
+  private var individualThreadIDs: [String] {
+    individualThreads.map(\.id)
+  }
+
+  private var groupThreadIDs: [String] {
+    groupThreads.map(\.id)
+  }
+
+  private func uniqueThreads(_ threads: [ThreadItem]) -> [ThreadItem] {
+    var seen = Set<String>()
+    return threads.filter { thread in
+      if seen.contains(thread.id) {
+        return false
+      }
+      seen.insert(thread.id)
+      return true
+    }
   }
 }
 
@@ -2763,9 +2842,9 @@ private struct ContactListView: View {
           SidebarMailboxRow(mailbox: trashMailbox)
             .onTapGesture { session.openMailbox(trashMailbox) }
         }
-        if !session.snapshot.favorites.isEmpty {
+        if !favoriteThreads.isEmpty {
           Section("Favorites") {
-            ForEach(session.snapshot.favorites) { thread in
+            ForEach(favoriteThreads) { thread in
               SidebarThreadRow(thread: thread)
                 .tag(thread.id)
                 .onTapGesture { session.selectThread(thread) }
@@ -2773,14 +2852,14 @@ private struct ContactListView: View {
           }
         }
         Section("Individuals") {
-          ForEach(session.snapshot.individuals) { thread in
+          ForEach(individualThreads) { thread in
             SidebarThreadRow(thread: thread)
               .tag(thread.id)
               .onTapGesture { session.selectThread(thread) }
           }
         }
         Section("Groups") {
-          ForEach(session.snapshot.groups) { thread in
+          ForEach(groupThreads) { thread in
             SidebarThreadRow(thread: thread)
               .tag(thread.id)
               .onTapGesture { session.selectThread(thread) }
@@ -2788,6 +2867,44 @@ private struct ContactListView: View {
         }
       }
       .listStyle(.sidebar)
+      .animation(.spring(response: 0.30, dampingFraction: 0.86), value: favoriteThreadIDs)
+      .animation(.spring(response: 0.30, dampingFraction: 0.86), value: individualThreadIDs)
+      .animation(.spring(response: 0.30, dampingFraction: 0.86), value: groupThreadIDs)
+    }
+  }
+
+  private var favoriteThreads: [ThreadItem] {
+    uniqueThreads(session.snapshot.favorites + session.snapshot.individuals.filter { $0.favorite } + session.snapshot.groups.filter { $0.favorite })
+  }
+
+  private var individualThreads: [ThreadItem] {
+    session.snapshot.individuals.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }
+  }
+
+  private var groupThreads: [ThreadItem] {
+    session.snapshot.groups.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }
+  }
+
+  private var favoriteThreadIDs: [String] {
+    favoriteThreads.map(\.id)
+  }
+
+  private var individualThreadIDs: [String] {
+    individualThreads.map(\.id)
+  }
+
+  private var groupThreadIDs: [String] {
+    groupThreads.map(\.id)
+  }
+
+  private func uniqueThreads(_ threads: [ThreadItem]) -> [ThreadItem] {
+    var seen = Set<String>()
+    return threads.filter { thread in
+      if seen.contains(thread.id) {
+        return false
+      }
+      seen.insert(thread.id)
+      return true
     }
   }
 
