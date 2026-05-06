@@ -148,6 +148,17 @@ swift_new_and_inbox_use_card_stack_layout() {
 swift_cards_have_horizontal_flick_actions() {
   cd "$repo_dir"
   grep -Fq 'func moveNewSender(_ thread: ThreadItem, to list: String)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct SenderDropDock: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'SenderDropTarget(action: .accept)' generated/macos/Sources/App/App.swift
+  grep -Fq 'SenderDropTarget(action: .reject)' generated/macos/Sources/App/App.swift
+  grep -Fq 'SenderDropTarget(action: .spam)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func handleSenderDrop(threadID: String, action: SenderDropAction)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private let senderDragPayloadPrefix = "owl-native-sender:"' generated/macos/Sources/App/App.swift
+  grep -Fq 'return NSItemProvider(object: "\(senderDragPayloadPrefix)\(thread.id)" as NSString)' generated/macos/Sources/App/App.swift
+  grep -Fq 'return NSItemProvider(object: "\(senderDragPayloadPrefix)\(message.thread_id)" as NSString)' generated/macos/Sources/App/App.swift
+  grep -Fq '@State private var expandedSenderID: String?' generated/macos/Sources/App/App.swift
+  grep -Fq 'NewSenderExpandedMessageRow(message: message)' generated/macos/Sources/App/App.swift
+  grep -Fq '.transition(.opacity.combined(with: .move(edge: .top)))' generated/macos/Sources/App/App.swift
   grep -Fq 'private var newSenderFlickGesture: some Gesture' generated/macos/Sources/App/App.swift
   grep -Fq 'let destination = projected >= 0 ? "accepted" : "spam"' generated/macos/Sources/App/App.swift
   grep -Fq 'session.moveNewSender(thread, to: destination)' generated/macos/Sources/App/App.swift

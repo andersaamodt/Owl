@@ -356,6 +356,7 @@ private let generatedAppName = "Owl Native"
 private let generatedAppID = "owl-native"
 private let generatedAppVersion = "0.1.0"
 private let messageDragPayloadPrefix = "owl-native-message:"
+private let senderDragPayloadPrefix = "owl-native-sender:"
 
 @main
 private enum OwlNativeGeneratedApp {
@@ -1459,6 +1460,14 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  func handleSenderDrop(threadID: String, action: SenderDropAction) {
+    guard let thread = newSenderThreads.first(where: { $0.id == threadID }) else {
+      statusText = "Dropped sender is no longer available."
+      return
+    }
+    moveNewSender(thread, to: action.destinationList)
+  }
+
   func applySenderMove(sender: String, to list: String) {
     func movedMessage(_ message: MessageItem) -> MessageItem {
       guard message.sender == sender, message.list == "quarantine" else {
@@ -2021,7 +2030,10 @@ private struct RootView: View {
         .padding(.trailing, 16)
     }
     .overlay(alignment: .bottom) {
-      if showsMessageDropDock {
+      if session.selectedRoute == "new" {
+        SenderDropDock()
+          .padding(.bottom, 24)
+      } else if showsMessageDropDock {
         MessageDropDock()
           .padding(.bottom, 24)
       }
@@ -2029,8 +2041,7 @@ private struct RootView: View {
   }
 
   private var showsMessageDropDock: Bool {
-    session.selectedRoute == "new" ||
-      session.selectedRoute == "inbox" ||
+    session.selectedRoute == "inbox" ||
       session.selectedRoute == "inbox-message"
   }
 }
@@ -2076,6 +2087,102 @@ private enum MessageDropAction {
     case .trash: return "trash"
     case .archive: return "archivebox"
     }
+  }
+}
+
+private enum SenderDropAction {
+  case accept
+  case reject
+  case spam
+
+  var label: String {
+    switch self {
+    case .accept: return "Accept"
+    case .reject: return "Reject"
+    case .spam: return "Spam"
+    }
+  }
+
+  var destinationList: String {
+    switch self {
+    case .accept: return "accepted"
+    case .reject: return "spam"
+    case .spam: return "banned"
+    }
+  }
+
+  var systemImage: String {
+    switch self {
+    case .accept: return "checkmark"
+    case .reject: return "xmark"
+    case .spam: return "exclamationmark"
+    }
+  }
+
+  var tint: Color {
+    switch self {
+    case .accept: return .green
+    case .reject: return .orange
+    case .spam: return .red
+    }
+  }
+}
+
+private struct SenderDropDock: View {
+  var body: some View {
+    HStack(alignment: .bottom, spacing: 16) {
+      SenderDropTarget(action: .reject)
+      Spacer()
+      SenderDropTarget(action: .accept)
+      Spacer()
+      SenderDropTarget(action: .spam)
+    }
+    .padding(.horizontal, 22)
+    .frame(maxWidth: .infinity)
+    .allowsHitTesting(true)
+  }
+}
+
+private struct SenderDropTarget: View {
+  @EnvironmentObject private var session: OwlSession
+  let action: SenderDropAction
+  @State private var isTargeted = false
+
+  var body: some View {
+    VStack(spacing: 5) {
+      ZStack {
+        Circle()
+          .fill(action.tint.opacity(isTargeted ? 0.24 : 0.15))
+        Image(systemName: action.systemImage)
+          .font(.title3.weight(.bold))
+          .foregroundStyle(action.tint)
+      }
+      .frame(width: 54, height: 54)
+      Text(action.label)
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(action.tint)
+    }
+    .contentShape(Rectangle())
+    .shadow(color: action.tint.opacity(isTargeted ? 0.24 : 0.10), radius: isTargeted ? 9 : 4, x: 0, y: 3)
+    .scaleEffect(isTargeted ? 1.08 : 1.0)
+    .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isTargeted)
+    .onDrop(of: [UTType.plainText], isTargeted: $isTargeted, perform: handleDrop(providers:))
+    .help("Drop a new sender pile to \(action.label.lowercased()) it")
+    .accessibilityLabel(action.label)
+  }
+
+  private func handleDrop(providers: [NSItemProvider]) -> Bool {
+    guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
+      return false
+    }
+    provider.loadObject(ofClass: NSString.self) { object, _ in
+      guard let rawValue = object as? String, rawValue.hasPrefix(senderDragPayloadPrefix) else { return }
+      let threadID = String(rawValue.dropFirst(senderDragPayloadPrefix.count))
+      Task { @MainActor in
+        session.handleSenderDrop(threadID: threadID, action: action)
+      }
+    }
+    return true
   }
 }
 
@@ -2692,20 +2799,6 @@ private struct NewSendersView: View {
         .fixedSize()
       }
       Spacer()
-      if stage != .senders, session.selectedNewSender != nil {
-        Button { session.moveSelectedNewSender(to: "accepted") } label: {
-          Label("Accept", systemImage: "checkmark.circle")
-        }
-        .fixedSize()
-        Button { session.moveSelectedNewSender(to: "spam") } label: {
-          Label("Spam", systemImage: "exclamationmark.octagon")
-        }
-        .fixedSize()
-        Button { session.moveSelectedNewSender(to: "banned") } label: {
-          Label("Ban", systemImage: "hand.raised")
-        }
-        .fixedSize()
-      }
     }
     .padding(.horizontal, 18)
     .padding(.vertical, 14)
@@ -2737,6 +2830,7 @@ private struct NewSendersView: View {
 private struct NewSenderStackSurface: View {
   @EnvironmentObject private var session: OwlSession
   @Binding var stage: NewSendersFlowStage
+  @State private var expandedSenderID: String?
 
   var body: some View {
     ScrollView {
@@ -2746,9 +2840,25 @@ private struct NewSenderStackSurface: View {
       } else {
         LazyVStack(spacing: 30) {
           ForEach(session.newSenderThreads) { thread in
-            NewSenderStackCard(thread: thread, isSelected: session.selectedNewSenderID == thread.id) {
+            NewSenderStackCard(
+              thread: thread,
+              isSelected: session.selectedNewSenderID == thread.id,
+              isExpanded: expandedSenderID == thread.id
+            ) {
               session.selectNewSender(thread)
-              stage = .messages
+              withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                expandedSenderID = expandedSenderID == thread.id ? nil : thread.id
+              }
+            } previewAction: { message in
+              session.selectNewSender(thread)
+              session.selectMessage(message)
+              stage = .reader
+            } collapseBeforeDrag: {
+              if expandedSenderID == thread.id {
+                withAnimation(.spring(response: 0.20, dampingFraction: 0.88)) {
+                  expandedSenderID = nil
+                }
+              }
             }
             .frame(maxWidth: 500)
           }
@@ -2765,7 +2875,10 @@ private struct NewSenderStackCard: View {
   @State private var flickOffset: CGFloat = 0
   let thread: ThreadItem
   let isSelected: Bool
+  let isExpanded: Bool
   let action: () -> Void
+  let previewAction: (MessageItem) -> Void
+  let collapseBeforeDrag: () -> Void
 
   private var quarantineMessages: [MessageItem] {
     thread.messages.filter { $0.list == "quarantine" }
@@ -2776,54 +2889,84 @@ private struct NewSenderStackCard: View {
   }
 
   var body: some View {
-    Button(action: action) {
-      CardStackFrame(
-        depth: max(1, quarantineMessages.count),
-        badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil,
-        tint: .orange,
-        isSelected: isSelected
-      ) {
-        VStack(alignment: .leading, spacing: 10) {
-          HStack(alignment: .firstTextBaseline, spacing: 9) {
-            Image(systemName: thread.kind == "group" ? "person.3.fill" : "person.crop.circle.badge.questionmark")
-              .foregroundStyle(.orange)
-            Text(thread.displayName)
-              .font(.headline)
-            Spacer()
-            Text(friendlyTime(thread.latest_at))
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
+    CardStackFrame(
+      depth: max(1, quarantineMessages.count),
+      badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil,
+      tint: .orange,
+      isSelected: isSelected
+    ) {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+          Image(systemName: thread.kind == "group" ? "person.3.fill" : "person.crop.circle.badge.questionmark")
+            .foregroundStyle(.orange)
+          Text(thread.displayName)
+            .font(.headline)
+          Spacer()
+          Text(friendlyTime(thread.latest_at))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        if let latest = latestMessage {
+          Text(latest.subject.isEmpty ? "(no subject)" : latest.subject)
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+          Text(latest.displayBody.isEmpty ? latest.preview : latest.displayBody)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+        }
+        HStack {
+          Spacer()
           if let latest = latestMessage {
-            Text(latest.subject.isEmpty ? "(no subject)" : latest.subject)
-              .font(.subheadline.weight(.semibold))
-              .lineLimit(1)
-            Text(latest.displayBody.isEmpty ? latest.preview : latest.displayBody)
-              .font(.callout)
-              .foregroundStyle(.secondary)
-              .lineLimit(2)
+            TransportPill(message: latest)
           }
-          HStack {
-            Spacer()
-            if let latest = latestMessage {
-              TransportPill(message: latest)
+        }
+        if isExpanded {
+          Divider()
+            .padding(.vertical, 2)
+          VStack(spacing: 8) {
+            ForEach(expandedPreviewMessages) { message in
+              NewSenderExpandedMessageRow(message: message) {
+                previewAction(message)
+              } collapseBeforeDrag: {
+                collapseBeforeDrag()
+              }
+            }
+            if quarantineMessages.count > expandedPreviewMessages.count {
+              Text("\(quarantineMessages.count - expandedPreviewMessages.count) more message\(quarantineMessages.count - expandedPreviewMessages.count == 1 ? "" : "s")")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
             }
           }
+          .transition(.opacity.combined(with: .move(edge: .top)))
         }
       }
     }
-    .buttonStyle(.plain)
+    .contentShape(Rectangle())
+    .onTapGesture(perform: action)
     .offset(x: flickOffset)
     .rotationEffect(.degrees(Double(flickOffset / 28)))
     .opacity(flickOffset == 0 ? 1 : max(0.58, 1.0 - Double(abs(flickOffset) / 520.0)))
     .simultaneousGesture(newSenderFlickGesture)
     .animation(.spring(response: 0.24, dampingFraction: 0.82), value: flickOffset)
+    .animation(.spring(response: 0.28, dampingFraction: 0.84), value: isExpanded)
+    .onDrag {
+      collapseBeforeDrag()
+      return NSItemProvider(object: "\(senderDragPayloadPrefix)\(thread.id)" as NSString)
+    }
+  }
+
+  private var expandedPreviewMessages: [MessageItem] {
+    quarantineMessages.sorted(by: { $0.received_at > $1.received_at }).prefix(4).map { $0 }
   }
 
   private var newSenderFlickGesture: some Gesture {
     DragGesture(minimumDistance: 18)
       .onChanged { value in
         guard abs(value.translation.width) > abs(value.translation.height) else { return }
+        collapseBeforeDrag()
         flickOffset = value.translation.width
       }
       .onEnded { value in
@@ -2840,6 +2983,50 @@ private struct NewSenderStackCard: View {
           flickOffset = 0
         }
       }
+  }
+}
+
+private struct NewSenderExpandedMessageRow: View {
+  let message: MessageItem
+  let action: () -> Void
+  let collapseBeforeDrag: () -> Void
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 8) {
+      TransportMark(message: message)
+        .padding(.top, 1)
+      VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .firstTextBaseline) {
+          Text(message.subject.isEmpty ? "(no subject)" : message.subject)
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+          Spacer()
+          Text(friendlyTime(message.received_at))
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+        Text(message.displayBody.isEmpty ? message.preview : message.displayBody)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .lineLimit(2)
+      }
+    }
+    .padding(9)
+    .background(
+      RoundedRectangle(cornerRadius: 7)
+        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+    )
+    .contentShape(Rectangle())
+    .onTapGesture(perform: action)
+    .simultaneousGesture(
+      DragGesture(minimumDistance: 4)
+        .onChanged { _ in collapseBeforeDrag() }
+    )
+    .onDrag {
+      collapseBeforeDrag()
+      return NSItemProvider(object: "\(senderDragPayloadPrefix)\(message.thread_id)" as NSString)
+    }
+    .help("Drag to sort this sender pile")
   }
 }
 
