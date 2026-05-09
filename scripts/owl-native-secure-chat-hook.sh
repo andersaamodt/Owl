@@ -158,7 +158,7 @@ send_message() {
     npub1*) ;;
     *) printf '%s\n' "owl-native-secure-chat-hook: outbox thread is not an npub: $npub" >&2; exit 2 ;;
   esac
-  body_b64=$(jq -r '.body // ""' "$outbox_file" | base64_one_line)
+  body_b64=$(jq -rj '.body // ""' "$outbox_file" | base64_one_line)
   response=$(ssh "$ssh_host" "$send_command" "$npub" "$body_b64")
   printf '%s\n' "$response" | jq -e '.success == true' >/dev/null
   printf '%s\n' 'transport=nostr-blog-secure-chat'
