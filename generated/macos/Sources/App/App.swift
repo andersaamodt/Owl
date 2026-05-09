@@ -3221,6 +3221,7 @@ private struct MailView: View {
 
 private struct ContactListView: View {
   @EnvironmentObject private var session: OwlSession
+  @Namespace private var threadMoveNamespace
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -3232,24 +3233,18 @@ private struct ContactListView: View {
         if !favoriteThreads.isEmpty {
           Section("Favorites") {
             ForEach(favoriteThreads) { thread in
-              SidebarThreadRow(thread: thread)
-                .tag(thread.id)
-                .onTapGesture { session.selectThread(thread) }
+              mailThreadRow(thread)
             }
           }
         }
         Section("Individuals") {
           ForEach(individualThreads) { thread in
-            SidebarThreadRow(thread: thread)
-              .tag(thread.id)
-              .onTapGesture { session.selectThread(thread) }
+            mailThreadRow(thread)
           }
         }
         Section("Groups") {
           ForEach(groupThreads) { thread in
-            SidebarThreadRow(thread: thread)
-              .tag(thread.id)
-              .onTapGesture { session.selectThread(thread) }
+            mailThreadRow(thread)
           }
         }
       }
@@ -3258,6 +3253,13 @@ private struct ContactListView: View {
       .animation(.spring(response: 0.30, dampingFraction: 0.86), value: individualThreadIDs)
       .animation(.spring(response: 0.30, dampingFraction: 0.86), value: groupThreadIDs)
     }
+  }
+
+  private func mailThreadRow(_ thread: ThreadItem) -> some View {
+    SidebarThreadRow(thread: thread)
+      .matchedGeometryEffect(id: thread.id, in: threadMoveNamespace, properties: .position)
+      .tag(thread.id)
+      .onTapGesture { session.selectThread(thread) }
   }
 
   private var favoriteThreads: [ThreadItem] {

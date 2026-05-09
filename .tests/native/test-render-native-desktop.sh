@@ -151,10 +151,19 @@ swift_mail_favorites_move_between_sections() {
   grep -Fq 'withAnimation(.spring(response: 0.30, dampingFraction: 0.86))' generated/macos/Sources/App/App.swift
   grep -Fq 'snapshot.favorites.removeAll { $0.id == threadID }' generated/macos/Sources/App/App.swift
   grep -Fq 'snapshot.favorites.insert(updated, at: 0)' generated/macos/Sources/App/App.swift
+  grep -Fq '@Namespace private var threadMoveNamespace' generated/macos/Sources/App/App.swift
+  grep -Fq '.matchedGeometryEffect(id: thread.id, in: threadMoveNamespace, properties: .position)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func mailThreadRow(_ thread: ThreadItem) -> some View' generated/macos/Sources/App/App.swift
   grep -Fq 'private var favoriteThreads: [ThreadItem]' generated/macos/Sources/App/App.swift
   grep -Fq 'uniqueThreads(session.snapshot.favorites + session.snapshot.individuals.filter { $0.favorite } + session.snapshot.groups.filter { $0.favorite })' generated/macos/Sources/App/App.swift
   grep -Fq 'session.snapshot.individuals.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }' generated/macos/Sources/App/App.swift
   grep -Fq 'session.snapshot.groups.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }' generated/macos/Sources/App/App.swift
+  awk '
+    /private struct ContactListView/ { in_view = 1 }
+    /private struct MessageListRow/ { in_view = 0 }
+    in_view && /ForEach[(]session[.]snapshot[.](favorites|individuals|groups)/ { found = 1 }
+    END { exit found ? 1 : 0 }
+  ' generated/macos/Sources/App/App.swift
 }
 
 swift_cards_have_horizontal_flick_actions() {
