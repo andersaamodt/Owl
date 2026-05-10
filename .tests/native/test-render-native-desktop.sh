@@ -169,6 +169,14 @@ swift_mail_favorites_move_between_sections() {
   grep -Fq '@Namespace private var threadMoveNamespace' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var contactFilter: MailContactFilter = .all' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var contactSort: MailContactSort = .recent' generated/macos/Sources/App/App.swift
+  grep -Fq '@State private var contactListWidth: CGFloat = 290' generated/macos/Sources/App/App.swift
+  grep -Fq '@State private var inspectorWidth: CGFloat = 260' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct SidebarResizeDivider: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'SidebarResizeDivider(width: $contactListWidth, range: 220...420, edge: .trailing)' generated/macos/Sources/App/App.swift
+  grep -Fq 'TimelineView(inspectorWidth: $inspectorWidth)' generated/macos/Sources/App/App.swift
+  grep -Fq 'SidebarResizeDivider(width: $inspectorWidth, range: 220...380, edge: .leading)' generated/macos/Sources/App/App.swift
+  grep -Fq 'DragGesture(minimumDistance: 0)' generated/macos/Sources/App/App.swift
+  grep -Fq 'NSCursor.resizeLeftRight.push()' generated/macos/Sources/App/App.swift
   grep -Fq 'private enum MailContactFilter: String, CaseIterable' generated/macos/Sources/App/App.swift
   grep -Fq 'private enum MailContactSort: String, CaseIterable' generated/macos/Sources/App/App.swift
   grep -Fq 'Label("Favorites", systemImage: "line.3.horizontal.decrease.circle")' generated/macos/Sources/App/App.swift

@@ -3386,20 +3386,67 @@ private struct NewSenderReaderSurface: View {
 
 private struct MailView: View {
   @EnvironmentObject private var session: OwlSession
+  @State private var contactListWidth: CGFloat = 290
+  @State private var inspectorWidth: CGFloat = 260
 
   var body: some View {
     HStack(spacing: 0) {
       ContactListView()
-        .frame(minWidth: 240, idealWidth: 290, maxWidth: 360)
-      Divider()
+        .frame(width: contactListWidth)
+      SidebarResizeDivider(width: $contactListWidth, range: 220...420, edge: .trailing)
       if session.selectedRoute.hasPrefix("mailbox:") {
         MailboxView()
       } else if session.selectedThread != nil {
-        TimelineView()
+        TimelineView(inspectorWidth: $inspectorWidth)
       } else {
         EmptyStateView(title: "No Contact Selected", subtitle: "Choose a contact or group.")
       }
     }
+  }
+}
+
+private enum SidebarResizeEdge {
+  case leading
+  case trailing
+}
+
+private struct SidebarResizeDivider: View {
+  @Binding var width: CGFloat
+  let range: ClosedRange<CGFloat>
+  let edge: SidebarResizeEdge
+  @State private var dragStartWidth: CGFloat?
+
+  var body: some View {
+    Rectangle()
+      .fill(Color.clear)
+      .frame(width: 9)
+      .overlay {
+        Rectangle()
+          .fill(Color.secondary.opacity(0.28))
+          .frame(width: 1)
+      }
+      .contentShape(Rectangle())
+      .gesture(
+        DragGesture(minimumDistance: 0)
+          .onChanged { value in
+            let startWidth = dragStartWidth ?? width
+            dragStartWidth = startWidth
+            let delta = edge == .trailing ? value.translation.width : -value.translation.width
+            width = (startWidth + delta).clamped(to: range)
+          }
+          .onEnded { _ in
+            dragStartWidth = nil
+          }
+      )
+      .onHover { hovering in
+        if hovering {
+          NSCursor.resizeLeftRight.push()
+        } else {
+          NSCursor.pop()
+        }
+      }
+      .help("Drag to resize sidebar")
+      .accessibilityLabel("Resize sidebar")
   }
 }
 
@@ -4027,6 +4074,7 @@ private struct InboxStackCard: View {
 
 private struct TimelineView: View {
   @EnvironmentObject private var session: OwlSession
+  @Binding var inspectorWidth: CGFloat
 
   var body: some View {
     HStack(spacing: 0) {
@@ -4062,9 +4110,9 @@ private struct TimelineView: View {
         ComposerView()
           .padding(14)
       }
-      Divider()
+      SidebarResizeDivider(width: $inspectorWidth, range: 220...380, edge: .leading)
       ContactInspectorView()
-        .frame(width: 260)
+        .frame(width: inspectorWidth)
         .background(.bar)
     }
   }
