@@ -1266,22 +1266,10 @@ private final class OwlSession: ObservableObject {
   @Published var selectedTransport: Transport = .simplex
   @Published var composeSubject: String = ""
   @Published var composeBody: String = ""
-  @Published var statusText: String = "Ready" {
-    didSet {
-      if statusText != "Ready" {
-        showToast(statusText, busy: isBusy)
-      }
-    }
-  }
-  @Published var isBusy: Bool = false {
-    didSet {
-      if isBusy {
-        showToast(statusText, busy: true, autoDismiss: false)
-      } else if statusText != "Ready" {
-        showToast(statusText)
-      }
-    }
-  }
+  @Published var statusText: String = "Ready"
+  @Published var isBusy: Bool = false
+  @Published var isRefreshingSnapshot: Bool = false
+  @Published var isTickingTransport: Bool = false
   @Published var toastMessage: String = ""
   @Published var toastBusy: Bool = false
   @Published var toastVisible: Bool = false
@@ -1301,7 +1289,9 @@ private final class OwlSession: ObservableObject {
   @Published var bubbleOtherEmailColor: Color = BubbleColors.defaultOtherEmail
   private var lastSystemTrashAction: SystemTrashAction?
   private var lastRefreshAt: Date?
+  private var lastTransportTickAt: Date?
   private let refreshStaleInterval: TimeInterval = 20
+  private let transportTickInterval: TimeInterval = 60
   private var toastGeneration = 0
 
   init() {
@@ -1406,39 +1396,79 @@ private final class OwlSession: ObservableObject {
       selectedRoute = prefs.selected_route.isEmpty ? "new" : prefs.selected_route
       apply(uiPrefs: prefs)
     } catch {
-      statusText = "Preferences unavailable: \(error.localizedDescription)"
+      showStatus("Preferences unavailable: \(error.localizedDescription)", isError: true)
     }
-    refresh()
+    refresh(silent: true, tickTransport: true)
   }
 
-  func refresh() {
+  func refresh(silent: Bool = true, tickTransport: Bool = false) {
+    if isRefreshingSnapshot {
+      if tickTransport {
+        tickTransportIfStale()
+      }
+      return
+    }
     lastRefreshAt = Date()
     let root = mailRoot
-    isBusy = true
-    statusText = "Syncing \(root)"
+    isRefreshingSnapshot = true
     Task {
       do {
-        try? await OwlBackend.tickSimpleX(root: root)
         let next = try await OwlBackend.snapshot(root: root)
         self.apply(snapshot: next)
         self.statusText = "Loaded \(next.threads.count) conversations from \(next.root)"
-        self.isBusy = false
+        self.isRefreshingSnapshot = false
+        if !silent {
+          self.showToast("Loaded \(next.threads.count) conversations")
+        }
       } catch {
-        self.statusText = "Using seed state; backend unavailable: \(error.localizedDescription)"
-        self.isBusy = false
+        self.isRefreshingSnapshot = false
+        self.showStatus("Using seed state; backend unavailable: \(error.localizedDescription)", isError: true)
       }
     }
     refreshBootstrapStatus()
+    if tickTransport {
+      tickTransportIfStale()
+    }
   }
 
   func refreshIfStale(force: Bool = false) {
-    if isBusy && !force {
+    if isRefreshingSnapshot && !force {
       return
     }
     if !force, let lastRefreshAt, Date().timeIntervalSince(lastRefreshAt) < refreshStaleInterval {
+      tickTransportIfStale()
       return
     }
-    refresh()
+    refresh(silent: true, tickTransport: force)
+  }
+
+  func tickTransportIfStale(force: Bool = false, notify: Bool = false) {
+    if isTickingTransport && !force {
+      return
+    }
+    if !force, let lastTransportTickAt, Date().timeIntervalSince(lastTransportTickAt) < transportTickInterval {
+      return
+    }
+    lastTransportTickAt = Date()
+    let root = mailRoot
+    isTickingTransport = true
+    Task {
+      do {
+        try await OwlBackend.tickSimpleX(root: root)
+        self.isTickingTransport = false
+        if notify {
+          self.showStatus("SimpleX incoming queue checked")
+        }
+        self.refresh(silent: true)
+      } catch {
+        self.isTickingTransport = false
+        if notify {
+          self.showStatus("SimpleX transport check failed: \(error.localizedDescription)", isError: true)
+        } else {
+          self.statusText = "SimpleX transport check failed: \(error.localizedDescription)"
+        }
+      }
+    }
   }
 
   func refreshBootstrapStatus() {
@@ -1472,6 +1502,11 @@ private final class OwlSession: ObservableObject {
         }
       }
     }
+  }
+
+  func showStatus(_ message: String, busy: Bool = false, isError: Bool = false) {
+    statusText = message
+    showToast(message, busy: busy && !isError, autoDismiss: !busy || isError)
   }
 
   func apply(snapshot next: Snapshot) {
@@ -1603,7 +1638,7 @@ private final class OwlSession: ObservableObject {
 
   func handleSenderDrop(threadID: String, action: SenderDropAction) {
     guard let thread = newSenderThreads.first(where: { $0.id == threadID }) else {
-      statusText = "Dropped sender is no longer available."
+      showStatus("Dropped sender is no longer available.", isError: true)
       return
     }
     moveNewSender(thread, to: action.destinationList)
@@ -1649,6 +1684,110 @@ private final class OwlSession: ObservableObject {
     let firstMessage = newSenderMessages.first
     selectedMessageID = firstMessage?.id
     focusedMessageID = firstMessage?.id
+  }
+
+  func applyArchived(messageID: String) {
+    applyMessageUpdate(id: messageID) { message in
+      message.in_inbox = false
+      message.list = "archive"
+      message.status = "archive"
+    }
+  }
+
+  func applyDeleted(messageID: String) {
+    snapshot.messages.removeAll { $0.id == messageID }
+    snapshot.inbox.removeAll { $0.id == messageID }
+    snapshot.threads = snapshot.threads.map { thread in
+      var updated = thread
+      updated.messages.removeAll { $0.id == messageID }
+      return updated
+    }
+    snapshot.favorites = snapshot.favorites.map { thread in
+      var updated = thread
+      updated.messages.removeAll { $0.id == messageID }
+      return updated
+    }
+    snapshot.individuals = snapshot.individuals.map { thread in
+      var updated = thread
+      updated.messages.removeAll { $0.id == messageID }
+      return updated
+    }
+    snapshot.groups = snapshot.groups.map { thread in
+      var updated = thread
+      updated.messages.removeAll { $0.id == messageID }
+      return updated
+    }
+    normalizeMessageCollections()
+    if selectedMessageID == messageID {
+      selectedMessageID = nil
+    }
+    if focusedMessageID == messageID {
+      focusedMessageID = nil
+    }
+  }
+
+  func applyMessageUpdate(id messageID: String, mutate: (inout MessageItem) -> Void) {
+    var found = false
+    func updatedMessage(_ message: MessageItem) -> MessageItem {
+      guard message.id == messageID else { return message }
+      var updated = message
+      mutate(&updated)
+      found = true
+      return updated
+    }
+    snapshot.messages = snapshot.messages.map(updatedMessage)
+    snapshot.inbox = snapshot.inbox.map(updatedMessage)
+    snapshot.threads = snapshot.threads.map { thread in
+      var updated = thread
+      updated.messages = thread.messages.map(updatedMessage)
+      return updated
+    }
+    snapshot.favorites = snapshot.favorites.map { thread in
+      var updated = thread
+      updated.messages = thread.messages.map(updatedMessage)
+      return updated
+    }
+    snapshot.individuals = snapshot.individuals.map { thread in
+      var updated = thread
+      updated.messages = thread.messages.map(updatedMessage)
+      return updated
+    }
+    snapshot.groups = snapshot.groups.map { thread in
+      var updated = thread
+      updated.messages = thread.messages.map(updatedMessage)
+      return updated
+    }
+    if found {
+      normalizeMessageCollections()
+    }
+  }
+
+  func normalizeMessageCollections() {
+    func refreshedThread(_ thread: ThreadItem) -> ThreadItem {
+      var refreshed = thread
+      refreshed.messages = snapshot.messages
+        .filter { $0.thread_id == thread.id }
+        .sorted { $0.received_at < $1.received_at }
+      refreshed.latest_at = refreshed.messages.map(\.received_at).max() ?? thread.latest_at
+      refreshed.unread_count = refreshed.messages.filter { $0.in_inbox && !$0.read }.count
+      return refreshed
+    }
+
+    snapshot.inbox = snapshot.messages
+      .filter { $0.in_inbox }
+      .sorted { $0.received_at > $1.received_at }
+    snapshot.threads = snapshot.threads
+      .map(refreshedThread)
+      .sorted { $0.latest_at > $1.latest_at }
+    snapshot.favorites = snapshot.threads
+      .filter { $0.favorite }
+      .sorted { $0.name < $1.name }
+    snapshot.individuals = snapshot.threads
+      .filter { $0.kind != "group" }
+      .sorted { $0.latest_at > $1.latest_at }
+    snapshot.groups = snapshot.threads
+      .filter { $0.kind == "group" }
+      .sorted { $0.latest_at > $1.latest_at }
   }
 
   func openMailbox(_ mailbox: MailboxItem) {
@@ -1772,7 +1911,7 @@ private final class OwlSession: ObservableObject {
     let body = composeBody
     let root = mailRoot
     isBusy = true
-    statusText = transport == .email ? "Sending by explicit email path..." : "Queueing SimpleX message..."
+    showStatus(transport == .email ? "Sending by explicit email path..." : "Queueing SimpleX message...", busy: true)
     Task {
       do {
         _ = try await OwlBackend.send(root: root, threadID: thread.id, transport: transport, subject: subject, body: body)
@@ -1781,20 +1920,23 @@ private final class OwlSession: ObservableObject {
         }
         self.composeSubject = ""
         self.composeBody = ""
-        self.statusText = transport == .email ? "Email sent through Owl outbox." : "SimpleX message sent."
         self.isBusy = false
-        self.refresh()
+        self.showStatus(transport == .email ? "Email sent through Owl outbox." : "SimpleX message sent.")
+        self.refresh(silent: true)
       } catch {
-        self.statusText = error.localizedDescription
         self.isBusy = false
+        self.showStatus(error.localizedDescription, isError: true)
       }
     }
   }
 
   func archive(_ message: MessageItem) {
     let root = mailRoot
-    runMessageAction(status: "Removed from Inbox") {
+    runMessageAction(status: "Removed from Inbox", refreshAfter: false) {
       try await OwlBackend.runJSON(action: "archive-message", root: root, args: [message.id])
+    } afterSuccess: {
+      self.applyArchived(messageID: message.id)
+      self.refresh(silent: true)
     }
   }
 
@@ -1805,13 +1947,15 @@ private final class OwlSession: ObservableObject {
   func trash(_ message: MessageItem) {
     let root = mailRoot
     isBusy = true
-    statusText = message.isSimpleX ? "Deleting SimpleX message" : "Moving message to system Trash"
+    showStatus(message.isSimpleX ? "Deleting SimpleX message" : "Moving message to system Trash", busy: true)
     Task {
       do {
         if message.isSimpleX {
           _ = try await OwlBackend.runJSON(action: "delete-message", root: root, args: [message.id])
           self.lastSystemTrashAction = nil
-          self.statusText = "Deleted SimpleX message"
+          self.applyDeleted(messageID: message.id)
+          self.isBusy = false
+          self.showStatus("Deleted SimpleX message")
         } else {
           let response = try await OwlBackend.messageTrashFiles(root: root, messageID: message.id)
           let urls = response.paths.map { URL(fileURLWithPath: $0) }
@@ -1823,24 +1967,25 @@ private final class OwlSession: ObservableObject {
             messageID: message.id,
             originalToTrash: recycled.map { (original: $0.key, trashed: $0.value) }
           )
-          self.statusText = "Moved message to system Trash"
+          self.applyDeleted(messageID: message.id)
+          self.isBusy = false
+          self.showStatus("Moved message to system Trash")
         }
-        self.isBusy = false
-        self.refresh()
+        self.refresh(silent: true)
       } catch {
-        self.statusText = error.localizedDescription
         self.isBusy = false
+        self.showStatus(error.localizedDescription, isError: true)
       }
     }
   }
 
   func undoLastTrashAction() {
     guard let action = lastSystemTrashAction else {
-      statusText = "No system Trash action to undo"
+      showStatus("No system Trash action to undo", isError: true)
       return
     }
     isBusy = true
-    statusText = "Restoring message from system Trash"
+    showStatus("Restoring message from system Trash", busy: true)
     Task {
       do {
         let fileManager = FileManager.default
@@ -1852,12 +1997,12 @@ private final class OwlSession: ObservableObject {
           try fileManager.moveItem(at: mapping.trashed, to: mapping.original)
         }
         self.lastSystemTrashAction = nil
-        self.statusText = "Restored message from system Trash"
         self.isBusy = false
-        self.refresh()
+        self.showStatus("Restored message from system Trash")
+        self.refresh(silent: true)
       } catch {
-        self.statusText = "Could not undo Trash action: \(error.localizedDescription)"
         self.isBusy = false
+        self.showStatus("Could not undo Trash action: \(error.localizedDescription)", isError: true)
       }
     }
   }
@@ -1880,15 +2025,25 @@ private final class OwlSession: ObservableObject {
 
   func toggleStar(_ message: MessageItem) {
     let root = mailRoot
-    runMessageAction(status: message.starred ? "Unstarred" : "Starred") {
+    runMessageAction(status: message.starred ? "Unstarred" : "Starred", refreshAfter: false) {
       try await OwlBackend.runJSON(action: "toggle-star", root: root, args: [message.id, message.starred ? "false" : "true"])
+    } afterSuccess: {
+      self.applyMessageUpdate(id: message.id) { updated in
+        updated.starred.toggle()
+      }
+      self.refresh(silent: true)
     }
   }
 
   func markRead(_ message: MessageItem, read: Bool) {
     let root = mailRoot
-    runMessageAction(status: read ? "Marked read" : "Marked unread") {
+    runMessageAction(status: read ? "Marked read" : "Marked unread", refreshAfter: false) {
       try await OwlBackend.runJSON(action: "mark-read", root: root, args: [message.id, read ? "true" : "false"])
+    } afterSuccess: {
+      self.applyMessageUpdate(id: message.id) { updated in
+        updated.read = read
+      }
+      self.refresh(silent: true)
     }
   }
 
@@ -1930,7 +2085,7 @@ private final class OwlSession: ObservableObject {
   func handleMessageDrop(id: String, action: MessageDropAction) {
     endDraggingMessage(id)
     guard let message = message(withID: id) else {
-      statusText = "Dropped message is no longer available."
+      showStatus("Dropped message is no longer available.", isError: true)
       return
     }
     selectedMessageID = message.id
@@ -1969,14 +2124,14 @@ private final class OwlSession: ObservableObject {
       do {
         _ = try await action()
         afterSuccess()
-        self.statusText = status
         self.isBusy = false
+        self.showStatus(status)
         if refreshAfter {
-          self.refresh()
+          self.refresh(silent: true)
         }
       } catch {
-        self.statusText = error.localizedDescription
         self.isBusy = false
+        self.showStatus(error.localizedDescription, isError: true)
       }
     }
   }
@@ -2127,7 +2282,7 @@ private final class OwlSession: ObservableObject {
       Task {
         try? await OwlBackend.setUIPref(root: url.path, key: "mail_root", value: url.path)
       }
-      refresh()
+      refresh(silent: true, tickTransport: true)
     }
   }
 
@@ -2153,10 +2308,8 @@ private final class OwlSession: ObservableObject {
   }
 
   func tickSimpleX() {
-    let root = mailRoot
-    runMessageAction(status: "SimpleX incoming queue checked") {
-      try await OwlBackend.runJSON(action: "tick-simplex", root: root, args: [])
-    }
+    tickTransportIfStale(force: true, notify: true)
+    showStatus("SimpleX incoming queue check started")
   }
 
   func perform(action: String) {
@@ -2206,7 +2359,7 @@ private final class OwlSession: ObservableObject {
       case "quit_app":
         runSymbolicAction("quit_app")
       default:
-        statusText = "Unsupported action: \(action)"
+        showStatus("Unsupported action: \(action)", isError: true)
     }
   }
 
@@ -2275,7 +2428,7 @@ private final class OwlSession: ObservableObject {
       case "quit_app":
         NSApplication.shared.terminate(nil)
       default:
-        statusText = action.replacingOccurrences(of: "_", with: " ").capitalized
+        showStatus(action.replacingOccurrences(of: "_", with: " ").capitalized)
     }
   }
 }
@@ -2383,10 +2536,9 @@ private struct RootView: View {
     VStack(spacing: 0) {
       MainContentView()
     }
-    .overlay(alignment: .topTrailing) {
+    .overlay(alignment: .top) {
       ToastOverlay()
-        .padding(.top, 14)
-        .padding(.trailing, 16)
+        .padding(.top, 12)
     }
     .overlay(alignment: .bottom) {
       if session.selectedRoute == "new" {
@@ -2421,10 +2573,10 @@ private struct ToastOverlay: View {
           .lineLimit(2)
       }
       .padding(.horizontal, 12)
-      .padding(.vertical, 9)
-      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-      .shadow(color: Color.black.opacity(0.14), radius: 10, x: 0, y: 5)
-      .frame(maxWidth: 360, alignment: .trailing)
+      .padding(.vertical, 7)
+      .background(.thinMaterial, in: Capsule())
+      .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 4)
+      .frame(maxWidth: 340, alignment: .center)
       .transition(.move(edge: .top).combined(with: .opacity))
     }
   }

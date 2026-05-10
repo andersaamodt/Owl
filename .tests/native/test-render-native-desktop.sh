@@ -452,12 +452,32 @@ swift_uses_toasts_not_status_bar() {
   cd "$repo_dir"
   grep -Fq 'private struct ToastOverlay' generated/macos/Sources/App/App.swift
   grep -Fq '@Published var toastMessage: String' generated/macos/Sources/App/App.swift
-  grep -Fq 'showToast(statusText, busy: isBusy)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func showStatus(_ message: String, busy: Bool = false, isError: Bool = false)' generated/macos/Sources/App/App.swift
+  grep -Fq '.background(.thinMaterial, in: Capsule())' generated/macos/Sources/App/App.swift
   grep -Fq '.transition(.move(edge: .top).combined(with: .opacity))' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'showToast(statusText, busy: isBusy)' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'statusText = "Syncing ' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private struct StatusStrip' generated/macos/Sources/App/App.swift
   ! grep -Fq 'StatusStrip()' generated/macos/Sources/App/App.swift
   ! grep -Fq 'v\\(generatedAppVersion)' generated/macos/Sources/App/App.swift
   ! grep -Fq '"type": "StatusBar"' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
+}
+
+swift_refresh_is_quiet_and_incremental() {
+  cd "$repo_dir"
+  grep -Fq '@Published var isRefreshingSnapshot: Bool = false' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var isTickingTransport: Bool = false' generated/macos/Sources/App/App.swift
+  grep -Fq 'func refresh(silent: Bool = true, tickTransport: Bool = false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func tickTransportIfStale(force: Bool = false, notify: Bool = false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'applyArchived(messageID: message.id)' generated/macos/Sources/App/App.swift
+  grep -Fq 'applyDeleted(messageID: message.id)' generated/macos/Sources/App/App.swift
+  grep -Fq 'applyMessageUpdate(id: message.id)' generated/macos/Sources/App/App.swift
+  ! awk '
+    /func refresh[(]silent:/ { in_view = 1 }
+    /func refreshIfStale/ { in_view = 0 }
+    in_view && /OwlBackend[.]tickSimpleX/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
 }
 
 linux_uses_native_gtk_and_argv_backend() {
@@ -493,6 +513,7 @@ run_case "Swift chat bubble colors are preferences" swift_chat_bubble_colors_are
 run_case "Swift new sender actions skip full refresh" swift_new_sender_actions_skip_full_refresh
 run_case "Native UI has no manual refresh controls" native_ui_has_no_manual_refresh_controls
 run_case "Swift uses toasts not status bar" swift_uses_toasts_not_status_bar
+run_case "Swift refresh is quiet and incremental" swift_refresh_is_quiet_and_incremental
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 
 if [ "$failures" -ne 0 ]; then
@@ -500,4 +521,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "19/19 native render tests passed"
+printf '%s\n' "20/20 native render tests passed"
