@@ -3881,6 +3881,7 @@ private struct InboxView: View {
               ForEach(inboxStackCards) { message in
                 InboxStackCard(
                   message: message,
+                  revealedMessage: inboxStackMessages(for: message).dropFirst().first,
                   stackDepth: inboxStackDepth(for: message),
                   isFocused: isFocusedStack(message)
                 )
@@ -3920,9 +3921,14 @@ private struct InboxView: View {
   }
 
   private func inboxStackDepth(for message: MessageItem) -> Int {
+    inboxStackMessages(for: message).count
+  }
+
+  private func inboxStackMessages(for message: MessageItem) -> [MessageItem] {
     let key = inboxStackKey(for: message)
-    let peerCount = session.snapshot.inbox.filter { inboxStackKey(for: $0) == key }.count
-    return max(1, peerCount)
+    return session.snapshot.inbox
+      .filter { inboxStackKey(for: $0) == key }
+      .sorted { $0.received_at > $1.received_at }
   }
 
   private func isFocusedStack(_ message: MessageItem) -> Bool {
@@ -4097,18 +4103,30 @@ private struct MessageReaderCard: View {
 private struct InboxStackCard: View {
   @EnvironmentObject private var session: OwlSession
   let message: MessageItem
+  let revealedMessage: MessageItem?
   let stackDepth: Int
   let isFocused: Bool
 
   var body: some View {
     ZStack(alignment: .topTrailing) {
       StaticCardStackBackplates(depth: stackDepth, tint: messageTint)
+      if let revealedMessage {
+        CardStackFrame(
+          depth: 1,
+          tint: revealedMessage.isSimpleX ? .green : .red,
+          isSelected: false
+        ) {
+          InboxCardContent(message: revealedMessage, actionsVisible: false)
+        }
+        .offset(x: -5, y: 9)
+        .allowsHitTesting(false)
+      }
       CardStackFrame(
         depth: 1,
         tint: messageTint,
         isSelected: isFocused
       ) {
-        cardContent
+        InboxCardContent(message: message, actionsVisible: true)
       }
       .contentShape(RoundedRectangle(cornerRadius: 8))
       .draggableMessageCard(message)
@@ -4127,7 +4145,17 @@ private struct InboxStackCard: View {
     }
   }
 
-  private var cardContent: some View {
+  private var messageTint: Color {
+    message.isSimpleX ? .green : .red
+  }
+}
+
+private struct InboxCardContent: View {
+  @EnvironmentObject private var session: OwlSession
+  let message: MessageItem
+  let actionsVisible: Bool
+
+  var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .firstTextBaseline, spacing: 8) {
         TransportMark(message: message)
@@ -4159,21 +4187,19 @@ private struct InboxStackCard: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        Spacer()
-        Button { session.markRead(message, read: !message.read) } label: {
-          Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+        if actionsVisible {
+          Spacer()
+          Button { session.markRead(message, read: !message.read) } label: {
+            Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+          }
+          .buttonStyle(.borderless)
+          Button { session.archive(message) } label: {
+            Label("Remove From Inbox", systemImage: "archivebox")
+          }
+          .buttonStyle(.borderless)
         }
-        .buttonStyle(.borderless)
-        Button { session.archive(message) } label: {
-          Label("Remove From Inbox", systemImage: "archivebox")
-        }
-        .buttonStyle(.borderless)
       }
     }
-  }
-
-  private var messageTint: Color {
-    message.isSimpleX ? .green : .red
   }
 }
 

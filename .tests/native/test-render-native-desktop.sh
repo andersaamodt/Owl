@@ -144,6 +144,11 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'ForEach(inboxStackCards)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var inboxStackCards: [MessageItem]' generated/macos/Sources/App/App.swift
   grep -Fq 'let grouped = Dictionary(grouping: session.snapshot.inbox, by: { inboxStackKey(for: $0) })' generated/macos/Sources/App/App.swift
+  grep -Fq 'revealedMessage: inboxStackMessages(for: message).dropFirst().first' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func inboxStackMessages(for message: MessageItem) -> [MessageItem]' generated/macos/Sources/App/App.swift
+  grep -Fq 'let revealedMessage: MessageItem?' generated/macos/Sources/App/App.swift
+  grep -Fq 'InboxCardContent(message: revealedMessage, actionsVisible: false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct InboxCardContent: View' generated/macos/Sources/App/App.swift
   grep -Fq '.id(inboxStackID(for: message))' generated/macos/Sources/App/App.swift
   ! grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
