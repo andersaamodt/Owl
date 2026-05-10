@@ -91,6 +91,8 @@ swift_uses_native_desktop_idiom() {
   grep -q 'NSApp.windowsMenu = windowMenu' generated/macos/Sources/App/App.swift
   grep -q 'let editMenu = NSMenu(title: "Edit")' generated/macos/Sources/App/App.swift
   grep -q 'let messageMenu = NSMenu(title: "Message")' generated/macos/Sources/App/App.swift
+  grep -q 'actionItem("Preferences...", action: "open_settings", key: ",", modifiers: \\[.command\\])' generated/macos/Sources/App/App.swift
+  ! grep -q 'actionItem("Settings...", action: "open_settings"' generated/macos/Sources/App/App.swift
   grep -q 'set-ui-pref' generated/macos/Sources/App/App.swift
   ! awk '
     /private struct RootView/ { in_view = 1 }

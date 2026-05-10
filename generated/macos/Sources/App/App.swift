@@ -478,7 +478,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let appMenu = NSMenu(title: generatedAppName)
     appMenu.addItem(NSMenuItem(title: "About \(generatedAppName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
     appMenu.addItem(.separator())
-    appMenu.addItem(actionItem("Settings...", action: "open_settings", key: ",", modifiers: [.command]))
+    appMenu.addItem(actionItem("Preferences...", action: "open_settings", key: ",", modifiers: [.command]))
     appMenu.addItem(.separator())
     appMenu.addItem(actionItem("Quit \(generatedAppName)", action: "quit_app", key: "q", modifiers: [.command]))
     appMenuItem.submenu = appMenu
