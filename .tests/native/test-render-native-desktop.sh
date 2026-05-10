@@ -168,6 +168,9 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'InboxCardContent(message: revealedMessage, actionsVisible: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct InboxCardContent: View' generated/macos/Sources/App/App.swift
   grep -Fq '.id(inboxStackID(for: message))' generated/macos/Sources/App/App.swift
+  grep -Fq '.zIndex(inboxStackZIndex(for: message))' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func inboxStackZIndex(for message: MessageItem) -> Double' generated/macos/Sources/App/App.swift
+  grep -Fq 'return 1000' generated/macos/Sources/App/App.swift
   ! grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "archive"' generated/macos/Sources/App/App.swift
@@ -282,6 +285,7 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'Label("Open System Trash", systemImage: "trash")' generated/macos/Sources/App/App.swift
   grep -q 'static func messageTrashFiles(root: String, messageID: String) async throws -> TrashFilesResponse' generated/macos/Sources/App/App.swift
   grep -q 'message-trash-files' generated/macos/Sources/App/App.swift scripts/owl-native-backend.sh
+  grep -Fq '.zIndex(session.draggingMessageID == nil ? 10 : 0)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var showsMessageDropDock: Bool' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "inbox-message"' generated/macos/Sources/App/App.swift
   ! grep -Fq 'session.selectedRoute == "mail" ||' generated/macos/Sources/App/App.swift

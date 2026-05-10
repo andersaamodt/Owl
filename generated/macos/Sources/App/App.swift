@@ -2562,6 +2562,7 @@ private struct RootView: View {
       } else if showsMessageDropDock {
         MessageDropDock()
           .padding(.bottom, 24)
+          .zIndex(session.draggingMessageID == nil ? 10 : 0)
       }
     }
   }
@@ -4156,6 +4157,7 @@ private struct InboxView: View {
                 )
                 .id(inboxStackID(for: message))
                 .frame(maxWidth: 560)
+                .zIndex(inboxStackZIndex(for: message))
               }
             }
             .frame(maxWidth: .infinity)
@@ -4203,6 +4205,19 @@ private struct InboxView: View {
   private func isFocusedStack(_ message: MessageItem) -> Bool {
     guard let focusedMessage = session.activeMessage else { return false }
     return inboxStackKey(for: focusedMessage) == inboxStackKey(for: message)
+  }
+
+  private func inboxStackZIndex(for message: MessageItem) -> Double {
+    guard let draggingMessageID = session.draggingMessageID else {
+      return isFocusedStack(message) ? 1 : 0
+    }
+    if message.id == draggingMessageID {
+      return 1000
+    }
+    if inboxStackMessages(for: message).contains(where: { $0.id == draggingMessageID }) {
+      return 1000
+    }
+    return 0
   }
 
   private func inboxStackID(for message: MessageItem) -> String {
