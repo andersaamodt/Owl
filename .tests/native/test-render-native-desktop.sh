@@ -76,6 +76,8 @@ swift_uses_native_desktop_idiom() {
   grep -q '.frame(width: 82)' generated/macos/Sources/App/App.swift
   grep -q '.opacity(selected ? 1 : 0)' generated/macos/Sources/App/App.swift
   grep -q '.fixedSize(horizontal: true, vertical: false)' generated/macos/Sources/App/App.swift
+  grep -q '.frame(height: 26)' generated/macos/Sources/App/App.swift
+  grep -q '.frame(minWidth: 18, minHeight: 16)' generated/macos/Sources/App/App.swift
   grep -q 'func openArchive()' generated/macos/Sources/App/App.swift
   grep -q 'case "focus_archive":' generated/macos/Sources/App/App.swift
   grep -q 'NSApplicationDelegate' generated/macos/Sources/App/App.swift

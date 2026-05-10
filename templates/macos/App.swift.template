@@ -2338,8 +2338,8 @@ private struct TabButton: View {
           CountBadge(count: count)
         }
       }
+      .frame(height: 26)
       .padding(.horizontal, 12)
-      .padding(.vertical, 6)
       .background(Capsule().fill(selected ? Color.accentColor.opacity(0.16) : Color.clear))
     }
     .buttonStyle(.plain)
@@ -2544,10 +2544,10 @@ private struct CountBadge: View {
     if count > 0 {
       Text("\(count)")
         .font(.caption2.weight(.semibold))
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
+        .frame(minWidth: 18, minHeight: 16)
         .background(Capsule().fill(Color.accentColor.opacity(0.16)))
         .foregroundStyle(Color.accentColor)
+        .fixedSize(horizontal: true, vertical: false)
     }
   }
 }
