@@ -2919,13 +2919,13 @@ private struct PrimaryTabBar: View {
 
   var body: some View {
     HStack(spacing: 8) {
-      TabButton(title: "New Senders", count: session.newSenderThreads.count, selected: session.selectedRoute == "new") {
+      TabButton(title: "New Senders", systemImage: "tray.and.arrow.down", count: session.newSenderThreads.count, selected: session.selectedRoute == "new") {
         session.openNewSenders()
       }
-      TabButton(title: "Inbox", count: session.snapshot.inbox.count, selected: session.selectedRoute == "inbox" || session.selectedRoute == "inbox-message") {
+      TabButton(title: "Inbox", systemImage: "tray.full", count: session.snapshot.inbox.count, selected: session.selectedRoute == "inbox" || session.selectedRoute == "inbox-message") {
         session.openInbox(focusing: nil)
       }
-      TabButton(title: "Mail", selected: session.selectedRoute == "mail") {
+      TabButton(title: "Mail", systemImage: "envelope", selected: session.selectedRoute == "mail") {
         session.openMail()
       }
       ArchiveTabButton(selected: session.selectedRoute == "archive") {
@@ -2963,6 +2963,7 @@ private struct ArchiveTabButton: View {
 
 private struct TabButton: View {
   let title: String
+  let systemImage: String
   var count: Int? = nil
   let selected: Bool
   let action: () -> Void
@@ -2970,6 +2971,8 @@ private struct TabButton: View {
   var body: some View {
     Button(action: action) {
       HStack(spacing: 7) {
+        Image(systemName: systemImage)
+          .font(.callout.weight(selected ? .semibold : .regular))
         Text(title)
           .font(.callout.weight(selected ? .semibold : .regular))
           .lineLimit(1)

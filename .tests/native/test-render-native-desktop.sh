@@ -67,9 +67,10 @@ swift_uses_native_desktop_idiom() {
   grep -q 'installTitlebarTabs(in: window)' generated/macos/Sources/App/App.swift
   grep -q 'NewSendersView' generated/macos/Sources/App/App.swift
   grep -q 'MailView' generated/macos/Sources/App/App.swift
-  grep -q 'TabButton(title: "New Senders"' generated/macos/Sources/App/App.swift
-  grep -q 'TabButton(title: "Inbox"' generated/macos/Sources/App/App.swift
-  grep -q 'TabButton(title: "Mail"' generated/macos/Sources/App/App.swift
+  grep -q 'TabButton(title: "New Senders", systemImage: "tray.and.arrow.down"' generated/macos/Sources/App/App.swift
+  grep -q 'TabButton(title: "Inbox", systemImage: "tray.full"' generated/macos/Sources/App/App.swift
+  grep -q 'TabButton(title: "Mail", systemImage: "envelope"' generated/macos/Sources/App/App.swift
+  grep -q 'let systemImage: String' generated/macos/Sources/App/App.swift
   grep -q 'ArchiveTabButton(selected: session.selectedRoute == "archive")' generated/macos/Sources/App/App.swift
   grep -q 'controller.view.frame = NSRect(x: 0, y: 0, width: 500, height: 34)' generated/macos/Sources/App/App.swift
   grep -q '.frame(width: 500, height: 34, alignment: .leading)' generated/macos/Sources/App/App.swift
