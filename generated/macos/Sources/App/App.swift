@@ -1710,9 +1710,9 @@ private final class OwlSession: ObservableObject {
 
   func sendComposedMessage() {
     guard let thread = selectedThread else { return }
-    let subject = composeSubject
-    let body = composeBody
     let transport = selectedTransport
+    let subject = transport == .email ? composeSubject : ""
+    let body = composeBody
     let root = mailRoot
     isBusy = true
     statusText = transport == .email ? "Sending by explicit email path..." : "Queueing SimpleX message..."
@@ -4341,13 +4341,17 @@ private struct ComposerView: View {
         .tint(session.selectedTransport == .email ? .red.opacity(0.86) : .accentColor)
         .disabled(!session.canSend || session.isBusy)
       }
-      TextField("Subject", text: $session.composeSubject)
-        .textFieldStyle(.roundedBorder)
+      if session.selectedTransport == .email {
+        TextField("Subject", text: $session.composeSubject)
+          .textFieldStyle(.roundedBorder)
+          .transition(.opacity.combined(with: .move(edge: .top)))
+      }
       TextEditor(text: $session.composeBody)
         .font(.body)
         .frame(minHeight: 82, idealHeight: 110, maxHeight: 160)
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.18)))
     }
+    .animation(.easeOut(duration: 0.16), value: session.selectedTransport)
   }
 }
 

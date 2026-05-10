@@ -98,8 +98,12 @@ swift_uses_native_desktop_idiom() {
 swift_unified_simplex_email_ui_exists() {
   cd "$repo_dir"
   grep -q 'selectedTransport = thread.hasSimpleXPath ? .simplex : .email' generated/macos/Sources/App/App.swift
+  grep -q 'let subject = transport == .email ? composeSubject : ""' generated/macos/Sources/App/App.swift
   grep -q 'Open-lock email path' generated/macos/Sources/App/App.swift
   grep -q 'Preferred secure path' generated/macos/Sources/App/App.swift
+  grep -q 'if session.selectedTransport == .email {' generated/macos/Sources/App/App.swift
+  grep -q 'TextField("Subject", text: $session.composeSubject)' generated/macos/Sources/App/App.swift
+  grep -q '.animation(.easeOut(duration: 0.16), value: session.selectedTransport)' generated/macos/Sources/App/App.swift
   grep -q 'session.openInbox(focusing: message.id)' generated/macos/Sources/App/App.swift
   grep -q 'message.in_inbox ? 0.62 : 1.0' generated/macos/Sources/App/App.swift
   grep -q 'TransportPill(message: message)' generated/macos/Sources/App/App.swift
