@@ -93,6 +93,13 @@ swift_uses_native_desktop_idiom() {
   grep -q 'let messageMenu = NSMenu(title: "Message")' generated/macos/Sources/App/App.swift
   grep -q 'actionItem("Preferences...", action: "open_settings", key: ",", modifiers: \\[.command\\])' generated/macos/Sources/App/App.swift
   ! grep -q 'actionItem("Settings...", action: "open_settings"' generated/macos/Sources/App/App.swift
+  grep -q 'settingsWindow.title = "Preferences"' generated/macos/Sources/App/App.swift
+  grep -q 'TabView {' generated/macos/Sources/App/App.swift
+  grep -q 'Label("General", systemImage: "gearshape")' generated/macos/Sources/App/App.swift
+  grep -q 'Label("Appearance", systemImage: "paintpalette")' generated/macos/Sources/App/App.swift
+  grep -q 'Label("Email", systemImage: "envelope")' generated/macos/Sources/App/App.swift
+  grep -q 'Label("Delivery", systemImage: "network")' generated/macos/Sources/App/App.swift
+  grep -q 'Label("SimpleX", systemImage: "lock.fill")' generated/macos/Sources/App/App.swift
   grep -q 'set-ui-pref' generated/macos/Sources/App/App.swift
   ! awk '
     /private struct RootView/ { in_view = 1 }
