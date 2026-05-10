@@ -384,7 +384,64 @@ owl_backend_json() {
   shift || true
   script=$(resolve_owl_backend_script || true)
   [ -n "$script" ] || return 127
-  sh "$script" "$owl_action" "$ROOT" "$@"
+  timeout_seconds=${OWL_NATIVE_OWL_TIMEOUT_SECONDS:-1}
+  case "$timeout_seconds" in ''|*[!0123456789]*) timeout_seconds=1 ;; esac
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$timeout_seconds" "$script" "$owl_action" "$ROOT" "$@" <<'PY'
+import os
+import signal
+import subprocess
+import sys
+
+timeout = int(sys.argv[1])
+cmd = ["sh"] + sys.argv[2:]
+proc = subprocess.Popen(
+    cmd,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    start_new_session=True,
+)
+try:
+    stdout, stderr = proc.communicate(timeout=timeout)
+except subprocess.TimeoutExpired:
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    stdout, stderr = proc.communicate()
+    sys.stdout.buffer.write(stdout or b"")
+    sys.stderr.buffer.write(stderr or b"")
+    sys.exit(124)
+sys.stdout.buffer.write(stdout or b"")
+sys.stderr.buffer.write(stderr or b"")
+sys.exit(proc.returncode)
+PY
+    return $?
+  fi
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$timeout_seconds" sh "$script" "$owl_action" "$ROOT" "$@"
+    return $?
+  fi
+  tmp_out=$(mktemp "${TMPDIR:-/tmp}/owl-native-owl-out.XXXXXX")
+  tmp_err=$(mktemp "${TMPDIR:-/tmp}/owl-native-owl-err.XXXXXX")
+  sh "$script" "$owl_action" "$ROOT" "$@" >"$tmp_out" 2>"$tmp_err" &
+  backend_pid=$!
+  (
+    sleep "$timeout_seconds"
+    kill "$backend_pid" >/dev/null 2>&1 || true
+  ) &
+  killer_pid=$!
+  if wait "$backend_pid"; then
+    backend_status=0
+  else
+    backend_status=$?
+  fi
+  kill "$killer_pid" >/dev/null 2>&1 || true
+  wait "$killer_pid" 2>/dev/null || true
+  cat "$tmp_out"
+  cat "$tmp_err" >&2
+  rm -f "$tmp_out" "$tmp_err"
+  return "$backend_status"
 }
 
 owl_backend_json_or_empty() {
@@ -567,46 +624,54 @@ collect_email_messages_jsonl() {
   done
 }
 
-mailbox_summary_json() {
-  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-mailboxes.XXXXXX")
+collect_email_lists_json() {
+  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-email-lists.XXXXXX")
   for list in accepted quarantine spam banned archive sent outbox trash spam-review; do
-    messages=$(owl_messages_for_list "$list")
-    printf '%s\n' "$messages" | jq -c --arg id "$list" '
-      def title:
-        {
-          accepted:"Accepted",
-          quarantine:"Quarantine",
-          spam:"Spam",
-          banned:"Banned",
-          archive:"Archive",
-          sent:"Sent",
-          outbox:"Outbox",
-          trash:"Trash",
-          "spam-review":"Spam Review"
-        }[$id] // $id;
-      {
-        id:$id,
-        title:title,
-        count:(.messages | length),
-        unread:(.messages | map(select((.read // false) | not)) | length)
-      }' >>"$tmp"
+    owl_messages_for_list "$list" | jq -c --arg id "$list" '{id:$id,messages:(.messages // [])}' >>"$tmp"
   done
   jq -s '.' "$tmp"
   rm -f "$tmp"
+}
+
+mailbox_summary_json() {
+  jq -c '
+    def title($id):
+      {
+        accepted:"Accepted",
+        quarantine:"Quarantine",
+        spam:"Spam",
+        banned:"Banned",
+        archive:"Archive",
+        sent:"Sent",
+        outbox:"Outbox",
+        trash:"Trash",
+        "spam-review":"Spam Review"
+      }[$id] // $id;
+    map({
+      id:.id,
+      title:title(.id),
+      count:((.messages // []) | length),
+      unread:((.messages // []) | map(select((.read // false) | not)) | length)
+    })'
+}
+
+collect_email_messages_from_lists_jsonl() {
+  jq -c '.[] | .id as $list | (.messages // [])[] | . + {native_source_list:$list}'
 }
 
 snapshot_action() {
   ensure_roots
   contacts_json=$(contacts_json_array)
   overview_json=$(owl_overview)
-  mailboxes_json=$(mailbox_summary_json)
+  email_lists_json=$(collect_email_lists_json)
+  mailboxes_json=$(printf '%s\n' "$email_lists_json" | mailbox_summary_json)
   drafts_json=$(owl_backend_array_field_or_empty drafts draft-list)
   events_json=$(owl_backend_array_field_or_empty events event-feed 80)
   settings_json=$(owl_backend_json_or_empty settings-controls)
   prefs_json=$(ui_prefs_action)
   tmp_email=$(mktemp "${TMPDIR:-/tmp}/owl-native-email.XXXXXX")
   tmp_simplex=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex.XXXXXX")
-  collect_email_messages_jsonl >"$tmp_email"
+  printf '%s\n' "$email_lists_json" | collect_email_messages_from_lists_jsonl >"$tmp_email"
   collect_simplex_messages_jsonl >"$tmp_simplex"
   jq -n \
     --arg root "$ROOT" \
