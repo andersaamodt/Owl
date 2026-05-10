@@ -152,6 +152,14 @@ swift_mail_favorites_move_between_sections() {
   grep -Fq 'snapshot.favorites.removeAll { $0.id == threadID }' generated/macos/Sources/App/App.swift
   grep -Fq 'snapshot.favorites.insert(updated, at: 0)' generated/macos/Sources/App/App.swift
   grep -Fq '@Namespace private var threadMoveNamespace' generated/macos/Sources/App/App.swift
+  grep -Fq '@State private var contactFilter: MailContactFilter = .all' generated/macos/Sources/App/App.swift
+  grep -Fq '@State private var contactSort: MailContactSort = .recent' generated/macos/Sources/App/App.swift
+  grep -Fq 'private enum MailContactFilter: String, CaseIterable' generated/macos/Sources/App/App.swift
+  grep -Fq 'private enum MailContactSort: String, CaseIterable' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label("Favorites", systemImage: "line.3.horizontal.decrease.circle")' generated/macos/Sources/App/App.swift
+  grep -Fq 'FriendlyTime.sortTimestamp(lhs.latest_at)' generated/macos/Sources/App/App.swift
+  grep -Fq 'if lhsTime != rhsTime { return lhsTime > rhsTime }' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func sortedThreads(_ threads: [ThreadItem]) -> [ThreadItem]' generated/macos/Sources/App/App.swift
   grep -Fq '.matchedGeometryEffect(id: thread.id, in: threadMoveNamespace, properties: .position)' generated/macos/Sources/App/App.swift
   grep -Fq 'private func mailThreadRow(_ thread: ThreadItem) -> some View' generated/macos/Sources/App/App.swift
   grep -Fq 'private var favoriteThreads: [ThreadItem]' generated/macos/Sources/App/App.swift

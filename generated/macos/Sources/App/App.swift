@@ -1117,6 +1117,10 @@ private enum FriendlyTime {
     }
     return nil
   }
+
+  static func sortTimestamp(_ rawValue: String) -> TimeInterval {
+    parse(rawValue)?.timeIntervalSince1970 ?? 0
+  }
 }
 
 private func friendlyTime(_ rawValue: String) -> String {
@@ -3219,32 +3223,112 @@ private struct MailView: View {
   }
 }
 
+private enum MailContactFilter: String, CaseIterable {
+  case all
+  case favorites
+  case individuals
+  case groups
+
+  var title: String {
+    switch self {
+    case .all: return "All"
+    case .favorites: return "Favorites"
+    case .individuals: return "Individuals"
+    case .groups: return "Groups"
+    }
+  }
+}
+
+private enum MailContactSort: String, CaseIterable {
+  case recent
+  case alphabetical
+  case unread
+
+  var title: String {
+    switch self {
+    case .recent: return "Recent Activity"
+    case .alphabetical: return "Alphabetical"
+    case .unread: return "Unread First"
+    }
+  }
+}
+
 private struct ContactListView: View {
   @EnvironmentObject private var session: OwlSession
   @Namespace private var threadMoveNamespace
+  @State private var contactFilter: MailContactFilter = .all
+  @State private var contactSort: MailContactSort = .recent
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
+      HStack {
+        Spacer()
+        Menu {
+          Section("Show") {
+            ForEach(MailContactFilter.allCases, id: \.self) { filter in
+              Button {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
+                  contactFilter = filter
+                }
+              } label: {
+                if contactFilter == filter {
+                  Label(filter.title, systemImage: "checkmark")
+                } else {
+                  Text(filter.title)
+                }
+              }
+            }
+          }
+          Section("Sort") {
+            ForEach(MailContactSort.allCases, id: \.self) { sort in
+              Button {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
+                  contactSort = sort
+                }
+              } label: {
+                if contactSort == sort {
+                  Label(sort.title, systemImage: "checkmark")
+                } else {
+                  Text(sort.title)
+                }
+              }
+            }
+          }
+        } label: {
+          Label("Favorites", systemImage: "line.3.horizontal.decrease.circle")
+            .labelStyle(.titleAndIcon)
+        }
+        .menuStyle(.button)
+        .fixedSize()
+        .help("Filter and sort the Mail list")
+      }
+      .padding(.horizontal, 10)
+      .padding(.top, 8)
+      .padding(.bottom, 4)
       List(selection: $session.selectedMailThreadID) {
         Section("Mailboxes") {
           SidebarMailboxRow(mailbox: trashMailbox)
             .onTapGesture { session.openMailbox(trashMailbox) }
         }
-        if !favoriteThreads.isEmpty {
+        if showsFavoritesSection, !favoriteThreads.isEmpty {
           Section("Favorites") {
             ForEach(favoriteThreads) { thread in
               mailThreadRow(thread)
             }
           }
         }
-        Section("Individuals") {
-          ForEach(individualThreads) { thread in
-            mailThreadRow(thread)
+        if showsIndividualsSection {
+          Section("Individuals") {
+            ForEach(individualThreads) { thread in
+              mailThreadRow(thread)
+            }
           }
         }
-        Section("Groups") {
-          ForEach(groupThreads) { thread in
-            mailThreadRow(thread)
+        if showsGroupsSection {
+          Section("Groups") {
+            ForEach(groupThreads) { thread in
+              mailThreadRow(thread)
+            }
           }
         }
       }
@@ -3252,6 +3336,8 @@ private struct ContactListView: View {
       .animation(.spring(response: 0.30, dampingFraction: 0.86), value: favoriteThreadIDs)
       .animation(.spring(response: 0.30, dampingFraction: 0.86), value: individualThreadIDs)
       .animation(.spring(response: 0.30, dampingFraction: 0.86), value: groupThreadIDs)
+      .animation(.spring(response: 0.30, dampingFraction: 0.86), value: contactFilter)
+      .animation(.spring(response: 0.30, dampingFraction: 0.86), value: contactSort)
     }
   }
 
@@ -3263,15 +3349,15 @@ private struct ContactListView: View {
   }
 
   private var favoriteThreads: [ThreadItem] {
-    uniqueThreads(session.snapshot.favorites + session.snapshot.individuals.filter { $0.favorite } + session.snapshot.groups.filter { $0.favorite })
+    sortedThreads(uniqueThreads(session.snapshot.favorites + session.snapshot.individuals.filter { $0.favorite } + session.snapshot.groups.filter { $0.favorite }))
   }
 
   private var individualThreads: [ThreadItem] {
-    session.snapshot.individuals.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }
+    sortedThreads(session.snapshot.individuals.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite })
   }
 
   private var groupThreads: [ThreadItem] {
-    session.snapshot.groups.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }
+    sortedThreads(session.snapshot.groups.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite })
   }
 
   private var favoriteThreadIDs: [String] {
@@ -3294,6 +3380,37 @@ private struct ContactListView: View {
       }
       seen.insert(thread.id)
       return true
+    }
+  }
+
+  private var showsFavoritesSection: Bool {
+    contactFilter == .all || contactFilter == .favorites
+  }
+
+  private var showsIndividualsSection: Bool {
+    contactFilter == .all || contactFilter == .individuals
+  }
+
+  private var showsGroupsSection: Bool {
+    contactFilter == .all || contactFilter == .groups
+  }
+
+  private func sortedThreads(_ threads: [ThreadItem]) -> [ThreadItem] {
+    threads.sorted { lhs, rhs in
+      switch contactSort {
+      case .recent:
+        let lhsTime = FriendlyTime.sortTimestamp(lhs.latest_at)
+        let rhsTime = FriendlyTime.sortTimestamp(rhs.latest_at)
+        if lhsTime != rhsTime { return lhsTime > rhsTime }
+        return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+      case .alphabetical:
+        let order = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+        if order != .orderedSame { return order == .orderedAscending }
+        return FriendlyTime.sortTimestamp(lhs.latest_at) > FriendlyTime.sortTimestamp(rhs.latest_at)
+      case .unread:
+        if lhs.unread_count != rhs.unread_count { return lhs.unread_count > rhs.unread_count }
+        return FriendlyTime.sortTimestamp(lhs.latest_at) > FriendlyTime.sortTimestamp(rhs.latest_at)
+      }
     }
   }
 
