@@ -2248,10 +2248,12 @@ private struct DraggableMessageCardModifier: ViewModifier {
         dragOffset = value.translation
       }
       .onEnded { value in
+        let actual = value.translation.width
         let projected = value.predictedEndTranslation.width
-        let shouldFlickArchive = message.in_inbox && (abs(projected) > 180 || abs(value.translation.width) > 130)
+        let isIntentionalFlick = abs(actual) > 150 || (abs(actual) > 86 && abs(projected) > 300 && actual * projected > 0)
+        let shouldFlickArchive = message.in_inbox && isIntentionalFlick
         if shouldFlickArchive {
-          dragOffset = CGSize(width: projected >= 0 ? 980 : -980, height: value.translation.height)
+          dragOffset = CGSize(width: actual >= 0 ? 980 : -980, height: value.translation.height)
           session.archive(message)
           Task {
             try? await Task.sleep(nanoseconds: 260_000_000)
@@ -2966,13 +2968,15 @@ private struct NewSenderStackCard: View {
         flickOffset = value.translation.width
       }
       .onEnded { value in
+        let actual = value.translation.width
         let projected = value.predictedEndTranslation.width
-        guard abs(projected) > 170 || abs(value.translation.width) > 120 else {
+        let isIntentionalFlick = abs(actual) > 145 || (abs(actual) > 84 && abs(projected) > 290 && actual * projected > 0)
+        guard isIntentionalFlick else {
           flickOffset = 0
           return
         }
-        let destination = projected >= 0 ? "accepted" : "spam"
-        flickOffset = projected >= 0 ? 900 : -900
+        let destination = actual >= 0 ? "accepted" : "spam"
+        flickOffset = actual >= 0 ? 900 : -900
         session.moveNewSender(thread, to: destination)
         Task {
           try? await Task.sleep(nanoseconds: 260_000_000)

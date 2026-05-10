@@ -234,10 +234,12 @@ swift_cards_have_horizontal_flick_actions() {
   grep -Fq '.transition(.opacity.combined(with: .move(edge: .top)))' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private struct NewSenderExpandedMessageRow' generated/macos/Sources/App/App.swift
   grep -Fq 'private var newSenderFlickGesture: some Gesture' generated/macos/Sources/App/App.swift
-  grep -Fq 'let destination = projected >= 0 ? "accepted" : "spam"' generated/macos/Sources/App/App.swift
+  grep -Fq 'let isIntentionalFlick = abs(actual) > 145 || (abs(actual) > 84 && abs(projected) > 290 && actual * projected > 0)' generated/macos/Sources/App/App.swift
+  grep -Fq 'let destination = actual >= 0 ? "accepted" : "spam"' generated/macos/Sources/App/App.swift
   grep -Fq 'session.moveNewSender(thread, to: destination)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var cardDragGesture: some Gesture' generated/macos/Sources/App/App.swift
-  grep -Fq 'let shouldFlickArchive = message.in_inbox && (abs(projected) > 180 || abs(value.translation.width) > 130)' generated/macos/Sources/App/App.swift
+  grep -Fq 'let isIntentionalFlick = abs(actual) > 150 || (abs(actual) > 86 && abs(projected) > 300 && actual * projected > 0)' generated/macos/Sources/App/App.swift
+  grep -Fq 'let shouldFlickArchive = message.in_inbox && isIntentionalFlick' generated/macos/Sources/App/App.swift
   grep -Fq 'session.archive(message)' generated/macos/Sources/App/App.swift
   grep -Fq '.simultaneousGesture(newSenderFlickGesture)' generated/macos/Sources/App/App.swift
   grep -Fq '.simultaneousGesture(cardDragGesture)' generated/macos/Sources/App/App.swift
