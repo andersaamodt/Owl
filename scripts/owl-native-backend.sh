@@ -49,6 +49,7 @@ Actions:
   send-message ROOT THREAD_ID simplex|email SUBJECT BODY_B64
   message-detail ROOT MESSAGE_ID
   archive-message ROOT MESSAGE_ID
+  message-trash-files ROOT MESSAGE_ID
   delete-message ROOT MESSAGE_ID
   toggle-star ROOT MESSAGE_ID true|false
   list-senders ROOT LIST
@@ -980,6 +981,92 @@ message_detail_action() {
   esac
 }
 
+yaml_scalar_light() {
+  file=$1
+  key=$2
+  awk -F: -v wanted="$key" '
+    $1 == wanted {
+      value = substr($0, index($0, ":") + 1)
+      sub(/^[[:space:]]+/, "", value)
+      sub(/[[:space:]]+$/, "", value)
+      if (value ~ /^".*"$/ || value ~ /^'\''.*'\''$/) {
+        value = substr(value, 2, length(value) - 2)
+      }
+      print value
+      exit
+    }
+  ' "$file"
+}
+
+email_sidecar_path() {
+  message_id_value=$1
+  parts=$(email_message_parts_from_id "$message_id_value" || true)
+  list=$(printf '%s\n' "$parts" | sed -n '1p')
+  sender_slug=$(printf '%s\n' "$parts" | sed -n '2p')
+  ulid=$(printf '%s\n' "$parts" | sed -n '3p')
+  [ -n "$list" ] && [ -n "$ulid" ] || return 1
+  case "$list" in
+    outbox|sent)
+      search_dir="$ROOT/$list"
+      ;;
+    *)
+      search_dir="$ROOT/$list/$sender_slug"
+      ;;
+  esac
+  [ -d "$search_dir" ] || return 1
+  for sidecar in "$search_dir"/.*.yml "$search_dir"/*.yml; do
+    [ -f "$sidecar" ] || continue
+    candidate=$(yaml_scalar_light "$sidecar" ulid)
+    if [ "$candidate" = "$ulid" ]; then
+      printf '%s\n' "$sidecar"
+      return 0
+    fi
+  done
+  return 1
+}
+
+sidecar_sibling_path() {
+  sidecar=$1
+  rel=$2
+  [ -n "$rel" ] || return 0
+  case "$rel" in
+    /*) printf '%s\n' "$rel" ;;
+    *) printf '%s/%s\n' "$(dirname "$sidecar")" "$rel" ;;
+  esac
+}
+
+message_trash_files_action() {
+  id=${1-}
+  case "$id" in
+    email:*)
+      sidecar=$(email_sidecar_path "$id" || true)
+      [ -n "$sidecar" ] || usage_error "email message not found: $id"
+      base=$(basename "$sidecar")
+      eml="${base#.}"
+      eml="${eml%.yml}.eml"
+      eml_path="$(dirname "$sidecar")/$eml"
+      html_path=$(sidecar_sibling_path "$sidecar" "$(yaml_scalar_light "$sidecar" html)")
+      plain_path=$(sidecar_sibling_path "$sidecar" "$(yaml_scalar_light "$sidecar" plain)")
+      paths_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-trash-paths.XXXXXX")
+      for path in "$eml_path" "$html_path" "$plain_path" "$sidecar"; do
+        [ -n "$path" ] && [ -e "$path" ] && printf '%s\n' "$path" >>"$paths_tmp"
+      done
+      paths_json=$(jq -R -s 'split("\n") | map(select(length > 0))' "$paths_tmp")
+      rm -f "$paths_tmp"
+      jq -n \
+        --arg id "$id" \
+        --argjson paths "$paths_json" \
+        '{ok:true,id:$id,paths:$paths}'
+      ;;
+    simplex:*)
+      jq -n --arg id "$id" '{ok:true,id:$id,paths:[],file_backed:false}'
+      ;;
+    *)
+      usage_error "unsupported message id: $id"
+      ;;
+  esac
+}
+
 archive_message_action() {
   id=${1-}
   case "$id" in
@@ -1749,6 +1836,9 @@ case "$action" in
     ;;
   archive-message)
     archive_message_action "${1-}"
+    ;;
+  message-trash-files)
+    message_trash_files_action "${1-}"
     ;;
   delete-message)
     if [ "$#" -ge 3 ]; then

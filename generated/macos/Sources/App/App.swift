@@ -794,6 +794,17 @@ private struct UIPrefs: Decodable, Sendable {
   }
 }
 
+private struct TrashFilesResponse: Decodable, Sendable {
+  var ok: Bool = false
+  var id: String = ""
+  var paths: [String] = []
+}
+
+private struct SystemTrashAction {
+  var messageID: String
+  var originalToTrash: [(original: URL, trashed: URL)]
+}
+
 private enum BubbleColors {
   static let defaultSelfSimpleXHex = "#DDF4E3"
   static let defaultSelfEmailHex = "#F7DADA"
@@ -1250,6 +1261,7 @@ private final class OwlSession: ObservableObject {
   @Published var bubbleSelfEmailColor: Color = BubbleColors.defaultSelfEmail
   @Published var bubbleOtherSimpleXColor: Color = BubbleColors.defaultOtherSimpleX
   @Published var bubbleOtherEmailColor: Color = BubbleColors.defaultOtherEmail
+  private var lastSystemTrashAction: SystemTrashAction?
   private var lastRefreshAt: Date?
   private let refreshStaleInterval: TimeInterval = 20
   private var toastGeneration = 0
@@ -1341,6 +1353,10 @@ private final class OwlSession: ObservableObject {
     case .email:
       return thread.hasEmailPath
     }
+  }
+
+  var canUndoLastTrashAction: Bool {
+    lastSystemTrashAction != nil
   }
 
   func loadPreferencesThenRefresh() async {
@@ -1742,9 +1758,82 @@ private final class OwlSession: ObservableObject {
   }
 
   func delete(_ message: MessageItem) {
+    trash(message)
+  }
+
+  func trash(_ message: MessageItem) {
     let root = mailRoot
-    runMessageAction(status: "Deleted message") {
-      try await OwlBackend.runJSON(action: "delete-message", root: root, args: [message.id])
+    isBusy = true
+    statusText = message.isSimpleX ? "Deleting SimpleX message" : "Moving message to system Trash"
+    Task {
+      do {
+        if message.isSimpleX {
+          _ = try await OwlBackend.runJSON(action: "delete-message", root: root, args: [message.id])
+          self.lastSystemTrashAction = nil
+          self.statusText = "Deleted SimpleX message"
+        } else {
+          let response = try await OwlBackend.messageTrashFiles(root: root, messageID: message.id)
+          let urls = response.paths.map { URL(fileURLWithPath: $0) }
+          guard !urls.isEmpty else {
+            throw NSError(domain: "OwlNativeTrash", code: 1, userInfo: [NSLocalizedDescriptionKey: "Message files were not found for system Trash."])
+          }
+          let recycled = try await recycleInSystemTrash(urls)
+          self.lastSystemTrashAction = SystemTrashAction(
+            messageID: message.id,
+            originalToTrash: recycled.map { (original: $0.key, trashed: $0.value) }
+          )
+          self.statusText = "Moved message to system Trash"
+        }
+        self.isBusy = false
+        self.refresh()
+      } catch {
+        self.statusText = error.localizedDescription
+        self.isBusy = false
+      }
+    }
+  }
+
+  func undoLastTrashAction() {
+    guard let action = lastSystemTrashAction else {
+      statusText = "No system Trash action to undo"
+      return
+    }
+    isBusy = true
+    statusText = "Restoring message from system Trash"
+    Task {
+      do {
+        let fileManager = FileManager.default
+        for mapping in action.originalToTrash.reversed() {
+          try fileManager.createDirectory(at: mapping.original.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
+          if fileManager.fileExists(atPath: mapping.original.path) {
+            throw NSError(domain: "OwlNativeTrash", code: 2, userInfo: [NSLocalizedDescriptionKey: "\(mapping.original.lastPathComponent) already exists at its original location."])
+          }
+          try fileManager.moveItem(at: mapping.trashed, to: mapping.original)
+        }
+        self.lastSystemTrashAction = nil
+        self.statusText = "Restored message from system Trash"
+        self.isBusy = false
+        self.refresh()
+      } catch {
+        self.statusText = "Could not undo Trash action: \(error.localizedDescription)"
+        self.isBusy = false
+      }
+    }
+  }
+
+  func openSystemTrash() {
+    NSWorkspace.shared.open(URL(fileURLWithPath: "\(NSHomeDirectory())/.Trash", isDirectory: true))
+  }
+
+  private func recycleInSystemTrash(_ urls: [URL]) async throws -> [URL: URL] {
+    try await withCheckedThrowingContinuation { continuation in
+      NSWorkspace.shared.recycle(urls) { trashedURLs, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume(returning: trashedURLs)
+        }
+      }
     }
   }
 
@@ -1808,7 +1897,7 @@ private final class OwlSession: ObservableObject {
     case .archive:
       archive(message)
     case .trash:
-      delete(message)
+      trash(message)
     }
   }
 
@@ -2150,6 +2239,11 @@ private enum OwlBackend {
     return try await runJSON(action: "send-message", root: root, args: [threadID, transport.rawValue, subject, body64])
   }
 
+  static func messageTrashFiles(root: String, messageID: String) async throws -> TrashFilesResponse {
+    let data = try await runJSON(action: "message-trash-files", root: root, args: [messageID])
+    return try JSONDecoder().decode(TrashFilesResponse.self, from: data)
+  }
+
   static func runJSON(action: String, root: String, args: [String]) async throws -> Data {
     try await Task.detached(priority: .userInitiated) {
       try run(action: action, root: root, args: args)
@@ -2377,9 +2471,24 @@ private struct SenderDropTarget: View {
 }
 
 private struct MessageDropDock: View {
+  @EnvironmentObject private var session: OwlSession
+
   var body: some View {
     HStack(alignment: .bottom) {
       MessageDropTarget(action: .trash)
+        .contextMenu {
+          Button {
+            session.undoLastTrashAction()
+          } label: {
+            Label("Undo Last Trash", systemImage: "arrow.uturn.backward")
+          }
+          .disabled(!session.canUndoLastTrashAction)
+          Button {
+            session.openSystemTrash()
+          } label: {
+            Label("Open System Trash", systemImage: "trash")
+          }
+        }
       Spacer()
       MessageDropTarget(action: .archive)
     }
@@ -3537,10 +3646,6 @@ private struct ContactListView: View {
       .padding(.top, 8)
       .padding(.bottom, 4)
       List(selection: $session.selectedMailThreadID) {
-        Section("Mailboxes") {
-          SidebarMailboxRow(mailbox: trashMailbox)
-            .onTapGesture { session.openMailbox(trashMailbox) }
-        }
         if showsFavoritesSection, !favoriteThreads.isEmpty {
           Section("Favorites") {
             ForEach(favoriteThreads) { thread in
@@ -3645,10 +3750,6 @@ private struct ContactListView: View {
     }
   }
 
-  private var trashMailbox: MailboxItem {
-    session.snapshot.mailboxes.first(where: { $0.id == "trash" }) ??
-      MailboxItem(id: "trash", title: "Trash", count: session.snapshot.overview.counts.trash_messages)
-  }
 }
 
 private struct MessageListRow: View {

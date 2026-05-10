@@ -143,8 +143,8 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'private var inboxStackCards: [MessageItem]' generated/macos/Sources/App/App.swift
   grep -Fq 'let grouped = Dictionary(grouping: session.snapshot.inbox, by: { inboxStackKey(for: $0) })' generated/macos/Sources/App/App.swift
   grep -Fq '.id(inboxStackID(for: message))' generated/macos/Sources/App/App.swift
-  grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
-  grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "archive"' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: 560)' generated/macos/Sources/App/App.swift
   grep -Fq 'offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)' generated/macos/Sources/App/App.swift
@@ -241,6 +241,15 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'PrioritiesTrashIcon' generated/macos/Sources/App/App.swift
   grep -q 'MessageDropTarget(action: .trash)' generated/macos/Sources/App/App.swift
   grep -q 'MessageDropTarget(action: .archive)' generated/macos/Sources/App/App.swift
+  grep -q 'func trash(_ message: MessageItem)' generated/macos/Sources/App/App.swift
+  grep -q 'NSWorkspace.shared.recycle(urls)' generated/macos/Sources/App/App.swift
+  grep -q 'private func recycleInSystemTrash(_ urls: \\[URL\\]) async throws -> \\[URL: URL\\]' generated/macos/Sources/App/App.swift
+  grep -q 'func undoLastTrashAction()' generated/macos/Sources/App/App.swift
+  grep -q 'func openSystemTrash()' generated/macos/Sources/App/App.swift
+  grep -q 'Label("Undo Last Trash", systemImage: "arrow.uturn.backward")' generated/macos/Sources/App/App.swift
+  grep -q 'Label("Open System Trash", systemImage: "trash")' generated/macos/Sources/App/App.swift
+  grep -q 'static func messageTrashFiles(root: String, messageID: String) async throws -> TrashFilesResponse' generated/macos/Sources/App/App.swift
+  grep -q 'message-trash-files' generated/macos/Sources/App/App.swift scripts/owl-native-backend.sh
   grep -Fq 'private var showsMessageDropDock: Bool' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "inbox-message"' generated/macos/Sources/App/App.swift
   ! grep -Fq 'session.selectedRoute == "mail" ||' generated/macos/Sources/App/App.swift
