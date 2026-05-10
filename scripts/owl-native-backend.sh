@@ -577,6 +577,18 @@ append_simplex_message() {
   jq -cn --arg id "$id" --arg thread_id "$thread_id" '{ok:true,id:$id,thread_id:$thread_id}'
 }
 
+simplex_duplicate_message_exists() {
+  thread_id=$(safe_slug "$1")
+  body=${2-}
+  from_self=${3-false}
+  case "$from_self" in true|1|yes|on) from_self=true ;; *) from_self=false ;; esac
+  file=$(simplex_thread_file "$thread_id")
+  [ -f "$file" ] || return 1
+  jq -e --arg body "$body" --argjson from_self "$from_self" '
+    select((.body // "") == $body and ((.from_self // false) == $from_self))
+  ' "$file" >/dev/null 2>&1
+}
+
 collect_simplex_messages_jsonl() {
   dir=$(simplex_threads_dir)
   [ -d "$dir" ] || return 0
@@ -1581,6 +1593,11 @@ tick_simplex_action() {
     [ -n "$body" ] || continue
     if [ -n "$simplex_address" ] && [ ! -f "$(native_contact_file "$thread_id")" ]; then
       save_contact_binding "$thread_id" "$thread_id" person "" "$simplex_address" no >/dev/null
+    fi
+    if simplex_duplicate_message_exists "$thread_id" "$body" "$from_self"; then
+      mkdir -p "$(simplex_processed_dir)"
+      mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").duplicate.$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
+      continue
     fi
     append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" >/dev/null
     mkdir -p "$(simplex_processed_dir)"
