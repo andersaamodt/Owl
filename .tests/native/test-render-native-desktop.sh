@@ -318,6 +318,30 @@ swift_message_surfaces_use_colored_backgrounds() {
   ' generated/macos/Sources/App/App.swift
 }
 
+swift_chat_bubble_colors_are_preferences() {
+  cd "$repo_dir"
+  grep -Fq 'private enum BubbleColors' generated/macos/Sources/App/App.swift
+  grep -Fq 'static let defaultSelfSimpleXHex = "#DDF4E3"' generated/macos/Sources/App/App.swift
+  grep -Fq 'static let defaultSelfEmailHex = "#F7DADA"' generated/macos/Sources/App/App.swift
+  grep -Fq 'static let defaultOtherSimpleXHex = "#EDF7F0"' generated/macos/Sources/App/App.swift
+  grep -Fq 'static let defaultOtherEmailHex = "#F5ECEC"' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var bubbleSelfSimpleXColor: Color = BubbleColors.defaultSelfSimpleX' generated/macos/Sources/App/App.swift
+  grep -Fq 'func persistBubbleColors()' generated/macos/Sources/App/App.swift
+  grep -Fq 'func resetBubbleColors()' generated/macos/Sources/App/App.swift
+  grep -Fq 'func bubbleFill(for message: MessageItem) -> Color' generated/macos/Sources/App/App.swift
+  grep -Fq 'return bubbleSelfSimpleXColor' generated/macos/Sources/App/App.swift
+  grep -Fq 'return bubbleSelfEmailColor' generated/macos/Sources/App/App.swift
+  grep -Fq 'return bubbleOtherSimpleXColor' generated/macos/Sources/App/App.swift
+  grep -Fq 'return bubbleOtherEmailColor' generated/macos/Sources/App/App.swift
+  grep -Fq 'Section("Chat Bubbles")' generated/macos/Sources/App/App.swift
+  grep -Fq 'ColorPicker(title, selection: $color, supportsOpacity: false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'set: { session.bubbleSelfSimpleXColor = $0; session.persistBubbleColors() }' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.bubbleFill(for: message)' generated/macos/Sources/App/App.swift
+  grep -Fq 'bubble_self_simplex)' scripts/owl-native-backend.sh
+  grep -Fq 'bubble_self_simplex:$bubble_self_simplex' scripts/owl-native-backend.sh
+  grep -Fq 'mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email)' scripts/owl-native-backend.sh
+}
+
 swift_new_sender_actions_skip_full_refresh() {
   cd "$repo_dir"
   grep -Fq 'func applySenderMove(sender: String, to list: String)' generated/macos/Sources/App/App.swift
@@ -387,6 +411,7 @@ run_case "Swift message timestamps are friendly" swift_message_timestamps_are_fr
 run_case "Swift Mail timelines restore scroll position" swift_mail_timelines_restore_scroll_position
 run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_reader_before_mail
 run_case "Swift message surfaces use colored backgrounds" swift_message_surfaces_use_colored_backgrounds
+run_case "Swift chat bubble colors are preferences" swift_chat_bubble_colors_are_preferences
 run_case "Swift new sender actions skip full refresh" swift_new_sender_actions_skip_full_refresh
 run_case "Native UI has no manual refresh controls" native_ui_has_no_manual_refresh_controls
 run_case "Swift uses toasts not status bar" swift_uses_toasts_not_status_bar
@@ -397,4 +422,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "18/18 native render tests passed"
+printf '%s\n' "19/19 native render tests passed"

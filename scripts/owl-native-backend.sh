@@ -318,6 +318,18 @@ ui_pref_value() {
     selected_route)
       config_get "$(ui_prefs_file)" selected_route 2>/dev/null || printf '%s\n' new
       ;;
+    bubble_self_simplex)
+      config_get "$(ui_prefs_file)" bubble_self_simplex 2>/dev/null || printf '%s\n' '#DDF4E3'
+      ;;
+    bubble_self_email)
+      config_get "$(ui_prefs_file)" bubble_self_email 2>/dev/null || printf '%s\n' '#F7DADA'
+      ;;
+    bubble_other_simplex)
+      config_get "$(ui_prefs_file)" bubble_other_simplex 2>/dev/null || printf '%s\n' '#EDF7F0'
+      ;;
+    bubble_other_email)
+      config_get "$(ui_prefs_file)" bubble_other_email 2>/dev/null || printf '%s\n' '#F5ECEC'
+      ;;
     *)
       return 1
       ;;
@@ -328,14 +340,18 @@ ui_prefs_action() {
   jq -n \
     --arg mail_root "$(ui_pref_value mail_root)" \
     --arg selected_route "$(ui_pref_value selected_route)" \
-    '{ok:true,mail_root:$mail_root,selected_route:$selected_route}'
+    --arg bubble_self_simplex "$(ui_pref_value bubble_self_simplex)" \
+    --arg bubble_self_email "$(ui_pref_value bubble_self_email)" \
+    --arg bubble_other_simplex "$(ui_pref_value bubble_other_simplex)" \
+    --arg bubble_other_email "$(ui_pref_value bubble_other_email)" \
+    '{ok:true,mail_root:$mail_root,selected_route:$selected_route,bubble_self_simplex:$bubble_self_simplex,bubble_self_email:$bubble_self_email,bubble_other_simplex:$bubble_other_simplex,bubble_other_email:$bubble_other_email}'
 }
 
 set_ui_pref_action() {
   key=${1-}
   value=${2-}
   case "$key" in
-    mail_root|selected_route) ;;
+    mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email) ;;
     *) usage_error "unsupported UI preference: $key" ;;
   esac
   case "$value" in

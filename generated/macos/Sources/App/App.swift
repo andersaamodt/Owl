@@ -753,10 +753,86 @@ private struct RemoteSettings: Decodable, Sendable {
 private struct UIPrefs: Decodable, Sendable {
   var mail_root: String
   var selected_route: String
+  var bubble_self_simplex: String
+  var bubble_self_email: String
+  var bubble_other_simplex: String
+  var bubble_other_email: String
 
-  init(mail_root: String = "", selected_route: String = "inbox") {
+  init(
+    mail_root: String = "",
+    selected_route: String = "inbox",
+    bubble_self_simplex: String = BubbleColors.defaultSelfSimpleXHex,
+    bubble_self_email: String = BubbleColors.defaultSelfEmailHex,
+    bubble_other_simplex: String = BubbleColors.defaultOtherSimpleXHex,
+    bubble_other_email: String = BubbleColors.defaultOtherEmailHex
+  ) {
     self.mail_root = mail_root
     self.selected_route = selected_route
+    self.bubble_self_simplex = bubble_self_simplex
+    self.bubble_self_email = bubble_self_email
+    self.bubble_other_simplex = bubble_other_simplex
+    self.bubble_other_email = bubble_other_email
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case mail_root
+    case selected_route
+    case bubble_self_simplex
+    case bubble_self_email
+    case bubble_other_simplex
+    case bubble_other_email
+  }
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    mail_root = try values.decodeIfPresent(String.self, forKey: .mail_root) ?? ""
+    selected_route = try values.decodeIfPresent(String.self, forKey: .selected_route) ?? "new"
+    bubble_self_simplex = try values.decodeIfPresent(String.self, forKey: .bubble_self_simplex) ?? BubbleColors.defaultSelfSimpleXHex
+    bubble_self_email = try values.decodeIfPresent(String.self, forKey: .bubble_self_email) ?? BubbleColors.defaultSelfEmailHex
+    bubble_other_simplex = try values.decodeIfPresent(String.self, forKey: .bubble_other_simplex) ?? BubbleColors.defaultOtherSimpleXHex
+    bubble_other_email = try values.decodeIfPresent(String.self, forKey: .bubble_other_email) ?? BubbleColors.defaultOtherEmailHex
+  }
+}
+
+private enum BubbleColors {
+  static let defaultSelfSimpleXHex = "#DDF4E3"
+  static let defaultSelfEmailHex = "#F7DADA"
+  static let defaultOtherSimpleXHex = "#EDF7F0"
+  static let defaultOtherEmailHex = "#F5ECEC"
+
+  static let defaultSelfSimpleX = Color(hex: defaultSelfSimpleXHex, fallback: Color.green.opacity(0.17))
+  static let defaultSelfEmail = Color(hex: defaultSelfEmailHex, fallback: Color.red.opacity(0.15))
+  static let defaultOtherSimpleX = Color(hex: defaultOtherSimpleXHex, fallback: Color.green.opacity(0.08))
+  static let defaultOtherEmail = Color(hex: defaultOtherEmailHex, fallback: Color.red.opacity(0.07))
+}
+
+private extension Color {
+  init(hex: String, fallback: Color) {
+    let cleaned = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#").union(.whitespacesAndNewlines))
+    guard cleaned.count == 6, let value = Int(cleaned, radix: 16) else {
+      self = fallback
+      return
+    }
+    let red = Double((value >> 16) & 0xFF) / 255.0
+    let green = Double((value >> 8) & 0xFF) / 255.0
+    let blue = Double(value & 0xFF) / 255.0
+    self = Color(red: red, green: green, blue: blue)
+  }
+
+  var owlHexString: String {
+    guard let color = NSColor(self).usingColorSpace(.sRGB) else {
+      return "#FFFFFF"
+    }
+    let red = Int((color.redComponent * 255.0).rounded()).clamped(to: 0...255)
+    let green = Int((color.greenComponent * 255.0).rounded()).clamped(to: 0...255)
+    let blue = Int((color.blueComponent * 255.0).rounded()).clamped(to: 0...255)
+    return String(format: "#%02X%02X%02X", red, green, blue)
+  }
+}
+
+private extension Comparable {
+  func clamped(to limits: ClosedRange<Self>) -> Self {
+    min(max(self, limits.lowerBound), limits.upperBound)
   }
 }
 
@@ -1170,6 +1246,10 @@ private final class OwlSession: ObservableObject {
   @Published var remoteHostDraft: String = ""
   @Published var remoteKeyPathDraft: String = ""
   @Published var remotePortDraft: String = ""
+  @Published var bubbleSelfSimpleXColor: Color = BubbleColors.defaultSelfSimpleX
+  @Published var bubbleSelfEmailColor: Color = BubbleColors.defaultSelfEmail
+  @Published var bubbleOtherSimpleXColor: Color = BubbleColors.defaultOtherSimpleX
+  @Published var bubbleOtherEmailColor: Color = BubbleColors.defaultOtherEmail
   private var lastRefreshAt: Date?
   private let refreshStaleInterval: TimeInterval = 20
   private var toastGeneration = 0
@@ -1270,6 +1350,7 @@ private final class OwlSession: ObservableObject {
         mailRoot = prefs.mail_root
       }
       selectedRoute = prefs.selected_route.isEmpty ? "new" : prefs.selected_route
+      apply(uiPrefs: prefs)
     } catch {
       statusText = "Preferences unavailable: \(error.localizedDescription)"
     }
@@ -1570,6 +1651,49 @@ private final class OwlSession: ObservableObject {
     let root = mailRoot
     Task {
       try? await OwlBackend.setUIPref(root: root, key: "selected_route", value: route)
+    }
+  }
+
+  func apply(uiPrefs prefs: UIPrefs) {
+    bubbleSelfSimpleXColor = Color(hex: prefs.bubble_self_simplex, fallback: BubbleColors.defaultSelfSimpleX)
+    bubbleSelfEmailColor = Color(hex: prefs.bubble_self_email, fallback: BubbleColors.defaultSelfEmail)
+    bubbleOtherSimpleXColor = Color(hex: prefs.bubble_other_simplex, fallback: BubbleColors.defaultOtherSimpleX)
+    bubbleOtherEmailColor = Color(hex: prefs.bubble_other_email, fallback: BubbleColors.defaultOtherEmail)
+  }
+
+  func persistBubbleColors() {
+    let root = mailRoot
+    let values = [
+      ("bubble_self_simplex", bubbleSelfSimpleXColor.owlHexString),
+      ("bubble_self_email", bubbleSelfEmailColor.owlHexString),
+      ("bubble_other_simplex", bubbleOtherSimpleXColor.owlHexString),
+      ("bubble_other_email", bubbleOtherEmailColor.owlHexString)
+    ]
+    Task {
+      for (key, value) in values {
+        try? await OwlBackend.setUIPref(root: root, key: key, value: value)
+      }
+    }
+  }
+
+  func resetBubbleColors() {
+    bubbleSelfSimpleXColor = BubbleColors.defaultSelfSimpleX
+    bubbleSelfEmailColor = BubbleColors.defaultSelfEmail
+    bubbleOtherSimpleXColor = BubbleColors.defaultOtherSimpleX
+    bubbleOtherEmailColor = BubbleColors.defaultOtherEmail
+    persistBubbleColors()
+  }
+
+  func bubbleFill(for message: MessageItem) -> Color {
+    switch (message.from_self, message.isSimpleX) {
+      case (true, true):
+        return bubbleSelfSimpleXColor
+      case (true, false):
+        return bubbleSelfEmailColor
+      case (false, true):
+        return bubbleOtherSimpleXColor
+      case (false, false):
+        return bubbleOtherEmailColor
     }
   }
 
@@ -4048,10 +4172,7 @@ private struct MessageBubble: View {
   }
 
   private var messageFill: Color {
-    if message.from_self {
-      return Color.accentColor.opacity(0.18)
-    }
-    return Color(nsColor: .controlBackgroundColor).opacity(0.96)
+    session.bubbleFill(for: message)
   }
 }
 
@@ -4319,6 +4440,36 @@ private struct SettingsView: View {
           }
         }
       }
+      Section("Chat Bubbles") {
+        Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
+          GridRow {
+            BubbleColorPickerRow(title: "My SimpleX", color: Binding(
+              get: { session.bubbleSelfSimpleXColor },
+              set: { session.bubbleSelfSimpleXColor = $0; session.persistBubbleColors() }
+            ))
+            BubbleColorPickerRow(title: "My Email", color: Binding(
+              get: { session.bubbleSelfEmailColor },
+              set: { session.bubbleSelfEmailColor = $0; session.persistBubbleColors() }
+            ))
+          }
+          GridRow {
+            BubbleColorPickerRow(title: "Others SimpleX", color: Binding(
+              get: { session.bubbleOtherSimpleXColor },
+              set: { session.bubbleOtherSimpleXColor = $0; session.persistBubbleColors() }
+            ))
+            BubbleColorPickerRow(title: "Others Email", color: Binding(
+              get: { session.bubbleOtherEmailColor },
+              set: { session.bubbleOtherEmailColor = $0; session.persistBubbleColors() }
+            ))
+          }
+        }
+        HStack {
+          Button { session.resetBubbleColors() } label: {
+            Label("Reset", systemImage: "arrow.counterclockwise")
+          }
+          .fixedSize()
+        }
+      }
       Section("Email") {
         HStack {
           TextField("Domain", text: $session.settingsDomainDraft)
@@ -4481,6 +4632,16 @@ private struct SettingsView: View {
       }
     }
     .formStyle(.grouped)
+  }
+}
+
+private struct BubbleColorPickerRow: View {
+  let title: String
+  @Binding var color: Color
+
+  var body: some View {
+    ColorPicker(title, selection: $color, supportsOpacity: false)
+      .fixedSize()
   }
 }
 
