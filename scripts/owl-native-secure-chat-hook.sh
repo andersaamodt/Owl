@@ -153,16 +153,16 @@ send_message() {
     printf '%s\n' "owl-native-secure-chat-hook: outbox file not found: $outbox_file" >&2
     exit 1
   }
-  npub=$(jq -r '.thread_id // .contact_key // .simplex_address // ""' "$outbox_file" | head -n 1)
-  case "$npub" in
-    npub1*) ;;
-    *) printf '%s\n' "owl-native-secure-chat-hook: outbox thread is not an npub: $npub" >&2; exit 2 ;;
+  target=$(jq -r '.thread_id // .contact_key // .simplex_address // ""' "$outbox_file" | head -n 1)
+  case "$target" in
+    npub1*|secure-chat:[0-9]*|secure-chat-contact-[0-9]*) ;;
+    *) printf '%s\n' "owl-native-secure-chat-hook: outbox thread is not a Secure Chat target: $target" >&2; exit 2 ;;
   esac
   body_b64=$(jq -rj '.body // ""' "$outbox_file" | base64_one_line)
-  response=$(ssh "$ssh_host" "$send_command" "$npub" "$body_b64")
+  response=$(ssh "$ssh_host" "$send_command" "$target" "$body_b64")
   printf '%s\n' "$response" | jq -e '.success == true' >/dev/null
   printf '%s\n' 'transport=nostr-blog-secure-chat'
-  printf '%s\n' "remote_id=$npub"
+  printf '%s\n' "remote_id=$target"
   printf '%s\n' 'message=sent through nostr-blog Secure Chat'
 }
 
