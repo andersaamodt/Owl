@@ -817,6 +817,31 @@ private enum BubbleColors {
   static let defaultOtherEmail = Color(hex: defaultOtherEmailHex, fallback: Color.red.opacity(0.07))
 }
 
+private enum LLMCategoryColors {
+  static func bubbleFill(for category: String) -> Color {
+    switch normalized(category) {
+    case "high-risk":
+      return Color(hex: "#F5C4CC", fallback: Color.red.opacity(0.22))
+    case "likely-spam":
+      return Color(hex: "#F8D4BE", fallback: Color.orange.opacity(0.20))
+    case "uncertain":
+      return Color(hex: "#F3E5B7", fallback: Color.yellow.opacity(0.18))
+    case "likely-legit":
+      return Color(hex: "#DCEEE4", fallback: Color.green.opacity(0.15))
+    default:
+      return Color(hex: "#E6E0F2", fallback: Color.purple.opacity(0.14))
+    }
+  }
+
+  private static func normalized(_ category: String) -> String {
+    category
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased()
+      .replacingOccurrences(of: " ", with: "-")
+      .replacingOccurrences(of: "_", with: "-")
+  }
+}
+
 private extension Color {
   init(hex: String, fallback: Color) {
     let cleaned = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#").union(.whitespacesAndNewlines))
@@ -1047,11 +1072,20 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
   var starred: Bool
   var attachments: Int
   var status: String
+  var llm_spam_category: String
+  var llm_spam_source: String
 
   var isSimpleX: Bool { transport == "simplex" }
   var isEmail: Bool { transport == "email" }
   var isLongBlock: Bool { isEmail || body.count > 180 || subject.count > 0 }
   var displayBody: String { body.isEmpty ? preview : body }
+  var llmDetectedCategory: String? {
+    let category = llm_spam_category.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !category.isEmpty, category != "unknown" else { return nil }
+    let source = llm_spam_source.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    guard source.isEmpty || source == "llm" else { return nil }
+    return category
+  }
 
   init(
     id: String,
@@ -1075,7 +1109,9 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
     read: Bool = false,
     starred: Bool = false,
     attachments: Int = 0,
-    status: String = ""
+    status: String = "",
+    llm_spam_category: String = "",
+    llm_spam_source: String = ""
   ) {
     self.id = id
     self.backend_kind = backend_kind
@@ -1099,11 +1135,14 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
     self.starred = starred
     self.attachments = attachments
     self.status = status
+    self.llm_spam_category = llm_spam_category
+    self.llm_spam_source = llm_spam_source
   }
 
   private enum CodingKeys: String, CodingKey {
     case id, backend_kind, transport, lock, thread_id, contact_name, contact_kind, email, simplex_address
     case list, sender, ulid, subject, body, preview, received_at, from_self, in_inbox, read, starred, attachments, status
+    case llm_spam_category, llm_spam_source
   }
 
   init(from decoder: Decoder) throws {
@@ -1130,6 +1169,8 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
     starred = try values.decodeIfPresent(Bool.self, forKey: .starred) ?? false
     attachments = try values.decodeIfPresent(Int.self, forKey: .attachments) ?? 0
     status = try values.decodeIfPresent(String.self, forKey: .status) ?? ""
+    llm_spam_category = try values.decodeIfPresent(String.self, forKey: .llm_spam_category) ?? ""
+    llm_spam_source = try values.decodeIfPresent(String.self, forKey: .llm_spam_source) ?? ""
   }
 }
 
@@ -1701,6 +1742,9 @@ private final class OwlSession: ObservableObject {
   }
 
   func bubbleFill(for message: MessageItem) -> Color {
+    if let category = message.llmDetectedCategory {
+      return LLMCategoryColors.bubbleFill(for: category)
+    }
     switch (message.from_self, message.isSimpleX) {
       case (true, true):
         return bubbleSelfSimpleXColor

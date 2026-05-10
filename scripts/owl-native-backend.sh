@@ -759,7 +759,9 @@ snapshot_action() {
           read: (($m.read // false) == true),
           starred: (($m.starred // false) == true),
           attachments: (($m.attachments // 0) | tonumber? // 0),
-          status: $list
+          status: $list,
+          llm_spam_category: (($m.llm_spam_category // "") | tostring),
+          llm_spam_source: (($m.llm_spam_source // "") | tostring)
         };
     def simplex_msg:
       . as $m
@@ -792,7 +794,9 @@ snapshot_action() {
           read: (($m.read // false) == true),
           starred: false,
           attachments: 0,
-          status: (($m.status // "queued") | tostring)
+          status: (($m.status // "queued") | tostring),
+          llm_spam_category: (($m.llm_spam_category // "") | tostring),
+          llm_spam_source: (($m.llm_spam_source // "") | tostring)
         };
     def thread_from_contact:
       {

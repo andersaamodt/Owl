@@ -371,6 +371,11 @@ swift_message_surfaces_use_colored_backgrounds() {
 swift_chat_bubble_colors_are_preferences() {
   cd "$repo_dir"
   grep -Fq 'private enum BubbleColors' generated/macos/Sources/App/App.swift
+  grep -Fq 'private enum LLMCategoryColors' generated/macos/Sources/App/App.swift
+  grep -Fq 'case "high-risk":' generated/macos/Sources/App/App.swift
+  grep -Fq 'case "likely-spam":' generated/macos/Sources/App/App.swift
+  grep -Fq 'case "uncertain":' generated/macos/Sources/App/App.swift
+  grep -Fq 'case "likely-legit":' generated/macos/Sources/App/App.swift
   grep -Fq 'static let defaultSelfSimpleXHex = "#DDF4E3"' generated/macos/Sources/App/App.swift
   grep -Fq 'static let defaultSelfEmailHex = "#F7DADA"' generated/macos/Sources/App/App.swift
   grep -Fq 'static let defaultOtherSimpleXHex = "#EDF7F0"' generated/macos/Sources/App/App.swift
@@ -379,6 +384,9 @@ swift_chat_bubble_colors_are_preferences() {
   grep -Fq 'func persistBubbleColors()' generated/macos/Sources/App/App.swift
   grep -Fq 'func resetBubbleColors()' generated/macos/Sources/App/App.swift
   grep -Fq 'func bubbleFill(for message: MessageItem) -> Color' generated/macos/Sources/App/App.swift
+  grep -Fq 'var llmDetectedCategory: String?' generated/macos/Sources/App/App.swift
+  grep -Fq 'if let category = message.llmDetectedCategory {' generated/macos/Sources/App/App.swift
+  grep -Fq 'return LLMCategoryColors.bubbleFill(for: category)' generated/macos/Sources/App/App.swift
   grep -Fq 'return bubbleSelfSimpleXColor' generated/macos/Sources/App/App.swift
   grep -Fq 'return bubbleSelfEmailColor' generated/macos/Sources/App/App.swift
   grep -Fq 'return bubbleOtherSimpleXColor' generated/macos/Sources/App/App.swift
@@ -387,6 +395,8 @@ swift_chat_bubble_colors_are_preferences() {
   grep -Fq 'ColorPicker(title, selection: $color, supportsOpacity: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'set: { session.bubbleSelfSimpleXColor = $0; session.persistBubbleColors() }' generated/macos/Sources/App/App.swift
   grep -Fq 'session.bubbleFill(for: message)' generated/macos/Sources/App/App.swift
+  grep -Fq 'llm_spam_category: (($m.llm_spam_category // "") | tostring)' scripts/owl-native-backend.sh
+  grep -Fq 'llm_spam_source: (($m.llm_spam_source // "") | tostring)' scripts/owl-native-backend.sh
   grep -Fq 'bubble_self_simplex)' scripts/owl-native-backend.sh
   grep -Fq 'bubble_self_simplex:$bubble_self_simplex' scripts/owl-native-backend.sh
   grep -Fq 'mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email)' scripts/owl-native-backend.sh
