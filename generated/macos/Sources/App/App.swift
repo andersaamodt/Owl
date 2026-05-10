@@ -4315,22 +4315,7 @@ private struct ComposerView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .center, spacing: 12) {
-        Picker("Transport", selection: $session.selectedTransport) {
-          ForEach(Transport.allCases) { transport in
-            Text(transport.label).tag(transport)
-          }
-        }
-        .pickerStyle(.segmented)
-        .fixedSize()
-        if session.selectedTransport == .email {
-          Label("Open-lock email path", systemImage: "lock.open")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.red)
-        } else {
-          Label("Preferred secure path", systemImage: "lock.fill")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.green)
-        }
+        TransportMiniToggle(transport: $session.selectedTransport)
         Spacer()
         Button {
           session.sendComposedMessage()
@@ -4355,6 +4340,46 @@ private struct ComposerView: View {
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.18)))
     }
     .animation(.easeOut(duration: 0.16), value: session.selectedTransport)
+  }
+}
+
+private struct TransportMiniToggle: View {
+  @Binding var transport: Transport
+
+  private var isSecure: Bool { transport == .simplex }
+
+  var body: some View {
+    Button {
+      transport = isSecure ? .email : .simplex
+    } label: {
+      HStack(spacing: 6) {
+        Image(systemName: isSecure ? "lock.fill" : "lock.open")
+          .font(.caption.weight(.bold))
+          .foregroundStyle(isSecure ? .green : .red)
+          .frame(width: 14, height: 14)
+        ZStack(alignment: isSecure ? .trailing : .leading) {
+          Capsule()
+            .fill(isSecure ? Color.green.opacity(0.50) : Color.red.opacity(0.32))
+            .overlay(
+              Capsule()
+                .stroke(Color.primary.opacity(0.18), lineWidth: 0.5)
+            )
+          Circle()
+            .fill(Color(nsColor: .controlBackgroundColor))
+            .shadow(color: Color.black.opacity(0.18), radius: 1.5, x: 0, y: 0.8)
+            .padding(2)
+        }
+        .frame(width: 26, height: 14)
+      }
+      .padding(.horizontal, 3)
+      .padding(.vertical, 2)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .fixedSize()
+    .help(isSecure ? "SimpleX secure transport" : "Email transport")
+    .accessibilityLabel("Transport")
+    .accessibilityValue(isSecure ? "SimpleX" : "Email")
   }
 }
 

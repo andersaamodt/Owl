@@ -99,8 +99,13 @@ swift_unified_simplex_email_ui_exists() {
   cd "$repo_dir"
   grep -q 'selectedTransport = thread.hasSimpleXPath ? .simplex : .email' generated/macos/Sources/App/App.swift
   grep -q 'let subject = transport == .email ? composeSubject : ""' generated/macos/Sources/App/App.swift
-  grep -q 'Open-lock email path' generated/macos/Sources/App/App.swift
-  grep -q 'Preferred secure path' generated/macos/Sources/App/App.swift
+  grep -q 'private struct TransportMiniToggle: View' generated/macos/Sources/App/App.swift
+  grep -q 'TransportMiniToggle(transport: $session.selectedTransport)' generated/macos/Sources/App/App.swift
+  grep -q 'Image(systemName: isSecure ? "lock.fill" : "lock.open")' generated/macos/Sources/App/App.swift
+  grep -q 'transport = isSecure ? .email : .simplex' generated/macos/Sources/App/App.swift
+  grep -q '.frame(width: 26, height: 14)' generated/macos/Sources/App/App.swift
+  grep -q '.accessibilityValue(isSecure ? "SimpleX" : "Email")' generated/macos/Sources/App/App.swift
+  ! grep -q 'Picker("Transport"' generated/macos/Sources/App/App.swift
   grep -q 'if session.selectedTransport == .email {' generated/macos/Sources/App/App.swift
   grep -q 'TextField("Subject", text: $session.composeSubject)' generated/macos/Sources/App/App.swift
   grep -q '.animation(.easeOut(duration: 0.16), value: session.selectedTransport)' generated/macos/Sources/App/App.swift
