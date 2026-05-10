@@ -1134,6 +1134,7 @@ private final class OwlSession: ObservableObject {
   @Published var focusedMessageID: String?
   @Published var selectedMessageID: String?
   @Published var draggingMessageID: String?
+  @Published var timelineScrollPositions: [String: String] = [:]
   @Published var selectedNewSenderID: String?
   @Published var selectedMailThreadID: String?
   @Published var mailRoot: String = defaultMailRoot()
@@ -1545,6 +1546,23 @@ private final class OwlSession: ObservableObject {
 
   func selectMessage(_ message: MessageItem) {
     selectedMessageID = message.id
+  }
+
+  func rememberTimelineScrollPosition(threadID: String?, messageID: String) {
+    guard let threadID, !threadID.isEmpty else { return }
+    timelineScrollPositions[threadID] = messageID
+  }
+
+  func timelineScrollTarget(for thread: ThreadItem?) -> String? {
+    guard let thread else { return nil }
+    if let focusedMessageID, thread.messages.contains(where: { $0.id == focusedMessageID }) {
+      return focusedMessageID
+    }
+    if let remembered = timelineScrollPositions[thread.id],
+       thread.messages.contains(where: { $0.id == remembered }) {
+      return remembered
+    }
+    return thread.messages.last?.id
   }
 
   func persistSelectedRoute() {
@@ -3899,19 +3917,21 @@ private struct TimelineView: View {
               ForEach(session.timelineMessages) { message in
                 MessageBubble(message: message)
                   .id(message.id)
+                  .onAppear {
+                    session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: message.id)
+                  }
               }
             }
             .padding(18)
           }
           .onAppear {
-            if let target = session.focusedMessageID {
-              proxy.scrollTo(target, anchor: .center)
-            }
+            scrollToTimelineTarget(proxy)
           }
-          .onChange(of: session.focusedMessageID) { target in
-            if let target {
-              withAnimation { proxy.scrollTo(target, anchor: .center) }
-            }
+          .onChange(of: session.selectedThreadID) { _ in
+            scrollToTimelineTarget(proxy, animated: false)
+          }
+          .onChange(of: session.focusedMessageID) { _ in
+            scrollToTimelineTarget(proxy)
           }
         }
         Divider()
@@ -3922,6 +3942,20 @@ private struct TimelineView: View {
       ContactInspectorView()
         .frame(width: 260)
         .background(.bar)
+    }
+  }
+
+  private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true) {
+    guard let target = session.timelineScrollTarget(for: session.selectedThread) else { return }
+    Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 20_000_000)
+      if animated {
+        withAnimation {
+          proxy.scrollTo(target, anchor: session.focusedMessageID == target ? .center : .bottom)
+        }
+      } else {
+        proxy.scrollTo(target, anchor: session.focusedMessageID == target ? .center : .bottom)
+      }
     }
   }
 

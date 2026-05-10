@@ -251,6 +251,18 @@ swift_message_timestamps_are_friendly() {
   ! grep -Fq 'Text(thread.latest_at)' generated/macos/Sources/App/App.swift
 }
 
+swift_mail_timelines_restore_scroll_position() {
+  cd "$repo_dir"
+  grep -Fq '@Published var timelineScrollPositions: [String: String] = [:]' generated/macos/Sources/App/App.swift
+  grep -Fq 'func rememberTimelineScrollPosition(threadID: String?, messageID: String)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func timelineScrollTarget(for thread: ThreadItem?) -> String?' generated/macos/Sources/App/App.swift
+  grep -Fq 'return thread.messages.last?.id' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: message.id)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
+  grep -Fq 'proxy.scrollTo(target, anchor: session.focusedMessageID == target ? .center : .bottom)' generated/macos/Sources/App/App.swift
+  grep -Fq '.onChange(of: session.selectedThreadID) { _ in' generated/macos/Sources/App/App.swift
+}
+
 swift_inbox_cards_open_reader_before_mail() {
   cd "$repo_dir"
   grep -Fq 'selectedRoute = "inbox-message"' generated/macos/Sources/App/App.swift
@@ -372,6 +384,7 @@ run_case "Swift Mail favorites move between sections" swift_mail_favorites_move_
 run_case "Swift cards have horizontal flick actions" swift_cards_have_horizontal_flick_actions
 run_case "Swift message cards are drag droppable" swift_message_cards_are_drag_droppable
 run_case "Swift message timestamps are friendly" swift_message_timestamps_are_friendly
+run_case "Swift Mail timelines restore scroll position" swift_mail_timelines_restore_scroll_position
 run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_reader_before_mail
 run_case "Swift message surfaces use colored backgrounds" swift_message_surfaces_use_colored_backgrounds
 run_case "Swift new sender actions skip full refresh" swift_new_sender_actions_skip_full_refresh
@@ -384,4 +397,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "17/17 native render tests passed"
+printf '%s\n' "18/18 native render tests passed"
