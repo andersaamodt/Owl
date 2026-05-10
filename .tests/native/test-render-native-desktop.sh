@@ -314,7 +314,9 @@ swift_message_timestamps_are_friendly() {
   cd "$repo_dir"
   grep -q 'private enum FriendlyTime' generated/macos/Sources/App/App.swift
   grep -Fq 'return "\(compactDuration(delta)) ago"' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func fullTimestamp(_ rawValue: String) -> String' generated/macos/Sources/App/App.swift
   grep -Fq 'Text(friendlyTime(message.received_at))' generated/macos/Sources/App/App.swift
+  grep -Fq '.help(fullTimestamp(message.received_at))' generated/macos/Sources/App/App.swift
   grep -Fq 'Text(thread.latest_at.isEmpty ? "No messages" : friendlyTime(thread.latest_at))' generated/macos/Sources/App/App.swift
   grep -Fq 'HeaderView(title: message.subject.isEmpty ? message.contact_name : message.subject, subtitle: "\(message.contact_name) - \(friendlyTime(message.received_at))")' generated/macos/Sources/App/App.swift
   ! grep -Fq 'Text(message.received_at)' generated/macos/Sources/App/App.swift
@@ -397,6 +399,11 @@ swift_message_surfaces_use_colored_backgrounds() {
     in_view && /Text[(]"Inbox"[)]|TransportPill[(]message: message[)]|Label[(]message[.]read [?] "Mark Unread"/ { found = 1 }
     END { exit found ? 0 : 1 }
   ' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Remove From Inbox' generated/macos/Sources/App/App.swift
+  grep -Fq 'actionItem("Archive", action: "archive_selected"' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: "archivebox")' generated/macos/Sources/App/App.swift
+  grep -Fq '.help("Archive")' generated/macos/Sources/App/App.swift
+  grep -Fq '.help(message.read ? "Mark Unread" : "Mark Read")' generated/macos/Sources/App/App.swift
 }
 
 swift_chat_bubble_colors_are_preferences() {

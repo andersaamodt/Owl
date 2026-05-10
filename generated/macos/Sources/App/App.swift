@@ -514,7 +514,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
 
     let messageMenuItem = NSMenuItem()
     let messageMenu = NSMenu(title: "Message")
-    messageMenu.addItem(actionItem("Remove From Inbox", action: "archive_selected", key: "e", modifiers: [.command]))
+    messageMenu.addItem(actionItem("Archive", action: "archive_selected", key: "e", modifiers: [.command]))
     messageMenu.addItem(actionItem("Delete", action: "delete_selected", key: "\u{8}", modifiers: []))
     messageMenu.addItem(actionItem("Star", action: "star_selected", key: "l", modifiers: [.command]))
     messageMenu.addItem(.separator())
@@ -1250,6 +1250,10 @@ private enum FriendlyTime {
 
 private func friendlyTime(_ rawValue: String) -> String {
   FriendlyTime.relative(rawValue)
+}
+
+private func fullTimestamp(_ rawValue: String) -> String {
+  rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No timestamp" : rawValue
 }
 
 @MainActor
@@ -3700,6 +3704,7 @@ private struct NewSenderMessageStackCard: View {
             Text(friendlyTime(message.received_at))
               .font(.caption)
               .foregroundStyle(.secondary)
+              .help(fullTimestamp(message.received_at))
           }
           Text(message.contact_name)
             .font(.subheadline.weight(.semibold))
@@ -4045,6 +4050,7 @@ private struct MessageListRow: View {
           Text(friendlyTime(message.received_at))
             .font(.caption2)
             .foregroundStyle(.secondary)
+            .help(fullTimestamp(message.received_at))
         }
         Text(message.subject.isEmpty ? message.preview : message.subject)
           .lineLimit(1)
@@ -4107,14 +4113,17 @@ private struct MessageReaderView: View {
               .fixedSize(horizontal: false, vertical: true)
             HStack {
               Button { session.archive(message) } label: {
-                Label("Remove From Inbox", systemImage: "archivebox")
+                Image(systemName: "archivebox")
               }
+              .help("Archive")
               Button { session.markRead(message, read: !message.read) } label: {
-                Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+                Image(systemName: message.read ? "envelope.badge" : "envelope.open")
               }
+              .help(message.read ? "Mark Unread" : "Mark Read")
               Button(role: .destructive) { session.delete(message) } label: {
-                Label("Delete", systemImage: "trash")
+                Image(systemName: "trash")
               }
+              .help("Delete")
             }
           }
           .padding(18)
@@ -4268,6 +4277,7 @@ private struct MailboxMessageRow: View {
             Text(friendlyTime(message.received_at))
               .font(.caption)
               .foregroundStyle(.secondary)
+              .help(fullTimestamp(message.received_at))
           }
           Text(message.subject.isEmpty ? message.preview : message.subject)
             .lineLimit(1)
@@ -4355,6 +4365,7 @@ private struct MessageReaderCard: View {
           Text(friendlyTime(message.received_at))
             .font(.caption)
             .foregroundStyle(.secondary)
+            .help(fullTimestamp(message.received_at))
         }
         if !message.subject.isEmpty {
           Text(message.subject)
@@ -4373,8 +4384,9 @@ private struct MessageReaderCard: View {
           }
           Spacer()
           Button { session.archive(message) } label: {
-            Label("Remove From Inbox", systemImage: "archivebox")
+            Image(systemName: "archivebox")
           }
+            .help("Archive")
             .buttonStyle(.borderless)
         }
       }
@@ -4454,6 +4466,7 @@ private struct InboxCardContent: View {
         Text(friendlyTime(message.received_at))
           .font(.caption)
           .foregroundStyle(.secondary)
+          .help(fullTimestamp(message.received_at))
       }
       if !message.subject.isEmpty {
         Text(message.subject)
@@ -4474,12 +4487,14 @@ private struct InboxCardContent: View {
         if actionsVisible {
           Spacer()
           Button { session.markRead(message, read: !message.read) } label: {
-            Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+            Image(systemName: message.read ? "envelope.badge" : "envelope.open")
           }
+          .help(message.read ? "Mark Unread" : "Mark Read")
           .buttonStyle(.borderless)
           Button { session.archive(message) } label: {
-            Label("Remove From Inbox", systemImage: "archivebox")
+            Image(systemName: "archivebox")
           }
+          .help("Archive")
           .buttonStyle(.borderless)
         }
       }
@@ -4635,6 +4650,7 @@ private struct MessageBubble: View {
           Text(friendlyTime(message.received_at))
             .font(.caption2)
             .foregroundStyle(.secondary)
+            .help(fullTimestamp(message.received_at))
           Menu {
             Button { showingDetails = true } label: {
               Label("Details", systemImage: "info.circle")
@@ -4811,7 +4827,7 @@ private struct MessageContextMenu: View {
 
   var body: some View {
     Button { session.archive(message) } label: {
-      Label("Remove From Inbox", systemImage: "archivebox")
+      Label("Archive", systemImage: "archivebox")
     }
     Button { session.markRead(message, read: !message.read) } label: {
       Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
