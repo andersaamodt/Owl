@@ -2539,33 +2539,60 @@ private struct NewSenderStackSurface: View {
       } else {
         LazyVStack(spacing: 30) {
           ForEach(session.newSenderThreads) { thread in
-            NewSenderStackCard(
-              thread: thread,
-              isSelected: session.selectedNewSenderID == thread.id,
-              isExpanded: expandedSenderID == thread.id
-            ) {
-              session.selectNewSender(thread)
-              withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
-                expandedSenderID = expandedSenderID == thread.id ? nil : thread.id
+            VStack(spacing: 18) {
+              NewSenderStackCard(
+                thread: thread,
+                isSelected: session.selectedNewSenderID == thread.id,
+                isExpanded: expandedSenderID == thread.id
+              ) {
+                session.selectNewSender(thread)
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                  expandedSenderID = expandedSenderID == thread.id ? nil : thread.id
+                }
+              } collapseBeforeDrag: {
+                if expandedSenderID == thread.id {
+                  withAnimation(.spring(response: 0.20, dampingFraction: 0.88)) {
+                    expandedSenderID = nil
+                  }
+                }
               }
-            } previewAction: { message in
-              session.selectNewSender(thread)
-              session.selectMessage(message)
-              stage = .reader
-            } collapseBeforeDrag: {
+              .frame(maxWidth: 500)
+
               if expandedSenderID == thread.id {
-                withAnimation(.spring(response: 0.20, dampingFraction: 0.88)) {
-                  expandedSenderID = nil
+                ForEach(quarantineMessages(for: thread)) { message in
+                  NewSenderMessageStackCard(
+                    message: message,
+                    isSelected: session.selectedMessageID == message.id,
+                    dragPayload: .senderPile(threadID: thread.id)
+                  ) {
+                    session.selectNewSender(thread)
+                    session.selectMessage(message)
+                    stage = .reader
+                  } collapseBeforeDrag: {
+                    if expandedSenderID == thread.id {
+                      withAnimation(.spring(response: 0.20, dampingFraction: 0.88)) {
+                        expandedSenderID = nil
+                      }
+                    }
+                  }
+                  .id(message.id)
+                  .frame(maxWidth: 540)
+                  .transition(.opacity.combined(with: .move(edge: .top)))
                 }
               }
             }
-            .frame(maxWidth: 500)
           }
         }
         .frame(maxWidth: .infinity)
         .padding(24)
       }
     }
+  }
+
+  private func quarantineMessages(for thread: ThreadItem) -> [MessageItem] {
+    thread.messages
+      .filter { $0.list == "quarantine" }
+      .sorted { $0.received_at > $1.received_at }
   }
 }
 
@@ -2576,7 +2603,6 @@ private struct NewSenderStackCard: View {
   let isSelected: Bool
   let isExpanded: Bool
   let action: () -> Void
-  let previewAction: (MessageItem) -> Void
   let collapseBeforeDrag: () -> Void
 
   private var quarantineMessages: [MessageItem] {
@@ -2620,27 +2646,6 @@ private struct NewSenderStackCard: View {
             TransportPill(message: latest)
           }
         }
-        if isExpanded {
-          Divider()
-            .padding(.vertical, 2)
-          VStack(spacing: 8) {
-            ForEach(expandedPreviewMessages) { message in
-              NewSenderExpandedMessageRow(message: message) {
-                previewAction(message)
-              } collapseBeforeDrag: {
-                collapseBeforeDrag()
-              }
-            }
-            if quarantineMessages.count > expandedPreviewMessages.count {
-              Text("\(quarantineMessages.count - expandedPreviewMessages.count) more message\(quarantineMessages.count - expandedPreviewMessages.count == 1 ? "" : "s")")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 2)
-            }
-          }
-          .transition(.opacity.combined(with: .move(edge: .top)))
-        }
       }
     }
     .contentShape(Rectangle())
@@ -2655,10 +2660,6 @@ private struct NewSenderStackCard: View {
       collapseBeforeDrag()
       return NSItemProvider(object: "\(senderDragPayloadPrefix)\(thread.id)" as NSString)
     }
-  }
-
-  private var expandedPreviewMessages: [MessageItem] {
-    quarantineMessages.sorted(by: { $0.received_at > $1.received_at }).prefix(4).map { $0 }
   }
 
   private var newSenderFlickGesture: some Gesture {
@@ -2682,50 +2683,6 @@ private struct NewSenderStackCard: View {
           flickOffset = 0
         }
       }
-  }
-}
-
-private struct NewSenderExpandedMessageRow: View {
-  let message: MessageItem
-  let action: () -> Void
-  let collapseBeforeDrag: () -> Void
-
-  var body: some View {
-    HStack(alignment: .top, spacing: 8) {
-      TransportMark(message: message)
-        .padding(.top, 1)
-      VStack(alignment: .leading, spacing: 3) {
-        HStack(alignment: .firstTextBaseline) {
-          Text(message.subject.isEmpty ? "(no subject)" : message.subject)
-            .font(.caption.weight(.semibold))
-            .lineLimit(1)
-          Spacer()
-          Text(friendlyTime(message.received_at))
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-        }
-        Text(message.displayBody.isEmpty ? message.preview : message.displayBody)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .lineLimit(2)
-      }
-    }
-    .padding(9)
-    .background(
-      RoundedRectangle(cornerRadius: 7)
-        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
-    )
-    .contentShape(Rectangle())
-    .onTapGesture(perform: action)
-    .simultaneousGesture(
-      DragGesture(minimumDistance: 4)
-        .onChanged { _ in collapseBeforeDrag() }
-    )
-    .onDrag {
-      collapseBeforeDrag()
-      return NSItemProvider(object: "\(senderDragPayloadPrefix)\(message.thread_id)" as NSString)
-    }
-    .help("Drag to sort this sender pile")
   }
 }
 
@@ -2764,9 +2721,16 @@ private struct NewSenderMessageStackSurface: View {
 }
 
 private struct NewSenderMessageStackCard: View {
+  enum DragPayload {
+    case message
+    case senderPile(threadID: String)
+  }
+
   let message: MessageItem
   let isSelected: Bool
+  var dragPayload: DragPayload = .message
   let action: () -> Void
+  var collapseBeforeDrag: () -> Void = {}
 
   var body: some View {
     Button(action: action) {
@@ -2800,8 +2764,33 @@ private struct NewSenderMessageStackCard: View {
       }
     }
     .buttonStyle(.plain)
-    .draggableMessageCard(message)
+    .modifier(NewSenderMessageDragModifier(message: message, dragPayload: dragPayload, collapseBeforeDrag: collapseBeforeDrag))
     .contextMenu { MessageContextMenu(message: message) }
+  }
+}
+
+private struct NewSenderMessageDragModifier: ViewModifier {
+  let message: MessageItem
+  let dragPayload: NewSenderMessageStackCard.DragPayload
+  let collapseBeforeDrag: () -> Void
+
+  func body(content: Content) -> some View {
+    switch dragPayload {
+    case .message:
+      content
+        .draggableMessageCard(message)
+    case .senderPile(let threadID):
+      content
+        .simultaneousGesture(
+          DragGesture(minimumDistance: 4)
+            .onChanged { _ in collapseBeforeDrag() }
+        )
+        .onDrag {
+          collapseBeforeDrag()
+          return NSItemProvider(object: "\(senderDragPayloadPrefix)\(threadID)" as NSString)
+        }
+        .help("Drag to sort this sender pile")
+    }
   }
 }
 

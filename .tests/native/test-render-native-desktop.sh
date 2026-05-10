@@ -190,10 +190,14 @@ swift_cards_have_horizontal_flick_actions() {
   grep -Fq 'func handleSenderDrop(threadID: String, action: SenderDropAction)' generated/macos/Sources/App/App.swift
   grep -Fq 'private let senderDragPayloadPrefix = "owl-native-sender:"' generated/macos/Sources/App/App.swift
   grep -Fq 'return NSItemProvider(object: "\(senderDragPayloadPrefix)\(thread.id)" as NSString)' generated/macos/Sources/App/App.swift
-  grep -Fq 'return NSItemProvider(object: "\(senderDragPayloadPrefix)\(message.thread_id)" as NSString)' generated/macos/Sources/App/App.swift
+  grep -Fq 'return NSItemProvider(object: "\(senderDragPayloadPrefix)\(threadID)" as NSString)' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var expandedSenderID: String?' generated/macos/Sources/App/App.swift
-  grep -Fq 'NewSenderExpandedMessageRow(message: message)' generated/macos/Sources/App/App.swift
+  grep -Fq 'NewSenderMessageStackCard(' generated/macos/Sources/App/App.swift
+  grep -Fq 'dragPayload: .senderPile(threadID: thread.id)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func quarantineMessages(for thread: ThreadItem) -> [MessageItem]' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct NewSenderMessageDragModifier: ViewModifier' generated/macos/Sources/App/App.swift
   grep -Fq '.transition(.opacity.combined(with: .move(edge: .top)))' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'private struct NewSenderExpandedMessageRow' generated/macos/Sources/App/App.swift
   grep -Fq 'private var newSenderFlickGesture: some Gesture' generated/macos/Sources/App/App.swift
   grep -Fq 'let destination = projected >= 0 ? "accepted" : "spam"' generated/macos/Sources/App/App.swift
   grep -Fq 'session.moveNewSender(thread, to: destination)' generated/macos/Sources/App/App.swift
