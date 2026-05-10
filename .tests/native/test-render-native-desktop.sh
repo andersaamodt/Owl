@@ -265,7 +265,12 @@ swift_message_surfaces_use_colored_backgrounds() {
   grep -Fq 'private var cardBackground: some View' generated/macos/Sources/App/App.swift
   grep -Fq 'tintOpacity: isSelected ? 0.022 : 0.014' generated/macos/Sources/App/App.swift
   grep -Fq 'private var messageTint: Color' generated/macos/Sources/App/App.swift
-  grep -Fq 'tintOpacity: message.from_self ? 0.030 : 0.020' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TelegramBubbleShape: Shape' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct MessageDetailsView: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: "ellipsis.vertical")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Button { showingDetails = true } label:' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label("Details", systemImage: "info.circle")' generated/macos/Sources/App/App.swift
+  grep -Fq '.fill(messageFill)' generated/macos/Sources/App/App.swift
   grep -Fq 'tintOpacity: 0.110' generated/macos/Sources/App/App.swift
   grep -Fq 'edgeOpacity: 0.64' generated/macos/Sources/App/App.swift
   ! awk '
@@ -278,6 +283,12 @@ swift_message_surfaces_use_colored_backgrounds() {
     /private struct MessageBubble/ { in_view = 1 }
     /private struct MessageContextMenu/ { in_view = 0 }
     in_view && /[.]stroke[(]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+  ! awk '
+    /private struct MessageBubble/ { in_view = 1 }
+    /private struct TelegramBubbleShape/ { in_view = 0 }
+    in_view && /TransportPill[(]message: message[)]|Label[(]message[.]read [?] "Mark Unread"/ { found = 1 }
     END { exit found ? 0 : 1 }
   ' generated/macos/Sources/App/App.swift
 }

@@ -3887,59 +3887,69 @@ private struct TimelineView: View {
 
 private struct MessageBubble: View {
   @EnvironmentObject private var session: OwlSession
+  @State private var showingDetails = false
   let message: MessageItem
 
   var body: some View {
     HStack {
       if message.from_self { Spacer(minLength: 80) }
       VStack(alignment: .leading, spacing: 7) {
-        HStack(spacing: 7) {
-          TransportMark(message: message)
-          Text(message.from_self ? "You" : message.contact_name)
-            .font(.caption.weight(.semibold))
-          Text(friendlyTime(message.received_at))
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-          if message.in_inbox {
-            Button {
-              session.openInbox(focusing: message.id)
-            } label: {
-              Text("Inbox")
-                .font(.caption.weight(.bold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color.accentColor.opacity(0.18)))
-            }
-            .buttonStyle(.plain)
-          }
-        }
         if !message.subject.isEmpty {
           Text(message.subject)
-            .font(message.isLongBlock ? .headline : .subheadline.weight(.semibold))
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(.primary)
         }
         Text(message.displayBody.isEmpty ? "No content" : message.displayBody)
           .font(message.isLongBlock ? .body : .callout)
           .textSelection(.enabled)
           .fixedSize(horizontal: false, vertical: true)
-        HStack(spacing: 8) {
-          TransportPill(message: message)
+        HStack(alignment: .center, spacing: 7) {
           if message.in_inbox {
-            Button { session.archive(message) } label: {
-              Label("Remove From Inbox", systemImage: "archivebox")
+            Button {
+              session.openInbox(focusing: message.id)
+            } label: {
+              Text("Inbox")
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.accentColor.opacity(0.14)))
             }
-              .buttonStyle(.borderless)
+            .buttonStyle(.plain)
           }
-          Button { session.markRead(message, read: !message.read) } label: {
-            Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
+          Spacer(minLength: 6)
+          TransportMark(message: message)
+            .font(.caption2.weight(.semibold))
+          Text(friendlyTime(message.received_at))
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+          Menu {
+            Button { showingDetails = true } label: {
+              Label("Details", systemImage: "info.circle")
+            }
+            Divider()
+            MessageContextMenu(message: message)
+          } label: {
+            Image(systemName: "ellipsis.vertical")
+              .font(.caption.weight(.bold))
+              .foregroundStyle(.secondary)
+              .frame(width: 18, height: 18)
           }
-            .buttonStyle(.borderless)
+          .menuStyle(.borderlessButton)
+          .fixedSize()
+          .help("Message options")
+          .popover(isPresented: $showingDetails, arrowEdge: message.from_self ? .trailing : .leading) {
+            MessageDetailsView(message: message)
+              .padding(14)
+              .frame(width: 300)
+          }
         }
       }
-      .padding(message.isLongBlock ? 14 : 10)
+      .padding(.horizontal, message.isLongBlock ? 15 : 12)
+      .padding(.vertical, message.isLongBlock ? 12 : 9)
       .frame(maxWidth: message.isLongBlock ? 620 : 430, alignment: .leading)
       .background(messageBackground)
       .opacity(message.in_inbox ? 0.62 : 1.0)
-      .shadow(color: messageTint.opacity(message.from_self ? 0.10 : 0.07), radius: 6, x: 0, y: 2)
+      .shadow(color: Color.black.opacity(0.10), radius: 5, x: 0, y: 2)
       .contextMenu { MessageContextMenu(message: message) }
       .onTapGesture { session.selectMessage(message) }
       if !message.from_self { Spacer(minLength: 80) }
@@ -3948,14 +3958,8 @@ private struct MessageBubble: View {
   }
 
   private var messageBackground: some View {
-    MessageSurfaceBackground(
-      tint: messageTint,
-      tintOpacity: message.from_self ? 0.030 : 0.020,
-      edgeOpacity: message.from_self ? 0.70 : 0.58,
-      edge: message.from_self ? .trailing : .leading,
-      edgeWidth: 4,
-      controlOpacity: message.from_self ? 0.97 : 0.93
-    )
+    TelegramBubbleShape(isFromSelf: message.from_self)
+      .fill(messageFill)
   }
 
   private var messageTint: Color {
@@ -3963,6 +3967,85 @@ private struct MessageBubble: View {
       return .accentColor
     }
     return message.isSimpleX ? .green : .red
+  }
+
+  private var messageFill: Color {
+    if message.from_self {
+      return Color.accentColor.opacity(0.18)
+    }
+    return Color(nsColor: .controlBackgroundColor).opacity(0.96)
+  }
+}
+
+private struct TelegramBubbleShape: Shape {
+  let isFromSelf: Bool
+
+  func path(in rect: CGRect) -> Path {
+    var path = Path()
+    let radius: CGFloat = 16
+    let tailWidth: CGFloat = 7
+    let tailHeight: CGFloat = 10
+    let bubbleRect = isFromSelf
+      ? CGRect(x: rect.minX, y: rect.minY, width: rect.width - tailWidth, height: rect.height)
+      : CGRect(x: rect.minX + tailWidth, y: rect.minY, width: rect.width - tailWidth, height: rect.height)
+    path.addRoundedRect(in: bubbleRect, cornerSize: CGSize(width: radius, height: radius))
+    if isFromSelf {
+      path.move(to: CGPoint(x: bubbleRect.maxX - 2, y: bubbleRect.maxY - 16))
+      path.addQuadCurve(
+        to: CGPoint(x: rect.maxX, y: bubbleRect.maxY - 4),
+        control: CGPoint(x: rect.maxX - 1, y: bubbleRect.maxY - 9)
+      )
+      path.addQuadCurve(
+        to: CGPoint(x: bubbleRect.maxX - 8, y: bubbleRect.maxY - tailHeight),
+        control: CGPoint(x: bubbleRect.maxX - 2, y: bubbleRect.maxY - 3)
+      )
+    } else {
+      path.move(to: CGPoint(x: bubbleRect.minX + 2, y: bubbleRect.maxY - 16))
+      path.addQuadCurve(
+        to: CGPoint(x: rect.minX, y: bubbleRect.maxY - 4),
+        control: CGPoint(x: rect.minX + 1, y: bubbleRect.maxY - 9)
+      )
+      path.addQuadCurve(
+        to: CGPoint(x: bubbleRect.minX + 8, y: bubbleRect.maxY - tailHeight),
+        control: CGPoint(x: bubbleRect.minX + 2, y: bubbleRect.maxY - 3)
+      )
+    }
+    return path
+  }
+}
+
+private struct MessageDetailsView: View {
+  let message: MessageItem
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("Details")
+        .font(.headline)
+      detailRow("From", message.from_self ? "You" : message.contact_name)
+      detailRow("Transport", message.isSimpleX ? "SimpleX" : "Email")
+      detailRow("Received", friendlyTime(message.received_at))
+      if !message.subject.isEmpty {
+        detailRow("Subject", message.subject)
+      }
+      detailRow("Status", message.read ? "Read" : "Unread")
+      if message.in_inbox {
+        detailRow("Inbox", "Still in Inbox")
+      }
+      if message.attachments > 0 {
+        detailRow("Attachments", "\(message.attachments)")
+      }
+    }
+  }
+
+  private func detailRow(_ label: String, _ value: String) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text(label)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+      Text(value)
+        .font(.callout)
+        .textSelection(.enabled)
+    }
   }
 }
 
