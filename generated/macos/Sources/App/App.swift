@@ -3904,18 +3904,6 @@ private struct MessageBubble: View {
           .textSelection(.enabled)
           .fixedSize(horizontal: false, vertical: true)
         HStack(alignment: .center, spacing: 7) {
-          if message.in_inbox {
-            Button {
-              session.openInbox(focusing: message.id)
-            } label: {
-              Text("Inbox")
-                .font(.caption2.weight(.semibold))
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color.accentColor.opacity(0.14)))
-            }
-            .buttonStyle(.plain)
-          }
           Spacer(minLength: 6)
           TransportMark(message: message)
             .font(.caption2.weight(.semibold))
@@ -3948,6 +3936,12 @@ private struct MessageBubble: View {
       .padding(.vertical, message.isLongBlock ? 12 : 9)
       .frame(maxWidth: message.isLongBlock ? 620 : 430, alignment: .leading)
       .background(messageBackground)
+      .overlay(alignment: .topTrailing) {
+        if message.in_inbox {
+          InboxSplitPill(message: message)
+            .offset(x: 8, y: -8)
+        }
+      }
       .opacity(message.in_inbox ? 0.62 : 1.0)
       .shadow(color: Color.black.opacity(0.10), radius: 5, x: 0, y: 2)
       .contextMenu { MessageContextMenu(message: message) }
@@ -3974,6 +3968,46 @@ private struct MessageBubble: View {
       return Color.accentColor.opacity(0.18)
     }
     return Color(nsColor: .controlBackgroundColor).opacity(0.96)
+  }
+}
+
+private struct InboxSplitPill: View {
+  @EnvironmentObject private var session: OwlSession
+  let message: MessageItem
+
+  var body: some View {
+    HStack(spacing: 0) {
+      Button {
+        session.openInbox(focusing: message.id)
+      } label: {
+        Image(systemName: "tray.full")
+          .font(.caption.weight(.bold))
+          .frame(width: 27, height: 22)
+      }
+      .buttonStyle(.plain)
+      .help("Show in Inbox")
+
+      Divider()
+        .frame(height: 14)
+
+      Button {
+        session.archive(message)
+      } label: {
+        Image(systemName: "xmark")
+          .font(.caption2.weight(.bold))
+          .frame(width: 22, height: 22)
+      }
+      .buttonStyle(.plain)
+      .help("Remove from Inbox")
+    }
+    .foregroundStyle(Color.accentColor)
+    .background(.regularMaterial, in: Capsule())
+    .overlay {
+      Capsule()
+        .stroke(Color.accentColor.opacity(0.18), lineWidth: 1)
+    }
+    .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
+    .fixedSize()
   }
 }
 
