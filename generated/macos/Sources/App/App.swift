@@ -487,9 +487,6 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let fileMenuItem = NSMenuItem()
     let fileMenu = NSMenu(title: "File")
     fileMenu.addItem(actionItem("Send Message", action: "send_message", key: "\r", modifiers: [.command]))
-    fileMenu.addItem(.separator())
-    fileMenu.addItem(actionItem("Choose Mail Root...", action: "choose_mail_root"))
-    fileMenu.addItem(actionItem("Setup Mail Folders", action: "setup_folders"))
     fileMenuItem.submenu = fileMenu
     mainMenu.addItem(fileMenuItem)
 

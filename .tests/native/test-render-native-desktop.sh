@@ -100,6 +100,10 @@ swift_uses_native_desktop_idiom() {
   grep -q 'Label("Email", systemImage: "envelope")' generated/macos/Sources/App/App.swift
   grep -q 'Label("Delivery", systemImage: "network")' generated/macos/Sources/App/App.swift
   grep -q 'Label("SimpleX", systemImage: "lock.fill")' generated/macos/Sources/App/App.swift
+  grep -q 'Button { session.chooseMailRoot() } label:' generated/macos/Sources/App/App.swift
+  grep -q 'Label("Setup Folders", systemImage: "folder.badge.gearshape")' generated/macos/Sources/App/App.swift
+  ! grep -q 'actionItem("Choose Mail Root...", action: "choose_mail_root")' generated/macos/Sources/App/App.swift
+  ! grep -q 'actionItem("Setup Mail Folders", action: "setup_folders")' generated/macos/Sources/App/App.swift
   grep -q 'set-ui-pref' generated/macos/Sources/App/App.swift
   ! awk '
     /private struct RootView/ { in_view = 1 }
