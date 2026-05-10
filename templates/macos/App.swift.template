@@ -938,6 +938,7 @@ private final class OwlSession: ObservableObject {
     statusText = "Syncing \(root)"
     Task {
       do {
+        try? await OwlBackend.tickSimpleX(root: root)
         let next = try await OwlBackend.snapshot(root: root)
         self.apply(snapshot: next)
         self.statusText = "Loaded \(next.threads.count) conversations from \(next.root)"
@@ -1232,9 +1233,12 @@ private final class OwlSession: ObservableObject {
     Task {
       do {
         _ = try await OwlBackend.send(root: root, threadID: thread.id, transport: transport, subject: subject, body: body)
+        if transport == .simplex {
+          try await OwlBackend.tickSimpleX(root: root)
+        }
         self.composeSubject = ""
         self.composeBody = ""
-        self.statusText = transport == .email ? "Email sent through Owl outbox." : "SimpleX message queued."
+        self.statusText = transport == .email ? "Email sent through Owl outbox." : "SimpleX message sent."
         self.isBusy = false
         self.refresh()
       } catch {
@@ -1601,6 +1605,10 @@ private enum OwlBackend {
   static func snapshot(root: String) async throws -> Snapshot {
     let data = try await runJSON(action: "snapshot", root: root, args: [])
     return try JSONDecoder().decode(Snapshot.self, from: data)
+  }
+
+  static func tickSimpleX(root: String) async throws {
+    _ = try await runJSON(action: "tick-simplex", root: root, args: [])
   }
 
   static func bootstrapStatus(root: String) async throws -> SimpleXBootstrap {
