@@ -104,6 +104,9 @@ swift_unified_simplex_email_ui_exists() {
   grep -q 'if session.selectedTransport == .email {' generated/macos/Sources/App/App.swift
   grep -q 'TextField("Subject", text: $session.composeSubject)' generated/macos/Sources/App/App.swift
   grep -q '.animation(.easeOut(duration: 0.16), value: session.selectedTransport)' generated/macos/Sources/App/App.swift
+  grep -q 'Image(systemName: "paperplane.fill")' generated/macos/Sources/App/App.swift
+  grep -q '.help(session.selectedTransport == .email ? "Send by email" : "Send by SimpleX")' generated/macos/Sources/App/App.swift
+  ! grep -q 'Label(session.selectedTransport == .email ? "Send Email" : "Send"' generated/macos/Sources/App/App.swift
   grep -q 'session.openInbox(focusing: message.id)' generated/macos/Sources/App/App.swift
   grep -q 'message.in_inbox ? 0.62 : 1.0' generated/macos/Sources/App/App.swift
   grep -q 'TransportPill(message: message)' generated/macos/Sources/App/App.swift
