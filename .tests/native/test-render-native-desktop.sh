@@ -318,7 +318,7 @@ swift_message_timestamps_are_friendly() {
   grep -Fq 'Text(friendlyTime(message.received_at))' generated/macos/Sources/App/App.swift
   grep -Fq '.help(fullTimestamp(message.received_at))' generated/macos/Sources/App/App.swift
   grep -Fq 'Text(thread.latest_at.isEmpty ? "No messages" : friendlyTime(thread.latest_at))' generated/macos/Sources/App/App.swift
-  grep -Fq 'HeaderView(title: message.subject.isEmpty ? message.contact_name : message.subject, subtitle: "\(message.contact_name) - \(friendlyTime(message.received_at))")' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Text("\(message.contact_name) - \(friendlyTime(message.received_at))")' generated/macos/Sources/App/App.swift
   ! grep -Fq 'Text(message.received_at)' generated/macos/Sources/App/App.swift
   ! grep -Fq 'Text(thread.latest_at)' generated/macos/Sources/App/App.swift
 }
@@ -347,10 +347,17 @@ swift_mail_timelines_restore_scroll_position() {
 swift_inbox_cards_open_reader_before_mail() {
   cd "$repo_dir"
   grep -Fq 'selectedRoute = "inbox-message"' generated/macos/Sources/App/App.swift
-  grep -Fq 'MessageReaderView(message: session.activeMessage, emptyTitle: "No Inbox Message Selected")' generated/macos/Sources/App/App.swift
+  grep -Fq '@Namespace private var inboxCardNamespace' generated/macos/Sources/App/App.swift
+  grep -Fq 'MessageReaderView(message: session.activeMessage, emptyTitle: "No Inbox Message Selected", animationNamespace: inboxCardNamespace)' generated/macos/Sources/App/App.swift
+  grep -Fq 'InboxView(animationNamespace: inboxCardNamespace)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func matchedInboxCardGeometry(_ id: String, in namespace: Namespace.ID?) -> some View' generated/macos/Sources/App/App.swift
+  grep -Fq 'matchedGeometryEffect(id: "inbox-card:\(id)", in: namespace, properties: .frame)' generated/macos/Sources/App/App.swift
+  grep -Fq 'MessageReaderCard(message: message, animationNamespace: animationNamespace)' generated/macos/Sources/App/App.swift
+  grep -Fq '.transition(.opacity)' generated/macos/Sources/App/App.swift
   grep -Fq '.onTapGesture { session.openInboxMessage(message) }' generated/macos/Sources/App/App.swift
   grep -Fq '.help("Show this message in Mail")' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(systemName: "bubble.left.and.bubble.right")' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Text("\(message.contact_name) - \(friendlyTime(message.received_at))")' generated/macos/Sources/App/App.swift
   ! awk '
     /private struct InboxStackCard/ { in_view = 1 }
     /private struct TimelineView/ { in_view = 0 }

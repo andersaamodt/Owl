@@ -2903,6 +2903,15 @@ private extension View {
   func draggableMessageCard(_ message: MessageItem) -> some View {
     modifier(DraggableMessageCardModifier(message: message))
   }
+
+  @ViewBuilder
+  func matchedInboxCardGeometry(_ id: String, in namespace: Namespace.ID?) -> some View {
+    if let namespace {
+      matchedGeometryEffect(id: "inbox-card:\(id)", in: namespace, properties: .frame)
+    } else {
+      self
+    }
+  }
 }
 
 private struct PrimaryTabBar: View {
@@ -3187,15 +3196,16 @@ private struct CountBadge: View {
 
 private struct MainContentView: View {
   @EnvironmentObject private var session: OwlSession
+  @Namespace private var inboxCardNamespace
 
   var body: some View {
     Group {
       if session.selectedRoute == "new" {
         NewSendersView()
       } else if session.selectedRoute == "inbox" {
-        InboxView()
+        InboxView(animationNamespace: inboxCardNamespace)
       } else if session.selectedRoute == "inbox-message" {
-        MessageReaderView(message: session.activeMessage, emptyTitle: "No Inbox Message Selected")
+        MessageReaderView(message: session.activeMessage, emptyTitle: "No Inbox Message Selected", animationNamespace: inboxCardNamespace)
       } else if session.selectedRoute == "archive" {
         MailboxView()
       } else if session.selectedRoute == "mail" || session.selectedRoute.hasPrefix("mailbox:") {
@@ -3204,6 +3214,9 @@ private struct MainContentView: View {
         NewSendersView()
       }
     }
+    .transition(.opacity)
+    .animation(.easeInOut(duration: 0.24), value: session.selectedRoute)
+    .animation(.easeInOut(duration: 0.24), value: session.focusedMessageID)
   }
 }
 
@@ -4068,6 +4081,7 @@ private struct MessageReaderView: View {
   @EnvironmentObject private var session: OwlSession
   let message: MessageItem?
   let emptyTitle: String
+  let animationNamespace: Namespace.ID
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -4078,14 +4092,9 @@ private struct MessageReaderView: View {
           }
           .buttonStyle(.borderless)
           .help("Back to Inbox")
-          VStack(alignment: .leading, spacing: 4) {
-            Text(message.subject.isEmpty ? message.contact_name : message.subject)
-              .font(.title2.weight(.semibold))
-              .lineLimit(1)
-            Text("\(message.contact_name) - \(friendlyTime(message.received_at))")
-              .font(.callout)
-              .foregroundStyle(.secondary)
-          }
+          Text(message.subject.isEmpty ? message.contact_name : message.subject)
+            .font(.title2.weight(.semibold))
+            .lineLimit(1)
           Spacer()
           Button { session.openTimeline(for: message) } label: {
             Image(systemName: "bubble.left.and.bubble.right")
@@ -4096,48 +4105,12 @@ private struct MessageReaderView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
         Divider()
-        ScrollView {
-          VStack(alignment: .leading, spacing: 14) {
-            HStack {
-              TransportPill(message: message)
-              if message.in_inbox {
-                Button { session.openInbox(focusing: message.id) } label: {
-                  Label("Inbox", systemImage: "tray.full")
-                }
-                .buttonStyle(.borderless)
-              }
-            }
-            Text(message.displayBody.isEmpty ? "No content" : message.displayBody)
-              .font(.body)
-              .textSelection(.enabled)
-              .fixedSize(horizontal: false, vertical: true)
-            HStack {
-              Button { session.archive(message) } label: {
-                Image(systemName: "archivebox")
-              }
-              .help("Archive")
-              Button { session.markRead(message, read: !message.read) } label: {
-                Image(systemName: message.read ? "envelope.badge" : "envelope.open")
-              }
-              .help(message.read ? "Mark Unread" : "Mark Read")
-              Button(role: .destructive) { session.delete(message) } label: {
-                Image(systemName: "trash")
-              }
-              .help("Delete")
-            }
-          }
-          .padding(18)
-          .frame(maxWidth: 760, alignment: .leading)
-          .background(
-            MessageSurfaceBackground(
-              tint: message.isSimpleX ? .green : .red,
-              tintOpacity: 0.090,
-              controlOpacity: 0.98
-            )
-          )
-          .shadow(color: (message.isSimpleX ? Color.green : Color.red).opacity(0.05), radius: 8, x: 0, y: 3)
-          .padding(18)
+        ZStack {
+          MessageReaderCard(message: message, animationNamespace: animationNamespace)
+            .frame(maxWidth: 560)
+            .padding(18)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       } else {
         EmptyStateView(title: emptyTitle, subtitle: "Select a message.")
       }
@@ -4147,6 +4120,7 @@ private struct MessageReaderView: View {
 
 private struct InboxView: View {
   @EnvironmentObject private var session: OwlSession
+  let animationNamespace: Namespace.ID
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -4162,7 +4136,8 @@ private struct InboxView: View {
                   message: message,
                   revealedMessage: inboxStackMessages(for: message).dropFirst().first,
                   stackDepth: inboxStackDepth(for: message),
-                  isFocused: isFocusedStack(message)
+                  isFocused: isFocusedStack(message),
+                  animationNamespace: animationNamespace
                 )
                 .id(inboxStackID(for: message))
                 .frame(maxWidth: 560)
@@ -4353,6 +4328,7 @@ private struct EventsView: View {
 private struct MessageReaderCard: View {
   @EnvironmentObject private var session: OwlSession
   let message: MessageItem
+  var animationNamespace: Namespace.ID? = nil
 
   var body: some View {
     CardStackFrame(depth: 1, tint: message.isSimpleX ? .green : .red, isSelected: true) {
@@ -4391,6 +4367,7 @@ private struct MessageReaderCard: View {
         }
       }
     }
+    .matchedInboxCardGeometry(message.id, in: animationNamespace)
     .draggableMessageCard(message)
     .contextMenu { MessageContextMenu(message: message) }
   }
@@ -4402,6 +4379,7 @@ private struct InboxStackCard: View {
   let revealedMessage: MessageItem?
   let stackDepth: Int
   let isFocused: Bool
+  let animationNamespace: Namespace.ID
 
   var body: some View {
     ZStack(alignment: .topTrailing) {
@@ -4424,6 +4402,7 @@ private struct InboxStackCard: View {
       ) {
         InboxCardContent(message: message, actionsVisible: true)
       }
+      .matchedInboxCardGeometry(message.id, in: animationNamespace)
       .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
       .draggableMessageCard(message)
       .onTapGesture { session.openInboxMessage(message) }
