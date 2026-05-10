@@ -2843,6 +2843,47 @@ private struct CardStackFrame<Content: View>: View {
   }
 }
 
+private struct StaticCardStackBackplates: View {
+  let depth: Int
+  let tint: Color
+
+  private var backCount: Int {
+    min(max(depth - 1, 0), 4)
+  }
+
+  var body: some View {
+    ZStack {
+      ForEach(0..<backCount, id: \.self) { index in
+        RoundedRectangle(cornerRadius: 8)
+          .fill(stackedFill(index))
+          .shadow(color: Color.black.opacity(0.13), radius: 5, x: 0, y: 2)
+          .offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)
+          .rotationEffect(.degrees(stackRotation(index)))
+      }
+    }
+    .allowsHitTesting(false)
+  }
+
+  private func stackedFill(_ index: Int) -> LinearGradient {
+    LinearGradient(
+      colors: [
+        tint.opacity(0.055 - Double(index) * 0.006),
+        Color(nsColor: .controlBackgroundColor).opacity(0.98)
+      ],
+      startPoint: .topLeading,
+      endPoint: .bottomTrailing
+    )
+  }
+
+  private func stackRotation(_ index: Int) -> Double {
+    [-4.2, 3.6, -3.0, 2.4][index % 4]
+  }
+
+  private func stackOffsetX(_ index: Int) -> CGFloat {
+    [-8.0, 6.0, -5.0, 4.0][index % 4]
+  }
+}
+
 private struct NewSendersView: View {
   @EnvironmentObject private var session: OwlSession
   @State private var stage: NewSendersFlowStage = .senders
