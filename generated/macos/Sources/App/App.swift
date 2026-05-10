@@ -452,16 +452,16 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
 
     let settingsView = SettingsView()
       .environmentObject(session)
-      .frame(width: 720)
+      .frame(width: 700, height: 520)
       .padding(20)
     let hostingView = NSHostingView(rootView: settingsView)
     let settingsWindow = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 780, height: 680),
+      contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered,
       defer: false
     )
-    settingsWindow.title = "Settings"
+    settingsWindow.title = "Preferences"
     settingsWindow.contentView = hostingView
     settingsWindow.isReleasedWhenClosed = false
     settingsWindow.delegate = self
@@ -4714,6 +4714,31 @@ private struct SettingsView: View {
   @EnvironmentObject private var session: OwlSession
 
   var body: some View {
+    TabView {
+      generalPreferences
+        .tabItem {
+          Label("General", systemImage: "gearshape")
+        }
+      appearancePreferences
+        .tabItem {
+          Label("Appearance", systemImage: "paintpalette")
+        }
+      emailPreferences
+        .tabItem {
+          Label("Email", systemImage: "envelope")
+        }
+      deliveryPreferences
+        .tabItem {
+          Label("Delivery", systemImage: "network")
+        }
+      simplexPreferences
+        .tabItem {
+          Label("SimpleX", systemImage: "lock.fill")
+        }
+    }
+  }
+
+  private var generalPreferences: some View {
     Form {
       Section("Mail Root") {
         HStack {
@@ -4725,6 +4750,23 @@ private struct SettingsView: View {
           }
         }
       }
+      Section("Filtering") {
+        HStack {
+          Button { session.classifySpam() } label: {
+            Label("Classify Spam", systemImage: "line.3.horizontal.decrease.circle")
+          }
+          Button { session.openEvents() } label: {
+            Label("Events", systemImage: "waveform.path.ecg")
+          }
+        }
+      }
+    }
+    .formStyle(.grouped)
+    .padding(.top, 8)
+  }
+
+  private var appearancePreferences: some View {
+    Form {
       Section("Chat Bubbles") {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
           GridRow {
@@ -4755,6 +4797,13 @@ private struct SettingsView: View {
           .fixedSize()
         }
       }
+    }
+    .formStyle(.grouped)
+    .padding(.top, 8)
+  }
+
+  private var emailPreferences: some View {
+    Form {
       Section("Email") {
         HStack {
           TextField("Domain", text: $session.settingsDomainDraft)
@@ -4801,6 +4850,13 @@ private struct SettingsView: View {
           }
         }
       }
+    }
+    .formStyle(.grouped)
+    .padding(.top, 8)
+  }
+
+  private var deliveryPreferences: some View {
+    Form {
       Section("Daemon") {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
           GridRow {
@@ -4860,16 +4916,13 @@ private struct SettingsView: View {
           }
         }
       }
-      Section("Filtering") {
-        HStack {
-          Button { session.classifySpam() } label: {
-            Label("Classify Spam", systemImage: "line.3.horizontal.decrease.circle")
-          }
-          Button { session.openEvents() } label: {
-            Label("Events", systemImage: "waveform.path.ecg")
-          }
-        }
-      }
+    }
+    .formStyle(.grouped)
+    .padding(.top, 8)
+  }
+
+  private var simplexPreferences: some View {
+    Form {
       Section("SimpleX") {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
           GridRow {
@@ -4917,6 +4970,7 @@ private struct SettingsView: View {
       }
     }
     .formStyle(.grouped)
+    .padding(.top, 8)
   }
 }
 
