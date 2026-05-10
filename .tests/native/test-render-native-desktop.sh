@@ -330,7 +330,8 @@ swift_message_surfaces_use_colored_backgrounds() {
   cd "$repo_dir"
   grep -Fq 'private struct MessageSurfaceBackground: View' generated/macos/Sources/App/App.swift
   grep -Fq 'private var cardBackground: some View' generated/macos/Sources/App/App.swift
-  grep -Fq 'tintOpacity: isSelected ? 0.022 : 0.014' generated/macos/Sources/App/App.swift
+  grep -Fq 'tintOpacity: isSelected ? 0.082 : 0.050' generated/macos/Sources/App/App.swift
+  grep -Fq 'RoundedRectangle(cornerRadius: 14, style: .continuous)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var messageTint: Color' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct TelegramBubbleShape: Shape' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct MessageDetailsView: View' generated/macos/Sources/App/App.swift
@@ -344,8 +345,9 @@ swift_message_surfaces_use_colored_backgrounds() {
   grep -Fq 'Button { showingDetails = true } label:' generated/macos/Sources/App/App.swift
   grep -Fq 'Label("Details", systemImage: "info.circle")' generated/macos/Sources/App/App.swift
   grep -Fq '.fill(messageFill)' generated/macos/Sources/App/App.swift
-  grep -Fq 'tintOpacity: 0.110' generated/macos/Sources/App/App.swift
-  grep -Fq 'edgeOpacity: 0.64' generated/macos/Sources/App/App.swift
+  grep -Fq 'tintOpacity: 0.090' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'edgeOpacity:' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'edgeWidth:' generated/macos/Sources/App/App.swift
   ! awk '
     /private struct CardStackFrame/ { in_view = 1 }
     /private struct NewSendersView/ { in_view = 0 }

@@ -2972,38 +2972,24 @@ private enum NewSendersFlowStage {
 private struct MessageSurfaceBackground: View {
   let tint: Color
   let tintOpacity: Double
-  let edgeOpacity: Double
-  let edge: Alignment
-  let edgeWidth: CGFloat
   let controlOpacity: Double
 
   init(
     tint: Color,
     tintOpacity: Double,
-    edgeOpacity: Double,
-    edge: Alignment = .leading,
-    edgeWidth: CGFloat = 5,
     controlOpacity: Double = 0.94
   ) {
     self.tint = tint
     self.tintOpacity = tintOpacity
-    self.edgeOpacity = edgeOpacity
-    self.edge = edge
-    self.edgeWidth = edgeWidth
     self.controlOpacity = controlOpacity
   }
 
   var body: some View {
-    RoundedRectangle(cornerRadius: 8)
+    RoundedRectangle(cornerRadius: 14, style: .continuous)
       .fill(Color(nsColor: .controlBackgroundColor).opacity(controlOpacity))
       .overlay {
-        RoundedRectangle(cornerRadius: 8)
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
           .fill(tint.opacity(tintOpacity))
-      }
-      .overlay(alignment: edge) {
-        RoundedRectangle(cornerRadius: 8)
-          .fill(tint.opacity(edgeOpacity))
-          .frame(width: edgeWidth)
       }
   }
 }
@@ -3041,9 +3027,8 @@ private struct CardStackFrame<Content: View>: View {
   private var cardBackground: some View {
     MessageSurfaceBackground(
       tint: tint,
-      tintOpacity: isSelected ? 0.022 : 0.014,
-      edgeOpacity: isSelected ? 0.72 : 0.58,
-      controlOpacity: isSelected ? 0.98 : 0.94
+      tintOpacity: isSelected ? 0.082 : 0.050,
+      controlOpacity: isSelected ? 0.98 : 0.95
     )
   }
 
@@ -3067,7 +3052,7 @@ private struct CardStackFrame<Content: View>: View {
       .background {
         ZStack {
           ForEach(0..<backCount, id: \.self) { index in
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
               .fill(stackedFill(index))
               .shadow(color: Color.black.opacity(0.13), radius: 5, x: 0, y: 2)
               .offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)
@@ -3111,7 +3096,7 @@ private struct StaticCardStackBackplates: View {
   var body: some View {
     ZStack {
       ForEach(0..<backCount, id: \.self) { index in
-        RoundedRectangle(cornerRadius: 8)
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
           .fill(stackedFill(index))
           .shadow(color: Color.black.opacity(0.13), radius: 5, x: 0, y: 2)
           .offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)
@@ -3897,9 +3882,7 @@ private struct MessageReaderView: View {
           .background(
             MessageSurfaceBackground(
               tint: message.isSimpleX ? .green : .red,
-              tintOpacity: 0.110,
-              edgeOpacity: 0.64,
-              edgeWidth: 4,
+              tintOpacity: 0.090,
               controlOpacity: 0.98
             )
           )
@@ -4175,7 +4158,7 @@ private struct InboxStackCard: View {
       ) {
         InboxCardContent(message: message, actionsVisible: true)
       }
-      .contentShape(RoundedRectangle(cornerRadius: 8))
+      .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
       .draggableMessageCard(message)
       .onTapGesture { session.openInboxMessage(message) }
       .contextMenu { MessageContextMenu(message: message) }
