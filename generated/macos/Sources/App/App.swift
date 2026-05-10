@@ -3807,59 +3807,79 @@ private struct InboxStackCard: View {
   let isFocused: Bool
 
   var body: some View {
-    CardStackFrame(
-      depth: stackDepth,
-      badge: stackDepth > 3 ? String(stackDepth) : nil,
-      tint: message.isSimpleX ? .green : .red,
-      isSelected: isFocused
-    ) {
-      VStack(alignment: .leading, spacing: 10) {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-          TransportMark(message: message)
-          Text(message.contact_name)
-            .font(.headline)
-          if message.starred {
-            Image(systemName: "star.fill")
-              .font(.caption)
-              .foregroundStyle(.yellow)
-          }
-          Spacer()
-          Text(friendlyTime(message.received_at))
+    ZStack(alignment: .topTrailing) {
+      StaticCardStackBackplates(depth: stackDepth, tint: messageTint)
+      CardStackFrame(
+        depth: 1,
+        tint: messageTint,
+        isSelected: isFocused
+      ) {
+        cardContent
+      }
+      .contentShape(RoundedRectangle(cornerRadius: 8))
+      .draggableMessageCard(message)
+      .onTapGesture { session.openInboxMessage(message) }
+      .contextMenu { MessageContextMenu(message: message) }
+      if stackDepth > 3 {
+        Text("\(stackDepth)")
+          .font(.caption.weight(.bold))
+          .foregroundStyle(.white)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 3)
+          .background(Capsule().fill(messageTint.opacity(0.86)))
+          .shadow(color: Color.black.opacity(0.18), radius: 2, x: 0, y: 1)
+          .offset(x: 8, y: -8)
+      }
+    }
+  }
+
+  private var cardContent: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        TransportMark(message: message)
+        Text(message.contact_name)
+          .font(.headline)
+        if message.starred {
+          Image(systemName: "star.fill")
+            .font(.caption)
+            .foregroundStyle(.yellow)
+        }
+        Spacer()
+        Text(friendlyTime(message.received_at))
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      if !message.subject.isEmpty {
+        Text(message.subject)
+          .font(.subheadline.weight(.semibold))
+          .lineLimit(2)
+      }
+      Text(message.displayBody.isEmpty ? "No preview" : message.displayBody)
+        .font(message.isLongBlock ? .body : .callout)
+        .foregroundStyle(.primary)
+        .lineLimit(message.isLongBlock ? 6 : 3)
+      HStack(spacing: 8) {
+        TransportPill(message: message)
+        if message.attachments > 0 {
+          Label("\(message.attachments)", systemImage: "paperclip")
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        if !message.subject.isEmpty {
-          Text(message.subject)
-            .font(.subheadline.weight(.semibold))
-            .lineLimit(2)
+        Spacer()
+        Button { session.markRead(message, read: !message.read) } label: {
+          Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
         }
-        Text(message.displayBody.isEmpty ? "No preview" : message.displayBody)
-          .font(message.isLongBlock ? .body : .callout)
-          .foregroundStyle(.primary)
-          .lineLimit(message.isLongBlock ? 6 : 3)
-        HStack(spacing: 8) {
-          TransportPill(message: message)
-          if message.attachments > 0 {
-            Label("\(message.attachments)", systemImage: "paperclip")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-          Spacer()
-          Button { session.markRead(message, read: !message.read) } label: {
-            Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")
-          }
-          .buttonStyle(.borderless)
-          Button { session.archive(message) } label: {
-            Label("Remove From Inbox", systemImage: "archivebox")
-          }
-          .buttonStyle(.borderless)
+        .buttonStyle(.borderless)
+        Button { session.archive(message) } label: {
+          Label("Remove From Inbox", systemImage: "archivebox")
         }
+        .buttonStyle(.borderless)
       }
     }
-    .contentShape(RoundedRectangle(cornerRadius: 8))
-    .draggableMessageCard(message)
-    .onTapGesture { session.openInboxMessage(message) }
-    .contextMenu { MessageContextMenu(message: message) }
+  }
+
+  private var messageTint: Color {
+    message.isSimpleX ? .green : .red
   }
 }
 

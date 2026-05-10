@@ -117,7 +117,10 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'private var stackBadgeText: String?' generated/macos/Sources/App/App.swift
   grep -Fq 'guard depth > 3, let badge, !badge.isEmpty else { return nil }' generated/macos/Sources/App/App.swift
   grep -Fq 'badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil' generated/macos/Sources/App/App.swift
-  grep -Fq 'badge: stackDepth > 3 ? String(stackDepth) : nil' generated/macos/Sources/App/App.swift
+  grep -Fq 'StaticCardStackBackplates(depth: stackDepth, tint: messageTint)' generated/macos/Sources/App/App.swift
+  grep -Fq 'CardStackFrame(' generated/macos/Sources/App/App.swift
+  grep -Fq 'depth: 1,' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text("\\(stackDepth)")' generated/macos/Sources/App/App.swift
   grep -Fq 'LazyVStack(spacing: 32)' generated/macos/Sources/App/App.swift
   grep -Fq 'ForEach(inboxStackCards)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var inboxStackCards: [MessageItem]' generated/macos/Sources/App/App.swift
