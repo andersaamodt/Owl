@@ -916,6 +916,7 @@ private final class OwlSession: ObservableObject {
   @Published var selectedMessageID: String?
   @Published var draggingMessageID: String?
   @Published var timelineScrollPositions: [String: String] = [:]
+  @Published var timelineAtEndByThread: [String: Bool] = [:]
   @Published var selectedNewSenderID: String?
   @Published var selectedMailThreadID: String?
   @Published var mailRoot: String = defaultMailRoot()
@@ -1481,6 +1482,20 @@ private final class OwlSession: ObservableObject {
   func rememberTimelineScrollPosition(threadID: String?, messageID: String) {
     guard let threadID, !threadID.isEmpty else { return }
     timelineScrollPositions[threadID] = messageID
+  }
+
+  func rememberTimelineAtEnd(threadID: String?, isAtEnd: Bool) {
+    guard let threadID, !threadID.isEmpty else { return }
+    timelineAtEndByThread[threadID] = isAtEnd
+  }
+
+  func timelineShouldFollowEnd(for thread: ThreadItem?) -> Bool {
+    guard let thread else { return true }
+    return timelineAtEndByThread[thread.id] ?? true
+  }
+
+  func timelineEndID(for thread: ThreadItem?) -> String? {
+    thread?.messages.last?.id
   }
 
   func timelineScrollTarget(for thread: ThreadItem?) -> String? {
@@ -4073,6 +4088,7 @@ private struct InboxCardContent: View {
 private struct TimelineView: View {
   @EnvironmentObject private var session: OwlSession
   @Binding var inspectorWidth: CGFloat
+  @State private var isAtTimelineEnd = true
 
   var body: some View {
     HStack(spacing: 0) {
@@ -4089,19 +4105,51 @@ private struct TimelineView: View {
                   .id(message.id)
                   .onAppear {
                     session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: message.id)
+                    if message.id == session.timelineEndID(for: session.selectedThread) {
+                      setTimelineEndVisible(true)
+                    }
+                  }
+                  .onDisappear {
+                    if message.id == session.timelineEndID(for: session.selectedThread) {
+                      setTimelineEndVisible(false)
+                    }
                   }
               }
             }
             .padding(18)
           }
+          .overlay(alignment: .center) {
+            if !isAtTimelineEnd {
+              Button {
+                scrollToTimelineEnd(proxy)
+              } label: {
+                Image(systemName: "arrow.down.circle.fill")
+                  .font(.system(size: 38, weight: .semibold))
+                  .symbolRenderingMode(.hierarchical)
+                  .foregroundStyle(Color.accentColor)
+                  .shadow(color: Color.black.opacity(0.16), radius: 8, x: 0, y: 3)
+              }
+              .buttonStyle(.plain)
+              .help("Jump to newest message")
+              .accessibilityLabel("Jump to newest message")
+              .transition(.scale.combined(with: .opacity))
+            }
+          }
           .onAppear {
+            isAtTimelineEnd = session.timelineShouldFollowEnd(for: session.selectedThread)
             scrollToTimelineTarget(proxy)
           }
           .onChange(of: session.selectedThreadID) { _ in
+            isAtTimelineEnd = session.timelineShouldFollowEnd(for: session.selectedThread)
             scrollToTimelineTarget(proxy, animated: false)
           }
           .onChange(of: session.focusedMessageID) { _ in
             scrollToTimelineTarget(proxy)
+          }
+          .onChange(of: session.timelineEndID(for: session.selectedThread)) { _ in
+            if isAtTimelineEnd {
+              scrollToTimelineEnd(proxy)
+            }
           }
         }
         Divider()
@@ -4127,6 +4175,27 @@ private struct TimelineView: View {
         proxy.scrollTo(target, anchor: session.focusedMessageID == target ? .center : .bottom)
       }
     }
+  }
+
+  private func scrollToTimelineEnd(_ proxy: ScrollViewProxy, animated: Bool = true) {
+    guard let target = session.timelineEndID(for: session.selectedThread) else { return }
+    setTimelineEndVisible(true)
+    session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: target)
+    Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 20_000_000)
+      if animated {
+        withAnimation(.easeOut(duration: 0.28)) {
+          proxy.scrollTo(target, anchor: .bottom)
+        }
+      } else {
+        proxy.scrollTo(target, anchor: .bottom)
+      }
+    }
+  }
+
+  private func setTimelineEndVisible(_ visible: Bool) {
+    isAtTimelineEnd = visible
+    session.rememberTimelineAtEnd(threadID: session.selectedThreadID, isAtEnd: visible)
   }
 
   private func timelineSubtitle(_ thread: ThreadItem) -> String {

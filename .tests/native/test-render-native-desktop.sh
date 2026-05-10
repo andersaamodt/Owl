@@ -320,11 +320,20 @@ swift_message_timestamps_are_friendly() {
 swift_mail_timelines_restore_scroll_position() {
   cd "$repo_dir"
   grep -Fq '@Published var timelineScrollPositions: [String: String] = [:]' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var timelineAtEndByThread: [String: Bool] = [:]' generated/macos/Sources/App/App.swift
   grep -Fq 'func rememberTimelineScrollPosition(threadID: String?, messageID: String)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func rememberTimelineAtEnd(threadID: String?, isAtEnd: Bool)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func timelineShouldFollowEnd(for thread: ThreadItem?) -> Bool' generated/macos/Sources/App/App.swift
+  grep -Fq 'func timelineEndID(for thread: ThreadItem?) -> String?' generated/macos/Sources/App/App.swift
   grep -Fq 'func timelineScrollTarget(for thread: ThreadItem?) -> String?' generated/macos/Sources/App/App.swift
   grep -Fq 'return thread.messages.last?.id' generated/macos/Sources/App/App.swift
   grep -Fq 'session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: message.id)' generated/macos/Sources/App/App.swift
+  grep -Fq 'setTimelineEndVisible(false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: "arrow.down.circle.fill")' generated/macos/Sources/App/App.swift
+  grep -Fq 'scrollToTimelineEnd(proxy)' generated/macos/Sources/App/App.swift
+  grep -Fq '.onChange(of: session.timelineEndID(for: session.selectedThread)) { _ in' generated/macos/Sources/App/App.swift
   grep -Fq 'private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func scrollToTimelineEnd(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
   grep -Fq 'proxy.scrollTo(target, anchor: session.focusedMessageID == target ? .center : .bottom)' generated/macos/Sources/App/App.swift
   grep -Fq '.onChange(of: session.selectedThreadID) { _ in' generated/macos/Sources/App/App.swift
 }
