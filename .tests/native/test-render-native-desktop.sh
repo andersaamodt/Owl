@@ -189,10 +189,15 @@ swift_new_and_inbox_use_card_stack_layout() {
 swift_mail_favorites_move_between_sections() {
   cd "$repo_dir"
   grep -Fq 'func applyContactBinding(threadID: String, name: String, email: String, simplex: String, favorite: Bool)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func toggleFavorite(for thread: ThreadItem)' generated/macos/Sources/App/App.swift
   grep -Fq 'withAnimation(.spring(response: 0.30, dampingFraction: 0.86))' generated/macos/Sources/App/App.swift
+  grep -Fq 'runMessageAction(status: favorite ? "Added to Favorites" : "Removed from Favorites", refreshAfter: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'snapshot.favorites.removeAll { $0.id == threadID }' generated/macos/Sources/App/App.swift
   grep -Fq 'snapshot.favorites.insert(updated, at: 0)' generated/macos/Sources/App/App.swift
   grep -Fq '@Namespace private var threadMoveNamespace' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct ThreadTimelineHeader: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: thread.favorite ? "star.fill" : "star")' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.toggleFavorite(for: thread)' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var contactFilter: MailContactFilter = .all' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var contactSort: MailContactSort = .recent' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var contactListWidth: CGFloat = 290' generated/macos/Sources/App/App.swift

@@ -2015,6 +2015,35 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  func toggleFavorite(for thread: ThreadItem) {
+    let root = mailRoot
+    let kind = thread.kind == "group" ? "group" : "person"
+    let favorite = !thread.favorite
+    let args = [
+      thread.id,
+      thread.name,
+      kind,
+      thread.email,
+      thread.simplex_address,
+      favorite ? "yes" : "no"
+    ]
+    if selectedThreadID == thread.id {
+      contactDraftFavorite = favorite
+    }
+    withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
+      applyContactBinding(
+        threadID: thread.id,
+        name: thread.name,
+        email: thread.email,
+        simplex: thread.simplex_address,
+        favorite: favorite
+      )
+    }
+    runMessageAction(status: favorite ? "Added to Favorites" : "Removed from Favorites", refreshAfter: false) {
+      try await OwlBackend.runJSON(action: "bind-contact", root: root, args: args)
+    }
+  }
+
   func applyContactBinding(threadID: String, name: String, email: String, simplex: String, favorite: Bool) {
     func updatedThread(_ thread: ThreadItem) -> ThreadItem {
       guard thread.id == threadID else { return thread }
@@ -2782,6 +2811,7 @@ private struct TabButton: View {
 
 private struct SidebarView: View {
   @EnvironmentObject private var session: OwlSession
+  @Namespace private var threadMoveNamespace
 
   var body: some View {
     List(selection: $session.selectedRoute) {
@@ -2805,17 +2835,13 @@ private struct SidebarView: View {
       if !favoriteThreads.isEmpty {
         Section("Favorites") {
           ForEach(favoriteThreads) { thread in
-            SidebarThreadRow(thread: thread)
-              .tag("thread:\(thread.id)")
-              .onTapGesture { session.selectThread(thread) }
+            sidebarThreadRow(thread)
           }
         }
       }
       Section("Individuals") {
         ForEach(individualThreads) { thread in
-          SidebarThreadRow(thread: thread)
-            .tag("thread:\(thread.id)")
-            .onTapGesture { session.selectThread(thread) }
+          sidebarThreadRow(thread)
         }
       }
       Section {
@@ -2823,9 +2849,7 @@ private struct SidebarView: View {
       }
       Section("Groups") {
         ForEach(groupThreads) { thread in
-          SidebarThreadRow(thread: thread)
-            .tag("thread:\(thread.id)")
-            .onTapGesture { session.selectThread(thread) }
+          sidebarThreadRow(thread)
         }
       }
       Section {
@@ -2873,6 +2897,13 @@ private struct SidebarView: View {
       seen.insert(thread.id)
       return true
     }
+  }
+
+  private func sidebarThreadRow(_ thread: ThreadItem) -> some View {
+    SidebarThreadRow(thread: thread)
+      .matchedGeometryEffect(id: thread.id, in: threadMoveNamespace, properties: .position)
+      .tag("thread:\(thread.id)")
+      .onTapGesture { session.selectThread(thread) }
   }
 }
 
@@ -4285,7 +4316,7 @@ private struct TimelineView: View {
     HStack(spacing: 0) {
       VStack(alignment: .leading, spacing: 0) {
         if let thread = session.selectedThread {
-          HeaderView(title: thread.displayName, subtitle: timelineSubtitle(thread))
+          ThreadTimelineHeader(thread: thread, subtitle: timelineSubtitle(thread))
         }
         Divider()
         ScrollViewReader { proxy in
@@ -4666,6 +4697,40 @@ private struct ContactInspectorView: View {
       Spacer()
     }
     .padding(14)
+  }
+}
+
+private struct ThreadTimelineHeader: View {
+  @EnvironmentObject private var session: OwlSession
+  let thread: ThreadItem
+  let subtitle: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Text(thread.displayName)
+          .font(.title2.weight(.semibold))
+          .lineLimit(1)
+        Button {
+          session.toggleFavorite(for: thread)
+        } label: {
+          Image(systemName: thread.favorite ? "star.fill" : "star")
+            .font(.title3.weight(.semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(thread.favorite ? Color.yellow : Color.secondary)
+            .frame(width: 22, height: 22)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .help(thread.favorite ? "Remove from Favorites" : "Add to Favorites")
+        .accessibilityLabel(thread.favorite ? "Remove from Favorites" : "Add to Favorites")
+      }
+      Text(subtitle)
+        .font(.callout)
+        .foregroundStyle(.secondary)
+    }
+    .padding(.horizontal, 18)
+    .padding(.vertical, 14)
   }
 }
 
