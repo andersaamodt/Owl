@@ -2837,48 +2837,30 @@ private struct NewSenderStackSurface: View {
       } else {
         LazyVStack(spacing: 30) {
           ForEach(session.newSenderThreads) { thread in
-            VStack(spacing: 18) {
-              NewSenderStackCard(
-                thread: thread,
-                isSelected: session.selectedNewSenderID == thread.id,
-                isExpanded: expandedSenderID == thread.id
-              ) {
-                session.selectNewSender(thread)
+            NewSenderRealPile(
+              thread: thread,
+              messages: quarantineMessages(for: thread),
+              isSelected: session.selectedNewSenderID == thread.id,
+              isExpanded: expandedSenderID == thread.id
+            ) { message in
+              session.selectNewSender(thread)
+              if expandedSenderID == thread.id {
+                session.selectMessage(message)
+                stage = .reader
+              } else {
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
-                  expandedSenderID = expandedSenderID == thread.id ? nil : thread.id
-                }
-              } collapseBeforeDrag: {
-                if expandedSenderID == thread.id {
-                  withAnimation(.spring(response: 0.20, dampingFraction: 0.88)) {
-                    expandedSenderID = nil
-                  }
+                  expandedSenderID = thread.id
                 }
               }
-              .frame(maxWidth: 500)
-
+            } collapseBeforeDrag: {
               if expandedSenderID == thread.id {
-                ForEach(quarantineMessages(for: thread)) { message in
-                  NewSenderMessageStackCard(
-                    message: message,
-                    isSelected: session.selectedMessageID == message.id,
-                    dragPayload: .senderPile(threadID: thread.id)
-                  ) {
-                    session.selectNewSender(thread)
-                    session.selectMessage(message)
-                    stage = .reader
-                  } collapseBeforeDrag: {
-                    if expandedSenderID == thread.id {
-                      withAnimation(.spring(response: 0.20, dampingFraction: 0.88)) {
-                        expandedSenderID = nil
-                      }
-                    }
-                  }
-                  .id(message.id)
-                  .frame(maxWidth: 540)
-                  .transition(.opacity.combined(with: .move(edge: .top)))
+                withAnimation(.spring(response: 0.20, dampingFraction: 0.88)) {
+                  expandedSenderID = nil
                 }
               }
             }
+            .frame(maxWidth: 540)
+            .frame(height: pileHeight(for: thread))
           }
         }
         .frame(maxWidth: .infinity)
@@ -2891,6 +2873,67 @@ private struct NewSenderStackSurface: View {
     thread.messages
       .filter { $0.list == "quarantine" }
       .sorted { $0.received_at > $1.received_at }
+  }
+
+  private func pileHeight(for thread: ThreadItem) -> CGFloat {
+    let count = quarantineMessages(for: thread).count
+    guard expandedSenderID == thread.id else { return 180 }
+    return max(180, CGFloat(count) * 176)
+  }
+}
+
+private struct NewSenderRealPile: View {
+  let thread: ThreadItem
+  let messages: [MessageItem]
+  let isSelected: Bool
+  let isExpanded: Bool
+  let action: (MessageItem) -> Void
+  let collapseBeforeDrag: () -> Void
+
+  var body: some View {
+    ZStack(alignment: .top) {
+      ForEach(messages.indices, id: \.self) { index in
+        let message = messages[index]
+        NewSenderMessageStackCard(
+          message: message,
+          isSelected: isSelected && index == 0,
+          dragPayload: .senderPile(threadID: thread.id),
+          action: {
+            action(message)
+          },
+          collapseBeforeDrag: collapseBeforeDrag
+        )
+        .id(message.id)
+        .offset(x: cardOffsetX(index), y: cardOffsetY(index))
+        .rotationEffect(.degrees(cardRotation(index)))
+        .zIndex(Double(messages.count - index))
+        .allowsHitTesting(isExpanded || index == 0)
+      }
+      if !isExpanded, messages.count > 3 {
+        Text("\(messages.count)")
+          .font(.caption.weight(.bold))
+          .foregroundStyle(.white)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 3)
+          .background(Capsule().fill(Color.orange.opacity(0.86)))
+          .shadow(color: Color.black.opacity(0.18), radius: 2, x: 0, y: 1)
+          .offset(x: 8, y: -8)
+          .frame(maxWidth: .infinity, alignment: .topTrailing)
+      }
+    }
+    .animation(.spring(response: 0.30, dampingFraction: 0.84), value: isExpanded)
+  }
+
+  private func cardOffsetX(_ index: Int) -> CGFloat {
+    isExpanded ? 0 : [0.0, -8.0, 6.0, -5.0, 4.0][min(index, 4)]
+  }
+
+  private func cardOffsetY(_ index: Int) -> CGFloat {
+    isExpanded ? CGFloat(index) * 176 : -CGFloat(index) * 5.4
+  }
+
+  private func cardRotation(_ index: Int) -> Double {
+    isExpanded ? 0 : [0.0, -4.2, 3.6, -3.0, 2.4][min(index, 4)]
   }
 }
 

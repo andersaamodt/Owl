@@ -128,6 +128,11 @@ swift_new_and_inbox_use_card_stack_layout() {
   cd "$repo_dir"
   grep -q 'CardStackFrame' generated/macos/Sources/App/App.swift
   grep -q 'NewSenderStackCard' generated/macos/Sources/App/App.swift
+  grep -q 'private struct NewSenderRealPile: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'ForEach(messages.indices, id: \.self)' generated/macos/Sources/App/App.swift
+  grep -Fq '.offset(x: cardOffsetX(index), y: cardOffsetY(index))' generated/macos/Sources/App/App.swift
+  grep -Fq 'isExpanded ? CGFloat(index) * 176 : -CGFloat(index) * 5.4' generated/macos/Sources/App/App.swift
+  grep -Fq 'isExpanded ? 0 : [0.0, -8.0, 6.0, -5.0, 4.0][min(index, 4)]' generated/macos/Sources/App/App.swift
   grep -q 'NewSenderMessageStackCard' generated/macos/Sources/App/App.swift
   grep -q 'InboxStackCard' generated/macos/Sources/App/App.swift
   grep -Fq 'if stage != .senders {' generated/macos/Sources/App/App.swift
@@ -231,7 +236,7 @@ swift_cards_have_horizontal_flick_actions() {
   grep -Fq 'dragPayload: .senderPile(threadID: thread.id)' generated/macos/Sources/App/App.swift
   grep -Fq 'private func quarantineMessages(for thread: ThreadItem) -> [MessageItem]' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct NewSenderMessageDragModifier: ViewModifier' generated/macos/Sources/App/App.swift
-  grep -Fq '.transition(.opacity.combined(with: .move(edge: .top)))' generated/macos/Sources/App/App.swift
+  grep -Fq '.animation(.spring(response: 0.30, dampingFraction: 0.84), value: isExpanded)' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private struct NewSenderExpandedMessageRow' generated/macos/Sources/App/App.swift
   grep -Fq 'private var newSenderFlickGesture: some Gesture' generated/macos/Sources/App/App.swift
   grep -Fq 'let isIntentionalFlick = abs(actual) > 145 || (abs(actual) > 84 && abs(projected) > 290 && actual * projected > 0)' generated/macos/Sources/App/App.swift
