@@ -71,6 +71,11 @@ swift_uses_native_desktop_idiom() {
   grep -q 'TabButton(title: "Inbox"' generated/macos/Sources/App/App.swift
   grep -q 'TabButton(title: "Mail"' generated/macos/Sources/App/App.swift
   grep -q 'ArchiveTabButton(selected: session.selectedRoute == "archive")' generated/macos/Sources/App/App.swift
+  grep -q 'controller.view.frame = NSRect(x: 0, y: 0, width: 500, height: 34)' generated/macos/Sources/App/App.swift
+  grep -q '.frame(width: 500, height: 34, alignment: .leading)' generated/macos/Sources/App/App.swift
+  grep -q '.frame(width: 82)' generated/macos/Sources/App/App.swift
+  grep -q '.opacity(selected ? 1 : 0)' generated/macos/Sources/App/App.swift
+  grep -q '.fixedSize(horizontal: true, vertical: false)' generated/macos/Sources/App/App.swift
   grep -q 'func openArchive()' generated/macos/Sources/App/App.swift
   grep -q 'case "focus_archive":' generated/macos/Sources/App/App.swift
   grep -q 'NSApplicationDelegate' generated/macos/Sources/App/App.swift

@@ -434,7 +434,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let tabsView = PrimaryTabBar()
       .environmentObject(session)
     let controller = NSHostingController(rootView: AnyView(tabsView))
-    controller.view.frame = NSRect(x: 0, y: 0, width: 360, height: 34)
+    controller.view.frame = NSRect(x: 0, y: 0, width: 500, height: 34)
     let accessory = NSTitlebarAccessoryViewController()
     accessory.view = controller.view
     accessory.layoutAttribute = .left
@@ -2569,9 +2569,10 @@ private struct PrimaryTabBar: View {
       ArchiveTabButton(selected: session.selectedRoute == "archive") {
         session.openArchive()
       }
+      Spacer(minLength: 0)
     }
     .padding(.horizontal, 6)
-    .frame(height: 34)
+    .frame(width: 500, height: 34, alignment: .leading)
   }
 }
 
@@ -2584,12 +2585,12 @@ private struct ArchiveTabButton: View {
       HStack(spacing: 7) {
         Image(systemName: "archivebox")
           .font(.callout.weight(selected ? .semibold : .regular))
-        if selected {
-          Text("Archive")
-            .font(.callout.weight(.semibold))
-        }
+        Text("Archive")
+          .font(.callout.weight(.semibold))
+          .opacity(selected ? 1 : 0)
       }
-      .padding(.horizontal, selected ? 12 : 9)
+      .frame(width: 82)
+      .padding(.horizontal, 9)
       .padding(.vertical, 6)
       .background(Capsule().fill(selected ? Color.accentColor.opacity(0.16) : Color.clear))
     }
@@ -2609,6 +2610,8 @@ private struct TabButton: View {
       HStack(spacing: 7) {
         Text(title)
           .font(.callout.weight(selected ? .semibold : .regular))
+          .lineLimit(1)
+          .fixedSize(horizontal: true, vertical: false)
         if let count {
           CountBadge(count: count)
         }
@@ -2618,6 +2621,7 @@ private struct TabButton: View {
       .background(Capsule().fill(selected ? Color.accentColor.opacity(0.16) : Color.clear))
     }
     .buttonStyle(.plain)
+    .fixedSize()
   }
 }
 
