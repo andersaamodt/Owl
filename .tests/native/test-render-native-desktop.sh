@@ -119,7 +119,7 @@ swift_uses_native_desktop_idiom() {
 swift_unified_simplex_email_ui_exists() {
   cd "$repo_dir"
   grep -q '@Published var optimisticOutgoingMessages: \\[MessageItem\\] = \\[\\]' generated/macos/Sources/App/App.swift
-  grep -q 'let optimistic = optimisticMessage(for: thread, transport: transport, subject: subject, body: body)' generated/macos/Sources/App/App.swift
+  grep -q 'let optimistic = optimisticMessage(for: thread, transport: transport, subject: subject, body: body, attachment: attachment)' generated/macos/Sources/App/App.swift
   grep -q 'upsertOptimisticOutgoingMessage(optimistic)' generated/macos/Sources/App/App.swift
   grep -q 'composeBody = ""' generated/macos/Sources/App/App.swift
   grep -q 'self.updateOptimisticOutgoingMessage(id: optimistic.id, status: "sent")' generated/macos/Sources/App/App.swift
@@ -157,11 +157,29 @@ swift_unified_simplex_email_ui_exists() {
   grep -q '.frame(minHeight: 58, idealHeight: 72, maxHeight: 118)' generated/macos/Sources/App/App.swift
   grep -q '.controlSize(.small)' generated/macos/Sources/App/App.swift
   grep -q 'Image(systemName: "paperplane.fill")' generated/macos/Sources/App/App.swift
-  grep -q '.help(session.selectedTransport == .email ? "Send by email" : "Send by SimpleX")' generated/macos/Sources/App/App.swift
+  grep -q 'Attachments send by SimpleX' generated/macos/Sources/App/App.swift
   ! grep -q 'Label(session.selectedTransport == .email ? "Send Email" : "Send"' generated/macos/Sources/App/App.swift
   grep -q 'session.openInbox(focusing: message.id)' generated/macos/Sources/App/App.swift
   grep -q 'message.in_inbox ? 0.62 : 1.0' generated/macos/Sources/App/App.swift
   grep -q 'TransportPill(message: message)' generated/macos/Sources/App/App.swift
+}
+
+swift_compose_accepts_file_drops() {
+  cd "$repo_dir"
+  grep -Fq 'private struct PendingAttachment: Identifiable, Hashable' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var pendingAttachment: PendingAttachment?' generated/macos/Sources/App/App.swift
+  grep -Fq 'func attachDroppedFiles(_ providers: [NSItemProvider], selecting thread: ThreadItem? = nil) -> Bool' generated/macos/Sources/App/App.swift
+  grep -Fq 'provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func addPendingAttachment(_ url: URL)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func removePendingAttachment()' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct PendingAttachmentPill: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'PendingAttachmentPill(attachment: attachment)' generated/macos/Sources/App/App.swift
+  grep -Fq '.onDrop(of: [UTType.fileURL], isTargeted: $isAttachmentTargeted) { providers in' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.attachDroppedFiles(providers, selecting: thread)' generated/macos/Sources/App/App.swift
+  grep -Fq 'static func sendAttachment(root: String, threadID: String, transport: Transport, subject: String, body: String, attachmentPath: String) async throws -> Data' generated/macos/Sources/App/App.swift
+  grep -Fq 'runJSON(action: "send-attachment", root: root, args: [threadID, transport.rawValue, subject, body64, attachmentPath])' generated/macos/Sources/App/App.swift
+  grep -Fq 'OwlBackend.sendAttachment(root: root, threadID: thread.id, transport: transport, subject: subject, body: body, attachmentPath: attachment.path)' generated/macos/Sources/App/App.swift
+  grep -Fq 'return thread.hasEmailPath && pendingAttachment == nil' generated/macos/Sources/App/App.swift
 }
 
 swift_new_and_inbox_use_card_stack_layout() {
@@ -639,6 +657,7 @@ run_case "Swift actions cover IR" swift_actions_cover_ir
 run_case "Linux actions cover IR" linux_actions_cover_ir
 run_case "Swift uses native desktop idiom" swift_uses_native_desktop_idiom
 run_case "Swift has unified SimpleX/email UI" swift_unified_simplex_email_ui_exists
+run_case "Swift compose accepts file drops" swift_compose_accepts_file_drops
 run_case "Swift New Senders and Inbox use card-stack layout" swift_new_and_inbox_use_card_stack_layout
 run_case "Swift Mail favorites move between sections" swift_mail_favorites_move_between_sections
 run_case "Swift cards have horizontal flick actions" swift_cards_have_horizontal_flick_actions

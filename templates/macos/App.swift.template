@@ -1001,6 +1001,25 @@ private func formatBytes(_ size: Int) -> String {
   return "\(max(0, size)) B"
 }
 
+private struct PendingAttachment: Identifiable, Hashable {
+  var path: String
+  var name: String
+  var size: Int
+  var typeDescription: String
+
+  var id: String { path }
+  var url: URL { URL(fileURLWithPath: path) }
+  var displaySize: String { formatBytes(size) }
+
+  init(url: URL) {
+    path = url.path
+    name = url.lastPathComponent.isEmpty ? "Attachment" : url.lastPathComponent
+    let values = try? url.resourceValues(forKeys: [.fileSizeKey, .localizedTypeDescriptionKey])
+    size = values?.fileSize ?? 0
+    typeDescription = values?.localizedTypeDescription ?? "File"
+  }
+}
+
 @MainActor
 private final class OwlSession: ObservableObject {
   @Published var snapshot: Snapshot = SeedData.snapshot
@@ -1016,6 +1035,7 @@ private final class OwlSession: ObservableObject {
   @Published var selectedTransport: Transport = .simplex
   @Published var composeSubject: String = ""
   @Published var composeBody: String = ""
+  @Published var pendingAttachment: PendingAttachment?
   @Published var optimisticOutgoingMessages: [MessageItem] = []
   @Published var statusText: String = "Ready"
   @Published var isBusy: Bool = false
@@ -1132,12 +1152,13 @@ private final class OwlSession: ObservableObject {
 
   var canSend: Bool {
     let bodyReady = !composeBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    guard bodyReady, let thread = selectedThread else { return false }
+    let attachmentReady = pendingAttachment != nil
+    guard (bodyReady || attachmentReady), let thread = selectedThread else { return false }
     switch selectedTransport {
     case .simplex:
       return thread.hasSimpleXPath
     case .email:
-      return thread.hasEmailPath
+      return thread.hasEmailPath && pendingAttachment == nil
     }
   }
 
@@ -1582,8 +1603,14 @@ private final class OwlSession: ObservableObject {
     optimisticOutgoingMessages[index].status = status
   }
 
-  private func optimisticMessage(for thread: ThreadItem, transport: Transport, subject: String, body: String) -> MessageItem {
+  private func optimisticMessage(for thread: ThreadItem, transport: Transport, subject: String, body: String, attachment: PendingAttachment? = nil) -> MessageItem {
     let timestamp = ISO8601DateFormatter().string(from: Date())
+    let displayBody: String
+    if body.isEmpty, let attachment {
+      displayBody = "Attachment: \(attachment.name)"
+    } else {
+      displayBody = body
+    }
     return MessageItem(
       id: "optimistic:\(UUID().uuidString)",
       backend_kind: transport.rawValue,
@@ -1595,11 +1622,13 @@ private final class OwlSession: ObservableObject {
       email: thread.email,
       simplex_address: thread.simplex_address,
       subject: subject,
-      body: body,
-      preview: body,
+      body: displayBody,
+      preview: displayBody,
       received_at: timestamp,
       from_self: true,
       read: true,
+      attachments: attachment == nil ? 0 : 1,
+      attachment: attachment.map { AttachmentItem(name: $0.name, mime: $0.typeDescription, size: $0.size, data_url: "") },
       status: "sending"
     )
   }
@@ -1736,6 +1765,54 @@ private final class OwlSession: ObservableObject {
     selectedTransport = transport
   }
 
+  func attachDroppedFiles(_ providers: [NSItemProvider], selecting thread: ThreadItem? = nil) -> Bool {
+    guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }) else {
+      return false
+    }
+    if let thread {
+      selectThread(thread)
+    }
+    provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+      let resolvedURL: URL?
+      if let url = item as? URL {
+        resolvedURL = url
+      } else if let nsurl = item as? NSURL {
+        resolvedURL = nsurl as URL
+      } else if let data = item as? Data {
+        resolvedURL = URL(dataRepresentation: data, relativeTo: nil)
+      } else {
+        resolvedURL = nil
+      }
+      Task { @MainActor in
+        if let error {
+          self.showStatus("Attachment drop failed: \(error.localizedDescription)", isError: true)
+          return
+        }
+        guard let resolvedURL else {
+          self.showStatus("Dropped item was not a file URL.", isError: true)
+          return
+        }
+        self.addPendingAttachment(resolvedURL)
+      }
+    }
+    return true
+  }
+
+  func addPendingAttachment(_ url: URL) {
+    let fileURL = url.isFileURL ? url : URL(fileURLWithPath: url.path)
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
+      showStatus("Attachment must be a file.", isError: true)
+      return
+    }
+    pendingAttachment = PendingAttachment(url: fileURL)
+    showStatus("Attached \(fileURL.lastPathComponent)")
+  }
+
+  func removePendingAttachment() {
+    pendingAttachment = nil
+  }
+
   func loadContactDraft(from thread: ThreadItem) {
     contactDraftName = thread.displayName
     contactDraftEmail = thread.email
@@ -1746,20 +1823,30 @@ private final class OwlSession: ObservableObject {
   func sendComposedMessage() {
     guard let thread = selectedThread else { return }
     let transport = selectedTransport
+    let attachment = pendingAttachment
     let subject = transport == .email ? composeSubject : ""
     let body = composeBody.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !body.isEmpty else { return }
+    guard !body.isEmpty || attachment != nil else { return }
+    if attachment != nil && transport == .email {
+      showStatus("Email attachments are not available; SimpleX is the attachment path.", isError: true)
+      return
+    }
     let root = mailRoot
-    let optimistic = optimisticMessage(for: thread, transport: transport, subject: subject, body: body)
+    let optimistic = optimisticMessage(for: thread, transport: transport, subject: subject, body: body, attachment: attachment)
     upsertOptimisticOutgoingMessage(optimistic)
     composeSubject = ""
     composeBody = ""
+    pendingAttachment = nil
     rememberTimelineAtEnd(threadID: thread.id, isAtEnd: true)
     isBusy = true
-    showStatus(transport == .email ? "Sending by explicit email path..." : "Queueing SimpleX message...", busy: true)
+    showStatus(attachment == nil ? (transport == .email ? "Sending by explicit email path..." : "Queueing SimpleX message...") : "Queueing SimpleX attachment...", busy: true)
     Task {
       do {
-        _ = try await OwlBackend.send(root: root, threadID: thread.id, transport: transport, subject: subject, body: body)
+        if let attachment {
+          _ = try await OwlBackend.sendAttachment(root: root, threadID: thread.id, transport: transport, subject: subject, body: body, attachmentPath: attachment.path)
+        } else {
+          _ = try await OwlBackend.send(root: root, threadID: thread.id, transport: transport, subject: subject, body: body)
+        }
         if transport == .simplex {
           _ = try await OwlBackend.tickSimpleX(root: root)
         }
@@ -1769,6 +1856,9 @@ private final class OwlSession: ObservableObject {
         self.refresh()
       } catch {
         self.updateOptimisticOutgoingMessage(id: optimistic.id, status: "error")
+        if self.pendingAttachment == nil {
+          self.pendingAttachment = attachment
+        }
         self.isBusy = false
         self.showStatus(error.localizedDescription, isError: true)
       }
@@ -2294,6 +2384,11 @@ private enum OwlBackend {
   static func send(root: String, threadID: String, transport: Transport, subject: String, body: String) async throws -> Data {
     let body64 = Data(body.utf8).base64EncodedString()
     return try await runJSON(action: "send-message", root: root, args: [threadID, transport.rawValue, subject, body64])
+  }
+
+  static func sendAttachment(root: String, threadID: String, transport: Transport, subject: String, body: String, attachmentPath: String) async throws -> Data {
+    let body64 = Data(body.utf8).base64EncodedString()
+    return try await runJSON(action: "send-attachment", root: root, args: [threadID, transport.rawValue, subject, body64, attachmentPath])
   }
 
   static func messageTrashFiles(root: String, messageID: String) async throws -> TrashFilesResponse {
@@ -2922,6 +3017,7 @@ private struct SidebarThreadRow: View {
   @EnvironmentObject private var session: OwlSession
   @FocusState private var nameFieldFocused: Bool
   @State private var isRenaming = false
+  @State private var isAttachmentTargeted = false
   @State private var draftName = ""
   let thread: ThreadItem
 
@@ -2962,6 +3058,16 @@ private struct SidebarThreadRow: View {
       }
       Spacer()
       CountBadge(count: thread.unread_count)
+    }
+    .padding(.vertical, 2)
+    .background {
+      if isAttachmentTargeted {
+        RoundedRectangle(cornerRadius: 7, style: .continuous)
+          .fill(Color.accentColor.opacity(0.12))
+      }
+    }
+    .onDrop(of: [UTType.fileURL], isTargeted: $isAttachmentTargeted) { providers in
+      session.attachDroppedFiles(providers, selecting: thread)
     }
     .onChange(of: thread.displayName) { nextName in
       if !isRenaming {
@@ -4445,6 +4551,7 @@ private struct TimelineView: View {
   @Binding var inspectorWidth: CGFloat
   @Binding var contactInfoVisible: Bool
   @State private var isAtTimelineEnd = true
+  @State private var isAttachmentTargeted = false
   @State private var timelineViewportHeight: CGFloat = 0
   @State private var timelineBottomMaxY: CGFloat = 0
   private let timelineBottomID = "timeline-bottom-anchor"
@@ -4511,6 +4618,16 @@ private struct TimelineView: View {
             }
           }
           .overlay(alignment: .bottom) {
+            if isAttachmentTargeted {
+              RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.accentColor.opacity(0.10))
+                .overlay {
+                  RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.accentColor.opacity(0.55), lineWidth: 1.5)
+                }
+                .padding(10)
+                .allowsHitTesting(false)
+            }
             if !isAtTimelineEnd {
               Button {
                 scrollToTimelineEnd(proxy)
@@ -4527,6 +4644,9 @@ private struct TimelineView: View {
               .transition(.scale.combined(with: .opacity))
               .padding(.bottom, 14)
             }
+          }
+          .onDrop(of: [UTType.fileURL], isTargeted: $isAttachmentTargeted) { providers in
+            session.attachDroppedFiles(providers)
           }
           .onAppear {
             isAtTimelineEnd = session.timelineShouldFollowEnd(for: session.selectedThread)
@@ -4918,6 +5038,7 @@ private struct MessageContextMenu: View {
 
 private struct ComposerView: View {
   @EnvironmentObject private var session: OwlSession
+  @State private var isAttachmentTargeted = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
@@ -4925,6 +5046,12 @@ private struct ComposerView: View {
         TextField("Subject", text: $session.composeSubject)
           .textFieldStyle(.roundedBorder)
           .transition(.opacity.combined(with: .move(edge: .top)))
+      }
+      if let attachment = session.pendingAttachment {
+        PendingAttachmentPill(attachment: attachment) {
+          session.removePendingAttachment()
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
       }
       ZStack(alignment: .bottom) {
         TextEditor(text: $session.composeBody)
@@ -4949,15 +5076,62 @@ private struct ComposerView: View {
           .controlSize(.small)
           .tint(session.selectedTransport == .email ? .red.opacity(0.86) : .accentColor)
           .disabled(!session.canSend || session.isBusy)
-          .help(session.selectedTransport == .email ? "Send by email" : "Send by SimpleX")
+          .help(session.pendingAttachment != nil && session.selectedTransport == .email ? "Attachments send by SimpleX" : (session.selectedTransport == .email ? "Send by email" : "Send by SimpleX"))
         }
         .padding(.horizontal, 8)
         .padding(.bottom, 7)
       }
       .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
       .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(Color.secondary.opacity(0.18)))
+      .overlay {
+        if isAttachmentTargeted {
+          RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .stroke(Color.accentColor.opacity(0.70), style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.accentColor.opacity(0.08)))
+            .allowsHitTesting(false)
+        }
+      }
+      .onDrop(of: [UTType.fileURL], isTargeted: $isAttachmentTargeted) { providers in
+        session.attachDroppedFiles(providers)
+      }
     }
     .animation(.easeOut(duration: 0.16), value: session.selectedTransport)
+    .animation(.easeOut(duration: 0.16), value: session.pendingAttachment)
+  }
+}
+
+private struct PendingAttachmentPill: View {
+  let attachment: PendingAttachment
+  let remove: () -> Void
+
+  var body: some View {
+    HStack(spacing: 8) {
+      Image(systemName: "paperclip")
+        .foregroundStyle(.secondary)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(attachment.name)
+          .font(.caption.weight(.semibold))
+          .lineLimit(1)
+        Text("\(attachment.typeDescription) · \(attachment.displaySize)")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      }
+      Button(action: remove) {
+        Image(systemName: "xmark.circle.fill")
+          .foregroundStyle(.secondary)
+      }
+      .buttonStyle(.plain)
+      .help("Remove attachment")
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 7)
+    .background(.regularMaterial, in: Capsule())
+    .overlay {
+      Capsule()
+        .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+    }
+    .fixedSize(horizontal: true, vertical: false)
   }
 }
 
