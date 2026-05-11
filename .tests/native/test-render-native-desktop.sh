@@ -150,6 +150,12 @@ swift_unified_simplex_email_ui_exists() {
   grep -q 'if session.selectedTransport == .email {' generated/macos/Sources/App/App.swift
   grep -q 'TextField("Subject", text: $session.composeSubject)' generated/macos/Sources/App/App.swift
   grep -q '.animation(.easeOut(duration: 0.16), value: session.selectedTransport)' generated/macos/Sources/App/App.swift
+  grep -q 'ZStack(alignment: .bottom)' generated/macos/Sources/App/App.swift
+  grep -q 'TextEditor(text: $session.composeBody)' generated/macos/Sources/App/App.swift
+  grep -q '.scrollIndicators(.automatic)' generated/macos/Sources/App/App.swift
+  grep -q '.padding(.bottom, 30)' generated/macos/Sources/App/App.swift
+  grep -q '.frame(minHeight: 58, idealHeight: 72, maxHeight: 118)' generated/macos/Sources/App/App.swift
+  grep -q '.controlSize(.small)' generated/macos/Sources/App/App.swift
   grep -q 'Image(systemName: "paperplane.fill")' generated/macos/Sources/App/App.swift
   grep -q '.help(session.selectedTransport == .email ? "Send by email" : "Send by SimpleX")' generated/macos/Sources/App/App.swift
   ! grep -q 'Label(session.selectedTransport == .email ? "Send Email" : "Send"' generated/macos/Sources/App/App.swift

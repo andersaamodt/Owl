@@ -5035,33 +5035,41 @@ private struct ComposerView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .center, spacing: 12) {
-        TransportMiniToggle(
-          transport: $session.selectedTransport,
-          isEnabled: session.canSwitchComposerTransport
-        )
-        Spacer()
-        Button {
-          session.sendComposedMessage()
-        } label: {
-          Image(systemName: "paperplane.fill")
-            .font(.body.weight(.semibold))
-            .frame(width: 28, height: 22)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(session.selectedTransport == .email ? .red.opacity(0.86) : .accentColor)
-        .disabled(!session.canSend || session.isBusy)
-        .help(session.selectedTransport == .email ? "Send by email" : "Send by SimpleX")
-      }
       if session.selectedTransport == .email {
         TextField("Subject", text: $session.composeSubject)
           .textFieldStyle(.roundedBorder)
           .transition(.opacity.combined(with: .move(edge: .top)))
       }
-      TextEditor(text: $session.composeBody)
-        .font(.body)
-        .frame(minHeight: 82, idealHeight: 110, maxHeight: 160)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.18)))
+      ZStack(alignment: .bottom) {
+        TextEditor(text: $session.composeBody)
+          .font(.body)
+          .scrollIndicators(.automatic)
+          .padding(.bottom, 30)
+          .frame(minHeight: 58, idealHeight: 72, maxHeight: 118)
+        HStack(alignment: .center, spacing: 8) {
+          TransportMiniToggle(
+            transport: $session.selectedTransport,
+            isEnabled: session.canSwitchComposerTransport
+          )
+          Spacer()
+          Button {
+            session.sendComposedMessage()
+          } label: {
+            Image(systemName: "paperplane.fill")
+              .font(.body.weight(.semibold))
+              .frame(width: 28, height: 22)
+          }
+          .buttonStyle(.borderedProminent)
+          .controlSize(.small)
+          .tint(session.selectedTransport == .email ? .red.opacity(0.86) : .accentColor)
+          .disabled(!session.canSend || session.isBusy)
+          .help(session.selectedTransport == .email ? "Send by email" : "Send by SimpleX")
+        }
+        .padding(.horizontal, 8)
+        .padding(.bottom, 7)
+      }
+      .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+      .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(Color.secondary.opacity(0.18)))
     }
     .animation(.easeOut(duration: 0.16), value: session.selectedTransport)
   }
