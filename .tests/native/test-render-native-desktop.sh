@@ -236,10 +236,18 @@ swift_mail_favorites_move_between_sections() {
   grep -Fq '@State private var contactSort: MailContactSort = .recent' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var contactListWidth: CGFloat = 290' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var inspectorWidth: CGFloat = 260' generated/macos/Sources/App/App.swift
+  grep -Fq '@State private var contactInfoVisible = true' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct SidebarResizeDivider: View' generated/macos/Sources/App/App.swift
   grep -Fq 'SidebarResizeDivider(width: $contactListWidth, range: 220...420, edge: .trailing)' generated/macos/Sources/App/App.swift
-  grep -Fq 'TimelineView(inspectorWidth: $inspectorWidth)' generated/macos/Sources/App/App.swift
+  grep -Fq 'TimelineView(inspectorWidth: $inspectorWidth, contactInfoVisible: $contactInfoVisible)' generated/macos/Sources/App/App.swift
+  grep -Fq '.animation(.easeInOut(duration: 0.22), value: contactInfoVisible)' generated/macos/Sources/App/App.swift
   grep -Fq 'SidebarResizeDivider(width: $inspectorWidth, range: 220...380, edge: .leading)' generated/macos/Sources/App/App.swift
+  grep -Fq 'if contactInfoVisible {' generated/macos/Sources/App/App.swift
+  grep -Fq '.transition(.move(edge: .trailing).combined(with: .opacity))' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: "person.text.rectangle")' generated/macos/Sources/App/App.swift
+  grep -Fq 'contactInfoVisible.toggle()' generated/macos/Sources/App/App.swift
+  grep -Fq 'contactInfoVisible ? "Hide contact info" : "Show contact info"' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Toggle("Favorite", isOn: $session.contactDraftFavorite)' generated/macos/Sources/App/App.swift
   grep -Fq 'DragGesture(minimumDistance: 2)' generated/macos/Sources/App/App.swift
   grep -Fq '.highPriorityGesture(' generated/macos/Sources/App/App.swift
   grep -Fq 'transaction.disablesAnimations = true' generated/macos/Sources/App/App.swift

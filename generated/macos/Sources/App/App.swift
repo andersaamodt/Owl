@@ -3896,6 +3896,7 @@ private struct MailView: View {
   @EnvironmentObject private var session: OwlSession
   @State private var contactListWidth: CGFloat = 290
   @State private var inspectorWidth: CGFloat = 260
+  @State private var contactInfoVisible = true
 
   var body: some View {
     HStack(spacing: 0) {
@@ -3905,11 +3906,12 @@ private struct MailView: View {
       if session.selectedRoute.hasPrefix("mailbox:") {
         MailboxView()
       } else if session.selectedThread != nil {
-        TimelineView(inspectorWidth: $inspectorWidth)
+        TimelineView(inspectorWidth: $inspectorWidth, contactInfoVisible: $contactInfoVisible)
       } else {
         EmptyStateView(title: "No Contact Selected", subtitle: "Choose a contact or group.")
       }
     }
+    .animation(.easeInOut(duration: 0.22), value: contactInfoVisible)
   }
 }
 
@@ -4628,6 +4630,7 @@ private struct TimelineBottomMaxYPreferenceKey: PreferenceKey {
 private struct TimelineView: View {
   @EnvironmentObject private var session: OwlSession
   @Binding var inspectorWidth: CGFloat
+  @Binding var contactInfoVisible: Bool
   @State private var isAtTimelineEnd = true
   @State private var timelineViewportHeight: CGFloat = 0
   @State private var timelineBottomMaxY: CGFloat = 0
@@ -4638,7 +4641,15 @@ private struct TimelineView: View {
     HStack(spacing: 0) {
       VStack(alignment: .leading, spacing: 0) {
         if let thread = session.selectedThread {
-          ThreadTimelineHeader(thread: thread, subtitle: timelineSubtitle(thread))
+          ThreadTimelineHeader(
+            thread: thread,
+            subtitle: timelineSubtitle(thread),
+            contactInfoVisible: contactInfoVisible
+          ) {
+            withAnimation(.easeInOut(duration: 0.22)) {
+              contactInfoVisible.toggle()
+            }
+          }
         }
         Divider()
         ScrollViewReader { proxy in
@@ -4732,10 +4743,14 @@ private struct TimelineView: View {
         ComposerView()
           .padding(14)
       }
-      SidebarResizeDivider(width: $inspectorWidth, range: 220...380, edge: .leading)
-      ContactInspectorView()
-        .frame(width: inspectorWidth)
-        .background(.bar)
+      if contactInfoVisible {
+        SidebarResizeDivider(width: $inspectorWidth, range: 220...380, edge: .leading)
+          .transition(.move(edge: .trailing).combined(with: .opacity))
+        ContactInspectorView()
+          .frame(width: inspectorWidth)
+          .background(.bar)
+          .transition(.move(edge: .trailing).combined(with: .opacity))
+      }
     }
   }
 
@@ -5132,7 +5147,6 @@ private struct ContactInspectorView: View {
         .textFieldStyle(.roundedBorder)
       TextField("SimpleX", text: $session.contactDraftSimpleX)
         .textFieldStyle(.roundedBorder)
-      Toggle("Favorite", isOn: $session.contactDraftFavorite)
       Button {
         session.saveContactBinding()
       } label: {
@@ -5156,6 +5170,8 @@ private struct ThreadTimelineHeader: View {
   @EnvironmentObject private var session: OwlSession
   let thread: ThreadItem
   let subtitle: String
+  let contactInfoVisible: Bool
+  let toggleContactInfo: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -5176,6 +5192,20 @@ private struct ThreadTimelineHeader: View {
         .contentShape(Rectangle())
         .help(thread.favorite ? "Remove from Favorites" : "Add to Favorites")
         .accessibilityLabel(thread.favorite ? "Remove from Favorites" : "Add to Favorites")
+        Spacer()
+        Button {
+          toggleContactInfo()
+        } label: {
+          Image(systemName: "person.text.rectangle")
+            .font(.title3.weight(.semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(contactInfoVisible ? Color.accentColor : Color.secondary)
+            .frame(width: 24, height: 24)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .help(contactInfoVisible ? "Hide contact info" : "Show contact info")
+        .accessibilityLabel(contactInfoVisible ? "Hide contact info" : "Show contact info")
       }
       Text(subtitle)
         .font(.callout)
