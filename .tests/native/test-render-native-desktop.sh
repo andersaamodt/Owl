@@ -119,9 +119,19 @@ swift_uses_native_desktop_idiom() {
 swift_unified_simplex_email_ui_exists() {
   cd "$repo_dir"
   grep -q 'selectedTransport = thread.hasSimpleXPath ? .simplex : .email' generated/macos/Sources/App/App.swift
+  grep -q 'var canSwitchComposerTransport: Bool' generated/macos/Sources/App/App.swift
+  grep -q 'return thread.hasSimpleXPath && thread.hasEmailPath' generated/macos/Sources/App/App.swift
+  grep -q 'func selectComposerTransport(_ transport: Transport)' generated/macos/Sources/App/App.swift
+  grep -q 'guard thread.hasSimpleXPath else { return }' generated/macos/Sources/App/App.swift
+  grep -q 'guard thread.hasEmailPath else { return }' generated/macos/Sources/App/App.swift
+  grep -q 'selectComposerTransport(.simplex)' generated/macos/Sources/App/App.swift
+  grep -q 'selectComposerTransport(.email)' generated/macos/Sources/App/App.swift
   grep -q 'let subject = transport == .email ? composeSubject : ""' generated/macos/Sources/App/App.swift
   grep -q 'private struct TransportMiniToggle: View' generated/macos/Sources/App/App.swift
-  grep -q 'TransportMiniToggle(transport: $session.selectedTransport)' generated/macos/Sources/App/App.swift
+  grep -q 'isEnabled: session.canSwitchComposerTransport' generated/macos/Sources/App/App.swift
+  grep -q 'let isEnabled: Bool' generated/macos/Sources/App/App.swift
+  grep -q '.disabled(!isEnabled)' generated/macos/Sources/App/App.swift
+  grep -q 'Add both SimpleX and email contact information to switch transports' generated/macos/Sources/App/App.swift
   grep -q 'Image(systemName: isSecure ? "lock.fill" : "lock.open")' generated/macos/Sources/App/App.swift
   grep -q 'transport = isSecure ? .email : .simplex' generated/macos/Sources/App/App.swift
   grep -q '.frame(width: 26, height: 14)' generated/macos/Sources/App/App.swift

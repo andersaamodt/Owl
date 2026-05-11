@@ -1408,6 +1408,11 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  var canSwitchComposerTransport: Bool {
+    guard let thread = selectedThread else { return false }
+    return thread.hasSimpleXPath && thread.hasEmailPath
+  }
+
   var canUndoLastTrashAction: Bool {
     lastSystemTrashAction != nil
   }
@@ -1943,6 +1948,17 @@ private final class OwlSession: ObservableObject {
     selectedTransport = thread.hasSimpleXPath ? .simplex : .email
   }
 
+  func selectComposerTransport(_ transport: Transport) {
+    guard let thread = selectedThread else { return }
+    switch transport {
+    case .simplex:
+      guard thread.hasSimpleXPath else { return }
+    case .email:
+      guard thread.hasEmailPath else { return }
+    }
+    selectedTransport = transport
+  }
+
   func loadContactDraft(from thread: ThreadItem) {
     contactDraftName = thread.displayName
     contactDraftEmail = thread.email
@@ -2447,9 +2463,9 @@ private final class OwlSession: ObservableObject {
       case "setup_folders":
         runBackendAction("settings-setup-folders", status: "Mail folders checked")
       case "compose_simplex":
-        selectedTransport = .simplex
+        selectComposerTransport(.simplex)
       case "compose_email":
-        selectedTransport = .email
+        selectComposerTransport(.email)
       case "send_message":
         sendComposedMessage()
       case "archive_selected":
@@ -4911,7 +4927,10 @@ private struct ComposerView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .center, spacing: 12) {
-        TransportMiniToggle(transport: $session.selectedTransport)
+        TransportMiniToggle(
+          transport: $session.selectedTransport,
+          isEnabled: session.canSwitchComposerTransport
+        )
         Spacer()
         Button {
           session.sendComposedMessage()
@@ -4941,11 +4960,13 @@ private struct ComposerView: View {
 
 private struct TransportMiniToggle: View {
   @Binding var transport: Transport
+  let isEnabled: Bool
 
   private var isSecure: Bool { transport == .simplex }
 
   var body: some View {
     Button {
+      guard isEnabled else { return }
       transport = isSecure ? .email : .simplex
     } label: {
       HStack(spacing: 6) {
@@ -4973,7 +4994,9 @@ private struct TransportMiniToggle: View {
     }
     .buttonStyle(.plain)
     .fixedSize()
-    .help(isSecure ? "SimpleX secure transport" : "Email transport")
+    .opacity(isEnabled ? 1 : 0.48)
+    .disabled(!isEnabled)
+    .help(isEnabled ? (isSecure ? "SimpleX secure transport" : "Email transport") : "Add both SimpleX and email contact information to switch transports")
     .accessibilityLabel("Transport")
     .accessibilityValue(isSecure ? "SimpleX" : "Email")
   }
