@@ -4379,6 +4379,67 @@ private struct TimelineBottomMaxYPreferenceKey: PreferenceKey {
   }
 }
 
+private struct TimelineScrollEndObserver: NSViewRepresentable {
+  let onIsAtEndChanged: (Bool) -> Void
+
+  func makeNSView(context: Context) -> TimelineScrollEndObserverView {
+    let view = TimelineScrollEndObserverView()
+    view.onIsAtEndChanged = onIsAtEndChanged
+    return view
+  }
+
+  func updateNSView(_ nsView: TimelineScrollEndObserverView, context: Context) {
+    nsView.onIsAtEndChanged = onIsAtEndChanged
+    nsView.attachIfNeeded()
+  }
+}
+
+private final class TimelineScrollEndObserverView: NSView {
+  var onIsAtEndChanged: ((Bool) -> Void)?
+  private weak var observedScrollView: NSScrollView?
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    DispatchQueue.main.async { [weak self] in
+      self?.attachIfNeeded()
+    }
+  }
+
+  func attachIfNeeded() {
+    guard let scrollView = enclosingScrollView, observedScrollView !== scrollView else {
+      reportScrollPosition()
+      return
+    }
+    NotificationCenter.default.removeObserver(self)
+    observedScrollView = scrollView
+    scrollView.contentView.postsBoundsChangedNotifications = true
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(observedBoundsDidChange(_:)),
+      name: NSView.boundsDidChangeNotification,
+      object: scrollView.contentView
+    )
+    reportScrollPosition()
+  }
+
+  @objc private func observedBoundsDidChange(_ notification: Notification) {
+    reportScrollPosition()
+  }
+
+  private func reportScrollPosition() {
+    guard let scrollView = observedScrollView,
+          let documentView = scrollView.documentView else { return }
+    let visibleMaxY = scrollView.contentView.bounds.maxY
+    let documentHeight = documentView.bounds.height
+    let distanceFromEnd = documentHeight - visibleMaxY
+    onIsAtEndChanged?(distanceFromEnd <= 18)
+  }
+
+  deinit {
+    NotificationCenter.default.removeObserver(self)
+  }
+}
+
 private struct TimelineView: View {
   @EnvironmentObject private var session: OwlSession
   @Binding var inspectorWidth: CGFloat
@@ -4437,11 +4498,16 @@ private struct TimelineView: View {
           }
           .coordinateSpace(name: timelineCoordinateSpace)
           .background {
-            GeometryReader { geometry in
-              Color.clear.preference(
-                key: TimelineViewportHeightPreferenceKey.self,
-                value: geometry.size.height
-              )
+            ZStack {
+              GeometryReader { geometry in
+                Color.clear.preference(
+                  key: TimelineViewportHeightPreferenceKey.self,
+                  value: geometry.size.height
+                )
+              }
+              TimelineScrollEndObserver { isAtEnd in
+                setTimelineEndVisible(isAtEnd)
+              }
             }
           }
           .overlay(alignment: .bottom) {
