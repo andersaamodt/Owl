@@ -1403,10 +1403,10 @@ private final class OwlSession: ObservableObject {
     } catch {
       showStatus("Preferences unavailable: \(error.localizedDescription)", isError: true)
     }
-    refresh(silent: true, tickTransport: true)
+    refresh(tickTransport: true)
   }
 
-  func refresh(silent: Bool = true, tickTransport: Bool = false) {
+  func refresh(tickTransport: Bool = false) {
     if isRefreshingSnapshot {
       if tickTransport {
         tickTransportIfStale()
@@ -1422,9 +1422,6 @@ private final class OwlSession: ObservableObject {
         self.apply(snapshot: next)
         self.statusText = "Loaded \(next.threads.count) conversations from \(next.root)"
         self.isRefreshingSnapshot = false
-        if !silent {
-          self.showToast("Loaded \(next.threads.count) conversations")
-        }
       } catch {
         self.isRefreshingSnapshot = false
         self.showStatus("Using seed state; backend unavailable: \(error.localizedDescription)", isError: true)
@@ -1444,7 +1441,7 @@ private final class OwlSession: ObservableObject {
       tickTransportIfStale()
       return
     }
-    refresh(silent: true, tickTransport: force)
+    refresh(tickTransport: force)
   }
 
   func tickTransportIfStale(force: Bool = false, notify: Bool = false) {
@@ -1464,7 +1461,7 @@ private final class OwlSession: ObservableObject {
         if notify {
           self.showStatus("SimpleX incoming queue checked")
         }
-        self.refresh(silent: true)
+        self.refresh()
       } catch {
         self.isTickingTransport = false
         if notify {
@@ -1941,7 +1938,7 @@ private final class OwlSession: ObservableObject {
         self.composeBody = ""
         self.isBusy = false
         self.showStatus(transport == .email ? "Email sent through Owl outbox." : "SimpleX message sent.")
-        self.refresh(silent: true)
+        self.refresh()
       } catch {
         self.isBusy = false
         self.showStatus(error.localizedDescription, isError: true)
@@ -1955,7 +1952,7 @@ private final class OwlSession: ObservableObject {
       try await OwlBackend.runJSON(action: "archive-message", root: root, args: [message.id])
     } afterSuccess: {
       self.applyArchived(messageID: message.id)
-      self.refresh(silent: true)
+      self.refresh()
     }
   }
 
@@ -1990,7 +1987,7 @@ private final class OwlSession: ObservableObject {
           self.isBusy = false
           self.showStatus("Moved message to system Trash")
         }
-        self.refresh(silent: true)
+        self.refresh()
       } catch {
         self.isBusy = false
         self.showStatus(error.localizedDescription, isError: true)
@@ -2018,7 +2015,7 @@ private final class OwlSession: ObservableObject {
         self.lastSystemTrashAction = nil
         self.isBusy = false
         self.showStatus("Restored message from system Trash")
-        self.refresh(silent: true)
+        self.refresh()
       } catch {
         self.isBusy = false
         self.showStatus("Could not undo Trash action: \(error.localizedDescription)", isError: true)
@@ -2050,7 +2047,7 @@ private final class OwlSession: ObservableObject {
       self.applyMessageUpdate(id: message.id) { updated in
         updated.starred.toggle()
       }
-      self.refresh(silent: true)
+      self.refresh()
     }
   }
 
@@ -2062,7 +2059,7 @@ private final class OwlSession: ObservableObject {
       self.applyMessageUpdate(id: message.id) { updated in
         updated.read = read
       }
-      self.refresh(silent: true)
+      self.refresh()
     }
   }
 
@@ -2146,7 +2143,7 @@ private final class OwlSession: ObservableObject {
         self.isBusy = false
         self.showStatus(status)
         if refreshAfter {
-          self.refresh(silent: true)
+          self.refresh()
         }
       } catch {
         self.isBusy = false
@@ -2301,7 +2298,7 @@ private final class OwlSession: ObservableObject {
       Task {
         try? await OwlBackend.setUIPref(root: url.path, key: "mail_root", value: url.path)
       }
-      refresh(silent: true, tickTransport: true)
+      refresh(tickTransport: true)
     }
   }
 

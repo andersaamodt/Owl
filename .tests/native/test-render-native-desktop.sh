@@ -495,8 +495,10 @@ swift_refresh_is_quiet_and_incremental() {
   cd "$repo_dir"
   grep -Fq '@Published var isRefreshingSnapshot: Bool = false' generated/macos/Sources/App/App.swift
   grep -Fq '@Published var isTickingTransport: Bool = false' generated/macos/Sources/App/App.swift
-  grep -Fq 'func refresh(silent: Bool = true, tickTransport: Bool = false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func refresh(tickTransport: Bool = false)' generated/macos/Sources/App/App.swift
   grep -Fq 'func tickTransportIfStale(force: Bool = false, notify: Bool = false)' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'showToast("Loaded ' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'refresh(silent:' generated/macos/Sources/App/App.swift
   grep -Fq 'applyArchived(messageID: message.id)' generated/macos/Sources/App/App.swift
   grep -Fq 'applyDeleted(messageID: message.id)' generated/macos/Sources/App/App.swift
   grep -Fq 'applyMessageUpdate(id: message.id)' generated/macos/Sources/App/App.swift
