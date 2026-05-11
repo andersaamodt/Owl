@@ -336,7 +336,10 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq 'return thread.messages.last?.id' generated/macos/Sources/App/App.swift
   grep -Fq 'session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: message.id)' generated/macos/Sources/App/App.swift
   grep -Fq 'private let timelineBottomID = "timeline-bottom-anchor"' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(height: 18)' generated/macos/Sources/App/App.swift
   grep -Fq '.id(timelineBottomID)' generated/macos/Sources/App/App.swift
+  grep -Fq '.padding(.horizontal, 18)' generated/macos/Sources/App/App.swift
+  grep -Fq '.padding(.top, 18)' generated/macos/Sources/App/App.swift
   grep -Fq 'scheduleTimelineEndHidden()' generated/macos/Sources/App/App.swift
   grep -Fq 'try? await Task.sleep(nanoseconds: 180_000_000)' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(systemName: "arrow.down.circle.fill")' generated/macos/Sources/App/App.swift
@@ -344,7 +347,9 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq '.onChange(of: session.timelineEndID(for: session.selectedThread)) { _ in' generated/macos/Sources/App/App.swift
   grep -Fq 'private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
   grep -Fq 'private func scrollToTimelineEnd(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func performScrollToTimelineEnd(_ proxy: ScrollViewProxy, animated: Bool)' generated/macos/Sources/App/App.swift
   grep -Fq 'proxy.scrollTo(timelineBottomID, anchor: .bottom)' generated/macos/Sources/App/App.swift
+  grep -Fq 'try? await Task.sleep(nanoseconds: 120_000_000)' generated/macos/Sources/App/App.swift
   grep -Fq 'proxy.scrollTo(target, anchor: session.focusedMessageID == target ? .center : .bottom)' generated/macos/Sources/App/App.swift
   grep -Fq '.onChange(of: session.selectedThreadID) { _ in' generated/macos/Sources/App/App.swift
 }

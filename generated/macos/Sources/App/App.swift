@@ -4523,7 +4523,7 @@ private struct TimelineView: View {
                   }
               }
               Color.clear
-                .frame(height: 1)
+                .frame(height: 18)
                 .id(timelineBottomID)
                 .onAppear {
                   setTimelineEndVisible(true)
@@ -4532,7 +4532,8 @@ private struct TimelineView: View {
                   scheduleTimelineEndHidden()
                 }
             }
-            .padding(18)
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
           }
           .overlay(alignment: .center) {
             if !isAtTimelineEnd {
@@ -4599,13 +4600,19 @@ private struct TimelineView: View {
     session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: target)
     Task { @MainActor in
       try? await Task.sleep(nanoseconds: 20_000_000)
-      if animated {
-        withAnimation(.easeOut(duration: 0.28)) {
-          proxy.scrollTo(timelineBottomID, anchor: .bottom)
-        }
-      } else {
+      performScrollToTimelineEnd(proxy, animated: animated)
+      try? await Task.sleep(nanoseconds: 120_000_000)
+      performScrollToTimelineEnd(proxy, animated: false)
+    }
+  }
+
+  private func performScrollToTimelineEnd(_ proxy: ScrollViewProxy, animated: Bool) {
+    if animated {
+      withAnimation(.easeOut(duration: 0.28)) {
         proxy.scrollTo(timelineBottomID, anchor: .bottom)
       }
+    } else {
+      proxy.scrollTo(timelineBottomID, anchor: .bottom)
     }
   }
 
