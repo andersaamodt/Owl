@@ -4751,26 +4751,60 @@ private struct TransportMiniToggle: View {
 
 private struct ContactInspectorView: View {
   @EnvironmentObject private var session: OwlSession
+  @State private var simpleXAddressVisible = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Identity")
+      Text("Contact")
         .font(.headline)
-      TextField("Name", text: $session.contactDraftName)
-        .textFieldStyle(.roundedBorder)
-      TextField("Email", text: $session.contactDraftEmail)
-        .textFieldStyle(.roundedBorder)
-      TextField("SimpleX", text: $session.contactDraftSimpleX)
-        .textFieldStyle(.roundedBorder)
+      Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+        GridRow {
+          Text("Name")
+            .foregroundStyle(.secondary)
+          TextField("Name", text: $session.contactDraftName)
+            .textFieldStyle(.roundedBorder)
+        }
+        GridRow {
+          Text("Email")
+            .foregroundStyle(.secondary)
+          TextField("Email address", text: $session.contactDraftEmail)
+            .textFieldStyle(.roundedBorder)
+        }
+        GridRow {
+          Text("SimpleX")
+            .foregroundStyle(.secondary)
+          HStack(spacing: 6) {
+            TextField("SimpleX address or connection", text: $session.contactDraftSimpleX)
+              .textFieldStyle(.roundedBorder)
+            Button {
+              simpleXAddressVisible.toggle()
+            } label: {
+              Image(systemName: simpleXAddressVisible ? "eye.slash" : "eye")
+                .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.borderless)
+            .help(simpleXAddressVisible ? "Hide SimpleX binding" : "Show SimpleX binding")
+          }
+        }
+      }
+      if simpleXAddressVisible {
+        Text(session.contactDraftSimpleX.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No SimpleX binding" : session.contactDraftSimpleX)
+          .font(.caption.monospaced())
+          .textSelection(.enabled)
+          .foregroundStyle(.secondary)
+          .padding(8)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+      }
       Button {
         session.saveContactBinding()
       } label: {
-        Label("Save Binding", systemImage: "person.crop.circle.badge.checkmark")
+        Label("Save Contact", systemImage: "person.crop.circle.badge.checkmark")
       }
       .buttonStyle(.bordered)
       Divider()
       if let thread = session.selectedThread {
-        Label(thread.hasSimpleXPath ? "SimpleX bound" : "No SimpleX path", systemImage: thread.hasSimpleXPath ? "lock.fill" : "lock.slash")
+        Label(thread.hasSimpleXPath ? "SimpleX address bound" : "No SimpleX address", systemImage: thread.hasSimpleXPath ? "lock.fill" : "lock.slash")
           .foregroundStyle(thread.hasSimpleXPath ? .green : .secondary)
         Label(thread.hasEmailPath ? "Email bound" : "No email path", systemImage: thread.hasEmailPath ? "lock.open" : "envelope.badge")
           .foregroundStyle(thread.hasEmailPath ? .red : .secondary)
@@ -4819,8 +4853,8 @@ private struct ThreadTimelineHeader: View {
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
-        .help(contactInfoVisible ? "Hide contact info" : "Show contact info")
-        .accessibilityLabel(contactInfoVisible ? "Hide contact info" : "Show contact info")
+        .help(contactInfoVisible ? "Hide contact" : "Show contact")
+        .accessibilityLabel(contactInfoVisible ? "Hide contact" : "Show contact")
       }
       Text(subtitle)
         .font(.callout)

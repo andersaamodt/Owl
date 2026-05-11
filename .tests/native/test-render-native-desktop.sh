@@ -246,8 +246,20 @@ swift_mail_favorites_move_between_sections() {
   grep -Fq '.transition(.move(edge: .trailing).combined(with: .opacity))' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(systemName: "person.text.rectangle")' generated/macos/Sources/App/App.swift
   grep -Fq 'contactInfoVisible.toggle()' generated/macos/Sources/App/App.swift
-  grep -Fq 'contactInfoVisible ? "Hide contact info" : "Show contact info"' generated/macos/Sources/App/App.swift
+  grep -Fq 'contactInfoVisible ? "Hide contact" : "Show contact"' generated/macos/Sources/App/App.swift
   ! grep -Fq 'Toggle("Favorite", isOn: $session.contactDraftFavorite)' generated/macos/Sources/App/App.swift
+  grep -Fq '@State private var simpleXAddressVisible = false' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text("Contact")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8)' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text("Name")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text("Email")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text("SimpleX")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: simpleXAddressVisible ? "eye.slash" : "eye")' generated/macos/Sources/App/App.swift
+  grep -Fq 'No SimpleX binding' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label("Save Contact", systemImage: "person.crop.circle.badge.checkmark")' generated/macos/Sources/App/App.swift
+  grep -Fq 'SimpleX address bound' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Text("Identity")' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Label("Save Binding", systemImage: "person.crop.circle.badge.checkmark")' generated/macos/Sources/App/App.swift
   grep -Fq 'DragGesture(minimumDistance: 2)' generated/macos/Sources/App/App.swift
   grep -Fq '.highPriorityGesture(' generated/macos/Sources/App/App.swift
   grep -Fq 'transaction.disablesAnimations = true' generated/macos/Sources/App/App.swift
