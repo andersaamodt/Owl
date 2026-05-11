@@ -223,6 +223,8 @@ swift_new_and_inbox_use_card_stack_layout() {
 swift_mail_favorites_move_between_sections() {
   cd "$repo_dir"
   grep -Fq 'func applyContactBinding(threadID: String, name: String, email: String, simplex: String, favorite: Bool)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func renameContact(_ thread: ThreadItem, to proposedName: String)' generated/macos/Sources/App/App.swift
+  grep -Fq 'runMessageAction(status: "Contact renamed", refreshAfter: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'func toggleFavorite(for thread: ThreadItem)' generated/macos/Sources/App/App.swift
   grep -Fq 'withAnimation(.spring(response: 0.30, dampingFraction: 0.86))' generated/macos/Sources/App/App.swift
   grep -Fq 'runMessageAction(status: favorite ? "Added to Favorites" : "Removed from Favorites", refreshAfter: false)' generated/macos/Sources/App/App.swift
@@ -272,6 +274,12 @@ swift_mail_favorites_move_between_sections() {
   grep -Fq 'private func sortedThreads(_ threads: [ThreadItem]) -> [ThreadItem]' generated/macos/Sources/App/App.swift
   grep -Fq '.matchedGeometryEffect(id: thread.id, in: threadMoveNamespace, properties: .position)' generated/macos/Sources/App/App.swift
   grep -Fq 'private func mailThreadRow(_ thread: ThreadItem) -> some View' generated/macos/Sources/App/App.swift
+  grep -Fq '@FocusState private var nameFieldFocused: Bool' generated/macos/Sources/App/App.swift
+  grep -Fq '@State private var isRenaming = false' generated/macos/Sources/App/App.swift
+  grep -Fq 'TextField("Name", text: $draftName)' generated/macos/Sources/App/App.swift
+  grep -Fq '.onSubmit { commitRename() }' generated/macos/Sources/App/App.swift
+  grep -Fq '.onTapGesture(count: 2)' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.renameContact(thread, to: draftName)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var favoriteThreads: [ThreadItem]' generated/macos/Sources/App/App.swift
   grep -Fq 'uniqueThreads(session.snapshot.favorites + session.snapshot.individuals.filter { $0.favorite } + session.snapshot.groups.filter { $0.favorite })' generated/macos/Sources/App/App.swift
   grep -Fq 'session.snapshot.individuals.filter { !favoriteThreadIDs.contains($0.id) && !$0.favorite }' generated/macos/Sources/App/App.swift

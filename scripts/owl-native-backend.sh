@@ -47,6 +47,7 @@ Actions:
   mark-inbox ROOT MESSAGE_ID in|out
   mark-read ROOT MESSAGE_ID true|false
   send-message ROOT THREAD_ID simplex|email SUBJECT BODY_B64
+  send-attachment ROOT THREAD_ID simplex SUBJECT BODY_B64 FILE_PATH
   message-detail ROOT MESSAGE_ID
   archive-message ROOT MESSAGE_ID
   message-trash-files ROOT MESSAGE_ID
@@ -107,6 +108,28 @@ usage_error() {
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "required tool not found: $1"
+}
+
+base64_one_line() {
+  if base64 --help 2>/dev/null | grep -q -- '-w'; then
+    base64 -w 0
+    return
+  fi
+  base64 | tr -d '\n'
+}
+
+simplex_web_file_marker() {
+  marker_file_path=$1
+  [ -f "$marker_file_path" ] || usage_error "attachment file not found"
+  marker_name=${marker_file_path##*/}
+  marker_size=$(wc -c <"$marker_file_path" | tr -d ' ')
+  marker_mime=application/octet-stream
+  if command -v file >/dev/null 2>&1; then
+    marker_mime=$(file -b --mime-type "$marker_file_path" 2>/dev/null || printf 'application/octet-stream')
+  fi
+  marker_meta=$(jq -cn --arg name "$marker_name" --arg mime "$marker_mime" --argjson size "$marker_size" '{name:$name,mime:$mime,size:$size}' | base64_one_line | tr '+/' '-_' | tr -d '=')
+  marker_data=$(base64_one_line <"$marker_file_path")
+  printf 'Attachment: %s\nsimplex-web-file:v1:%s:%s\n' "$marker_name" "$marker_meta" "$marker_data"
 }
 
 safe_output_value() {
@@ -577,6 +600,7 @@ append_simplex_message() {
   subject=${5-}
   at=${6-}
   remote_id=${7-}
+  attachments=${8-0}
   [ -n "$at" ] || at=$(now_iso)
   case "$from_self" in true|1|yes|on) from_self=true ;; *) from_self=false ;; esac
   case "$in_inbox" in true|1|yes|on|in) in_inbox=true ;; *) in_inbox=false ;; esac
@@ -590,9 +614,10 @@ append_simplex_message() {
     --arg body "$body" \
     --arg received_at "$at" \
     --arg remote_id "$remote_id" \
+    --argjson attachments "$attachments" \
     --argjson from_self "$from_self" \
     --argjson in_inbox "$in_inbox" \
-    '{schema:1,id:$id,thread_id:$thread_id,transport:"simplex",subject:$subject,body:$body,received_at:$received_at,from_self:$from_self,in_inbox:$in_inbox,read:false,status:"queued"} + (if $remote_id != "" then {remote_id:$remote_id} else {} end)' >>"$file"
+    '{schema:1,id:$id,thread_id:$thread_id,transport:"simplex",subject:$subject,body:$body,received_at:$received_at,from_self:$from_self,in_inbox:$in_inbox,read:false,status:"queued",attachments:$attachments} + (if $remote_id != "" then {remote_id:$remote_id} else {} end)' >>"$file"
   jq -cn --arg id "$id" --arg thread_id "$thread_id" '{ok:true,id:$id,thread_id:$thread_id}'
 }
 
@@ -803,7 +828,7 @@ snapshot_action() {
           in_inbox: (($m.in_inbox // false) == true),
           read: (($m.read // false) == true),
           starred: false,
-          attachments: 0,
+          attachments: (($m.attachments // 0) | tonumber? // 0),
           status: (($m.status // "queued") | tostring),
           llm_spam_category: (($m.llm_spam_category // "") | tostring),
           llm_spam_source: (($m.llm_spam_source // "") | tostring)
@@ -1709,6 +1734,8 @@ tick_simplex_action() {
     simplex_address=$(jq -r '.simplex_address // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     remote_id=$(jq -r '.remote_id // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     received_at=$(jq -r '.received_at // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    attachments=$(jq -r 'if (.attachments // 0) != 0 then (.attachments // 0) elif (.attachment // null) != null then 1 else 0 end' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    case "$attachments" in ''|*[!0123456789]*) attachments=0 ;; esac
     [ -n "$body" ] || continue
     if [ -n "$simplex_address" ] && [ ! -f "$(native_contact_file "$thread_id")" ]; then
       save_contact_binding "$thread_id" "$thread_id" person "" "$simplex_address" no >/dev/null
@@ -1718,7 +1745,7 @@ tick_simplex_action() {
       mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").duplicate.$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
       continue
     fi
-    append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" "$received_at" "$remote_id" >/dev/null
+    append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" "$received_at" "$remote_id" "$attachments" >/dev/null
     mkdir -p "$(simplex_processed_dir)"
     mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
     imported=$((imported + 1))

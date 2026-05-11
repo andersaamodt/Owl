@@ -1942,6 +1942,36 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  func renameContact(_ thread: ThreadItem, to proposedName: String) {
+    let name = proposedName.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty, name != thread.displayName else { return }
+    let root = mailRoot
+    let kind = thread.kind == "group" ? "group" : "person"
+    let args = [
+      thread.id,
+      name,
+      kind,
+      thread.email,
+      thread.simplex_address,
+      thread.favorite ? "yes" : "no"
+    ]
+    if selectedThreadID == thread.id {
+      contactDraftName = name
+    }
+    withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
+      applyContactBinding(
+        threadID: thread.id,
+        name: name,
+        email: thread.email,
+        simplex: thread.simplex_address,
+        favorite: thread.favorite
+      )
+    }
+    runMessageAction(status: "Contact renamed", refreshAfter: false) {
+      try await OwlBackend.runJSON(action: "bind-contact", root: root, args: args)
+    }
+  }
+
   func toggleFavorite(for thread: ThreadItem) {
     let root = mailRoot
     let kind = thread.kind == "group" ? "group" : "person"
@@ -2819,6 +2849,10 @@ private struct SidebarInboxRow: View {
 }
 
 private struct SidebarThreadRow: View {
+  @EnvironmentObject private var session: OwlSession
+  @FocusState private var nameFieldFocused: Bool
+  @State private var isRenaming = false
+  @State private var draftName = ""
   let thread: ThreadItem
 
   var body: some View {
@@ -2826,8 +2860,23 @@ private struct SidebarThreadRow: View {
       Image(systemName: thread.kind == "group" ? "person.3.fill" : "person.fill")
         .foregroundStyle(.secondary)
       VStack(alignment: .leading, spacing: 2) {
-        Text(thread.displayName)
-          .lineLimit(1)
+        if isRenaming {
+          TextField("Name", text: $draftName)
+            .textFieldStyle(.plain)
+            .focused($nameFieldFocused)
+            .onSubmit { commitRename() }
+            .onChange(of: nameFieldFocused) { focused in
+              if !focused {
+                commitRename()
+              }
+            }
+        } else {
+          Text(thread.displayName)
+            .lineLimit(1)
+            .onTapGesture(count: 2) {
+              beginRename()
+            }
+        }
         HStack(spacing: 5) {
           if thread.hasSimpleXPath {
             Image(systemName: "lock.fill")
@@ -2844,6 +2893,27 @@ private struct SidebarThreadRow: View {
       Spacer()
       CountBadge(count: thread.unread_count)
     }
+    .onChange(of: thread.displayName) { nextName in
+      if !isRenaming {
+        draftName = nextName
+      }
+    }
+  }
+
+  private func beginRename() {
+    draftName = thread.displayName
+    isRenaming = true
+    Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 50_000_000)
+      nameFieldFocused = true
+    }
+  }
+
+  private func commitRename() {
+    guard isRenaming else { return }
+    isRenaming = false
+    nameFieldFocused = false
+    session.renameContact(thread, to: draftName)
   }
 }
 
