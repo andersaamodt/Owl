@@ -125,6 +125,8 @@ poll_messages() {
         in_inbox:((.in_inbox // true) == true),
         simplex_address:(.simplex_address // ""),
         remote_id:(.id // ""),
+        attachment:(.attachment // null),
+        attachments:(if (.attachment // null) == null then 0 else 1 end),
         received_at:(.created_at // .updated_at // "")
       }
   ' >"$tmp_rows"

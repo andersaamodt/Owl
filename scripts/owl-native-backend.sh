@@ -1874,6 +1874,26 @@ case "$action" in
     ensure_roots
     send_message_action "${1-}" "${2-}" "${3-}" "${4-}"
     ;;
+  send-attachment)
+    ensure_roots
+    thread_id=${1-}
+    transport=${2-}
+    subject=${3-}
+    body_b64=${4-}
+    attachment_path=${5-}
+    [ "$transport" = "simplex" ] || usage_error "send-attachment currently supports simplex"
+    body_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-attachment-body.XXXXXX")
+    decode_b64_to_file "$body_b64" "$body_tmp" || {
+      rm -f "$body_tmp"
+      usage_error "invalid base64 body payload"
+    }
+    attachment_body=$(cat "$body_tmp")
+    rm -f "$body_tmp"
+    attachment_marker=$(simplex_web_file_marker "$attachment_path")
+    combined_body=$(printf '%s\n%s' "$attachment_body" "$attachment_marker")
+    combined_b64=$(printf '%s' "$combined_body" | base64_one_line)
+    send_message_action "$thread_id" simplex "$subject" "$combined_b64"
+    ;;
   message-detail)
     message_detail_action "${1-}"
     ;;
