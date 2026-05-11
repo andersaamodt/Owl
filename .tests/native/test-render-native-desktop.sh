@@ -383,7 +383,10 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq 'geometry.frame(in: .named(timelineCoordinateSpace)).maxY' generated/macos/Sources/App/App.swift
   grep -Fq '.onPreferenceChange(TimelineViewportHeightPreferenceKey.self)' generated/macos/Sources/App/App.swift
   grep -Fq '.onPreferenceChange(TimelineBottomMaxYPreferenceKey.self)' generated/macos/Sources/App/App.swift
-  grep -Fq 'setTimelineEndVisible(timelineBottomMaxY <= timelineViewportHeight + 8)' generated/macos/Sources/App/App.swift
+  grep -Fq '.overlay(alignment: .bottom)' generated/macos/Sources/App/App.swift
+  grep -Fq '.padding(.bottom, 14)' generated/macos/Sources/App/App.swift
+  grep -Fq 'let distanceFromEnd = timelineBottomMaxY - timelineViewportHeight' generated/macos/Sources/App/App.swift
+  grep -Fq 'setTimelineEndVisible(distanceFromEnd <= 16)' generated/macos/Sources/App/App.swift
   grep -Fq 'setTimelineEndVisible(false)' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(systemName: "arrow.down.circle.fill")' generated/macos/Sources/App/App.swift
   grep -Fq 'scrollToTimelineEnd(proxy)' generated/macos/Sources/App/App.swift

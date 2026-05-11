@@ -4692,7 +4692,7 @@ private struct TimelineView: View {
               )
             }
           }
-          .overlay(alignment: .center) {
+          .overlay(alignment: .bottom) {
             if !isAtTimelineEnd {
               Button {
                 scrollToTimelineEnd(proxy)
@@ -4707,6 +4707,7 @@ private struct TimelineView: View {
               .help("Jump to newest message")
               .accessibilityLabel("Jump to newest message")
               .transition(.scale.combined(with: .opacity))
+              .padding(.bottom, 14)
             }
           }
           .onAppear {
@@ -4803,7 +4804,8 @@ private struct TimelineView: View {
 
   private func updateTimelineEndVisibility() {
     guard timelineViewportHeight > 0, timelineBottomMaxY > 0 else { return }
-    setTimelineEndVisible(timelineBottomMaxY <= timelineViewportHeight + 8)
+    let distanceFromEnd = timelineBottomMaxY - timelineViewportHeight
+    setTimelineEndVisible(distanceFromEnd <= 16)
   }
 
   private func timelineSubtitle(_ thread: ThreadItem) -> String {
