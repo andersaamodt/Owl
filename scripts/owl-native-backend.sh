@@ -576,6 +576,7 @@ append_simplex_message() {
   in_inbox=${4-false}
   subject=${5-}
   at=${6-}
+  remote_id=${7-}
   [ -n "$at" ] || at=$(now_iso)
   case "$from_self" in true|1|yes|on) from_self=true ;; *) from_self=false ;; esac
   case "$in_inbox" in true|1|yes|on|in) in_inbox=true ;; *) in_inbox=false ;; esac
@@ -588,9 +589,10 @@ append_simplex_message() {
     --arg subject "$subject" \
     --arg body "$body" \
     --arg received_at "$at" \
+    --arg remote_id "$remote_id" \
     --argjson from_self "$from_self" \
     --argjson in_inbox "$in_inbox" \
-    '{schema:1,id:$id,thread_id:$thread_id,transport:"simplex",subject:$subject,body:$body,received_at:$received_at,from_self:$from_self,in_inbox:$in_inbox,read:false,status:"queued"}' >>"$file"
+    '{schema:1,id:$id,thread_id:$thread_id,transport:"simplex",subject:$subject,body:$body,received_at:$received_at,from_self:$from_self,in_inbox:$in_inbox,read:false,status:"queued"} + (if $remote_id != "" then {remote_id:$remote_id} else {} end)' >>"$file"
   jq -cn --arg id "$id" --arg thread_id "$thread_id" '{ok:true,id:$id,thread_id:$thread_id}'
 }
 
@@ -598,9 +600,16 @@ simplex_duplicate_message_exists() {
   thread_id=$(safe_slug "$1")
   body=${2-}
   from_self=${3-false}
+  remote_id=${4-}
   case "$from_self" in true|1|yes|on) from_self=true ;; *) from_self=false ;; esac
   file=$(simplex_thread_file "$thread_id")
   [ -f "$file" ] || return 1
+  if [ -n "$remote_id" ]; then
+    jq -e --arg remote_id "$remote_id" '
+      select((.remote_id // "") == $remote_id)
+    ' "$file" >/dev/null 2>&1
+    return $?
+  fi
   jq -e --arg body "$body" --argjson from_self "$from_self" '
     select((.body // "") == $body and ((.from_self // false) == $from_self))
   ' "$file" >/dev/null 2>&1
@@ -772,6 +781,7 @@ snapshot_action() {
       | (($contact.id // $seed_thread)) as $thread_id
       | {
           id: (($m.id // ("simplex:" + $thread_id + ":" + ($m.received_at // ""))) | tostring),
+          remote_id: (($m.remote_id // "") | tostring),
           backend_kind: "simplex",
           transport: "simplex",
           lock: "closed",
@@ -1697,16 +1707,18 @@ tick_simplex_action() {
     from_self=$(jq -r '.from_self // false' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     in_inbox=$(jq -r '.in_inbox // true' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     simplex_address=$(jq -r '.simplex_address // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    remote_id=$(jq -r '.remote_id // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    received_at=$(jq -r '.received_at // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     [ -n "$body" ] || continue
     if [ -n "$simplex_address" ] && [ ! -f "$(native_contact_file "$thread_id")" ]; then
       save_contact_binding "$thread_id" "$thread_id" person "" "$simplex_address" no >/dev/null
     fi
-    if simplex_duplicate_message_exists "$thread_id" "$body" "$from_self"; then
+    if simplex_duplicate_message_exists "$thread_id" "$body" "$from_self" "$remote_id"; then
       mkdir -p "$(simplex_processed_dir)"
       mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").duplicate.$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
       continue
     fi
-    append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" >/dev/null
+    append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" "$received_at" "$remote_id" >/dev/null
     mkdir -p "$(simplex_processed_dir)"
     mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
     imported=$((imported + 1))

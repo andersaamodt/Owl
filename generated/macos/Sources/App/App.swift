@@ -1312,8 +1312,10 @@ private final class OwlSession: ObservableObject {
   private var lastSystemTrashAction: SystemTrashAction?
   private var lastRefreshAt: Date?
   private var lastTransportTickAt: Date?
+  private var transportAutoSyncTimer: Timer?
   private let refreshStaleInterval: TimeInterval = 20
-  private let transportTickInterval: TimeInterval = 60
+  private let transportTickInterval: TimeInterval = 5
+  private let transportAutoSyncInterval: TimeInterval = 5
   private var toastGeneration = 0
 
   init() {
@@ -1321,6 +1323,7 @@ private final class OwlSession: ObservableObject {
     mailRoot = defaultMailRoot()
     selectedRoute = "new"
     selectedTransport = .simplex
+    startTransportAutoSync()
     Task { await loadPreferencesThenRefresh() }
   }
 
@@ -1457,8 +1460,20 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  private func startTransportAutoSync() {
+    guard transportAutoSyncTimer == nil else { return }
+    let timer = Timer(timeInterval: transportAutoSyncInterval, repeats: true) { [weak self] _ in
+      Task { @MainActor in
+        self?.tickTransportIfStale()
+      }
+    }
+    timer.tolerance = 1
+    RunLoop.main.add(timer, forMode: .common)
+    transportAutoSyncTimer = timer
+  }
+
   func tickTransportIfStale(force: Bool = false, notify: Bool = false) {
-    if isTickingTransport && !force {
+    if isTickingTransport {
       return
     }
     if !force, let lastTransportTickAt, Date().timeIntervalSince(lastTransportTickAt) < transportTickInterval {

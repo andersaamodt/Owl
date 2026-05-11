@@ -318,6 +318,43 @@ SH
   ' >/dev/null
 }
 
+simplex_tick_dedupes_by_remote_id_not_body() {
+  root="$tmpdir/simplex-remote-id-dedupe/mail"
+  hook="$tmpdir/simplex-remote-id-dedupe.sh"
+  mkdir -p "$tmpdir/home"
+  cat >"$hook" <<'SH'
+#!/bin/sh
+set -eu
+mode=${1-}
+root=${3-}
+case "$mode" in
+  poll)
+    incoming=${4-}
+    mkdir -p "$incoming"
+    jq -n '{thread_id:"carol",body:"repeatable text",subject:"Hook",from_self:false,in_inbox:true,remote_id:"simplex-owner-direct:1",received_at:"2026-05-05T08:00:00Z"}' >"$incoming/one.json"
+    jq -n '{thread_id:"carol",body:"repeatable text",subject:"Hook",from_self:false,in_inbox:true,remote_id:"simplex-owner-direct:2",received_at:"2026-05-05T08:01:00Z"}' >"$incoming/two.json"
+    ;;
+  send)
+    ;;
+  *)
+    exit 64
+    ;;
+esac
+SH
+  chmod +x "$hook"
+  backend prepare "$root" >/dev/null
+  backend bind-contact "$root" carol "Carol Cipher" person carol@example.org simplex://carol yes >/dev/null
+  backend set-simplex-transport-hook "$root" default "$hook" | jq -e '.hook_ready == true' >/dev/null
+  tick=$(backend tick-simplex "$root" default)
+  printf '%s\n' "$tick" | jq -e '.ok == true and .imported == 2' >/dev/null
+  snapshot=$(backend snapshot "$root")
+  printf '%s\n' "$snapshot" | jq -e '
+    ([.threads[] | select(.id == "carol")][0].messages | map(select(.body == "repeatable text")) | length) == 2 and
+    ([.threads[] | select(.id == "carol")][0].messages | map(.remote_id // "") | index("simplex-owner-direct:1")) != null and
+    ([.threads[] | select(.id == "carol")][0].messages | map(.remote_id // "") | index("simplex-owner-direct:2")) != null
+  ' >/dev/null
+}
+
 bundled_simplex_local_transport_is_end_to_end() {
   root="$tmpdir/simplex-local/mail"
   wire_in="$root/.transport/simplex/default/local-wire/incoming"
@@ -469,6 +506,7 @@ run_case "Owl actions are hard allowlisted and pass through" owl_actions_are_har
 run_case "UI prefs are plaintext XDG state" ui_prefs_are_plaintext_xdg_state
 run_case "message detail returns SimpleX and email messages" message_detail_returns_simplex_and_email_messages
 run_case "SimpleX tick uses transport hook for poll and send" simplex_tick_uses_transport_hook_for_poll_and_send
+run_case "SimpleX tick dedupes by remote id, not repeated body text" simplex_tick_dedupes_by_remote_id_not_body
 run_case "bundled SimpleX local transport is end-to-end" bundled_simplex_local_transport_is_end_to_end
 run_case "Secure Chat transport imports and replies over SSH hook" secure_chat_transport_imports_and_replies_over_ssh_hook
 run_case "install SimpleX CLI delegates to Wizardry installable" install_simplex_cli_delegates_to_wizardry_installer
@@ -479,4 +517,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "17/17 backend contract tests passed"
+printf '%s\n' "18/18 backend contract tests passed"

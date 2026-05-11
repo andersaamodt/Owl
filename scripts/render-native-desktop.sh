@@ -80,27 +80,27 @@ render_template_file() {
   template_path=$1
   output_path=$2
   mkdir -p "$(dirname "$output_path")"
-  : >"$output_path"
+  output_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-render.XXXXXX")
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
       "__CANONICAL_IR__")
-        printf '%s\n' "$pretty_ir" >>"$output_path"
+        printf '%s\n' "$pretty_ir" >>"$output_tmp"
         ;;
       "__LINUX_IR_LITERAL__")
-        printf '%s\n' "$linux_ir_literal" >>"$output_path"
+        printf '%s\n' "$linux_ir_literal" >>"$output_tmp"
         ;;
       "__LINUX_IR_LITERAL__;")
-        printf '%s\n' "$linux_ir_literal" >>"$output_path"
-        printf '%s\n' ";" >>"$output_path"
+        printf '%s\n' "$linux_ir_literal" >>"$output_tmp"
+        printf '%s\n' ";" >>"$output_tmp"
         ;;
       "__SWIFT_ACTION_CASES__")
-        printf '%s\n' "$swift_action_cases" >>"$output_path"
+        printf '%s\n' "$swift_action_cases" >>"$output_tmp"
         ;;
       "__LINUX_ACTION_SETUP__")
-        printf '%s\n' "$linux_action_setup" >>"$output_path"
+        printf '%s\n' "$linux_action_setup" >>"$output_tmp"
         ;;
       "__LINUX_ACTION_HANDLERS__")
-        printf '%s\n' "$linux_action_handlers" >>"$output_path"
+        printf '%s\n' "$linux_action_handlers" >>"$output_tmp"
         ;;
       *)
         printf '%s\n' "$line" \
@@ -108,10 +108,11 @@ render_template_file() {
             -e "s/__APP_NAME__/$app_name/g" \
             -e "s/__APP_ID__/$app_id/g" \
             -e "s/__APP_VERSION__/$app_version/g" \
-            -e "s/__WINDOW_TITLE__/$window_title/g" >>"$output_path"
+            -e "s/__WINDOW_TITLE__/$window_title/g" >>"$output_tmp"
         ;;
     esac
   done <"$template_path"
+  mv "$output_tmp" "$output_path"
 }
 
 cat >"$macos_dir/Package.swift" <<EOF_PACKAGE
