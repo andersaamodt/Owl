@@ -3463,38 +3463,61 @@ private struct SidebarResizeDivider: View {
   let range: ClosedRange<CGFloat>
   let edge: SidebarResizeEdge
   @State private var dragStartWidth: CGFloat?
+  @State private var cursorIsPushed = false
 
   var body: some View {
     Rectangle()
       .fill(Color.clear)
-      .frame(width: 9)
+      .frame(width: 7)
       .overlay {
         Rectangle()
           .fill(Color.secondary.opacity(0.28))
           .frame(width: 1)
       }
       .contentShape(Rectangle())
-      .gesture(
-        DragGesture(minimumDistance: 0)
+      .highPriorityGesture(
+        DragGesture(minimumDistance: 2)
           .onChanged { value in
             let startWidth = dragStartWidth ?? width
             dragStartWidth = startWidth
             let delta = edge == .trailing ? value.translation.width : -value.translation.width
-            width = (startWidth + delta).clamped(to: range)
+            setWidth((startWidth + delta).clamped(to: range))
           }
           .onEnded { _ in
             dragStartWidth = nil
           }
       )
+      .transaction { transaction in
+        transaction.disablesAnimations = true
+        transaction.animation = nil
+      }
       .onHover { hovering in
-        if hovering {
+        if hovering, !cursorIsPushed {
           NSCursor.resizeLeftRight.push()
-        } else {
+          cursorIsPushed = true
+        } else if !hovering, cursorIsPushed {
           NSCursor.pop()
+          cursorIsPushed = false
+        }
+      }
+      .onDisappear {
+        if cursorIsPushed {
+          NSCursor.pop()
+          cursorIsPushed = false
         }
       }
       .help("Drag to resize sidebar")
       .accessibilityLabel("Resize sidebar")
+  }
+
+  private func setWidth(_ nextWidth: CGFloat) {
+    guard abs(width - nextWidth) >= 0.5 else { return }
+    var transaction = Transaction()
+    transaction.disablesAnimations = true
+    transaction.animation = nil
+    withTransaction(transaction) {
+      width = nextWidth
+    }
   }
 }
 

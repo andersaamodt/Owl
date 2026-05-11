@@ -214,7 +214,9 @@ swift_mail_favorites_move_between_sections() {
   grep -Fq 'SidebarResizeDivider(width: $contactListWidth, range: 220...420, edge: .trailing)' generated/macos/Sources/App/App.swift
   grep -Fq 'TimelineView(inspectorWidth: $inspectorWidth)' generated/macos/Sources/App/App.swift
   grep -Fq 'SidebarResizeDivider(width: $inspectorWidth, range: 220...380, edge: .leading)' generated/macos/Sources/App/App.swift
-  grep -Fq 'DragGesture(minimumDistance: 0)' generated/macos/Sources/App/App.swift
+  grep -Fq 'DragGesture(minimumDistance: 2)' generated/macos/Sources/App/App.swift
+  grep -Fq '.highPriorityGesture(' generated/macos/Sources/App/App.swift
+  grep -Fq 'transaction.disablesAnimations = true' generated/macos/Sources/App/App.swift
   grep -Fq 'NSCursor.resizeLeftRight.push()' generated/macos/Sources/App/App.swift
   grep -Fq 'private enum MailContactFilter: String, CaseIterable' generated/macos/Sources/App/App.swift
   grep -Fq 'private enum MailContactSort: String, CaseIterable' generated/macos/Sources/App/App.swift
