@@ -499,17 +499,30 @@ swift_refresh_is_quiet_and_incremental() {
   cd "$repo_dir"
   grep -Fq '@Published var isRefreshingSnapshot: Bool = false' generated/macos/Sources/App/App.swift
   grep -Fq '@Published var isTickingTransport: Bool = false' generated/macos/Sources/App/App.swift
-  grep -Fq 'func refresh(tickTransport: Bool = false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func refresh()' generated/macos/Sources/App/App.swift
   grep -Fq 'func tickTransportIfStale(force: Bool = false, notify: Bool = false)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct SimpleXTickResponse: Decodable, Sendable' generated/macos/Sources/App/App.swift
+  grep -Fq 'var changedLocalState: Bool' generated/macos/Sources/App/App.swift
+  grep -Fq 'let response = try await OwlBackend.tickSimpleX(root: root)' generated/macos/Sources/App/App.swift
+  grep -Fq 'if response.changedLocalState {' generated/macos/Sources/App/App.swift
+  grep -Fq 'static func tickSimpleX(root: String) async throws -> SimpleXTickResponse' generated/macos/Sources/App/App.swift
   ! grep -Fq 'showToast("Loaded ' generated/macos/Sources/App/App.swift
   ! grep -Fq 'refresh(silent:' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'refresh(tickTransport:' generated/macos/Sources/App/App.swift
   grep -Fq 'applyArchived(messageID: message.id)' generated/macos/Sources/App/App.swift
   grep -Fq 'applyDeleted(messageID: message.id)' generated/macos/Sources/App/App.swift
   grep -Fq 'applyMessageUpdate(id: message.id)' generated/macos/Sources/App/App.swift
   ! awk '
-    /func refresh[(]silent:/ { in_view = 1 }
+    /func refresh[(][)]/ { in_view = 1 }
     /func refreshIfStale/ { in_view = 0 }
     in_view && /OwlBackend[.]tickSimpleX/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
+  ! awk '
+    /func tickTransportIfStale/ { in_view = 1 }
+    /func refreshBootstrapStatus/ { in_view = 0 }
+    in_view && /self[.]refresh[(][)]/ && !seen_condition { found = 1 }
+    in_view && /if response[.]changedLocalState/ { seen_condition = 1 }
     END { exit found ? 0 : 1 }
   ' generated/macos/Sources/App/App.swift
 }

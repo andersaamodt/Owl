@@ -797,6 +797,23 @@ private struct TrashFilesResponse: Decodable, Sendable {
   var paths: [String] = []
 }
 
+private struct SimpleXTickResponse: Decodable, Sendable {
+  struct Outbox: Decodable, Sendable {
+    var sent: Int = 0
+    var waiting: Int = 0
+    var failed: Int = 0
+  }
+
+  var ok: Bool = false
+  var imported: Int = 0
+  var outbox: Outbox = Outbox()
+  var poll_error: String = ""
+
+  var changedLocalState: Bool {
+    imported > 0 || outbox.sent > 0 || outbox.failed > 0
+  }
+}
+
 private struct SystemTrashAction {
   var messageID: String
   var originalToTrash: [(original: URL, trashed: URL)]
@@ -1403,16 +1420,12 @@ private final class OwlSession: ObservableObject {
     } catch {
       showStatus("Preferences unavailable: \(error.localizedDescription)", isError: true)
     }
-    refresh(tickTransport: true)
+    refresh()
+    tickTransportIfStale()
   }
 
-  func refresh(tickTransport: Bool = false) {
-    if isRefreshingSnapshot {
-      if tickTransport {
-        tickTransportIfStale()
-      }
-      return
-    }
+  func refresh() {
+    if isRefreshingSnapshot { return }
     lastRefreshAt = Date()
     let root = mailRoot
     isRefreshingSnapshot = true
@@ -1428,9 +1441,6 @@ private final class OwlSession: ObservableObject {
       }
     }
     refreshBootstrapStatus()
-    if tickTransport {
-      tickTransportIfStale()
-    }
   }
 
   func refreshIfStale(force: Bool = false) {
@@ -1441,7 +1451,10 @@ private final class OwlSession: ObservableObject {
       tickTransportIfStale()
       return
     }
-    refresh(tickTransport: force)
+    refresh()
+    if force {
+      tickTransportIfStale(force: true)
+    }
   }
 
   func tickTransportIfStale(force: Bool = false, notify: Bool = false) {
@@ -1456,12 +1469,14 @@ private final class OwlSession: ObservableObject {
     isTickingTransport = true
     Task {
       do {
-        try await OwlBackend.tickSimpleX(root: root)
+        let response = try await OwlBackend.tickSimpleX(root: root)
         self.isTickingTransport = false
         if notify {
           self.showStatus("SimpleX incoming queue checked")
         }
-        self.refresh()
+        if response.changedLocalState {
+          self.refresh()
+        }
       } catch {
         self.isTickingTransport = false
         if notify {
@@ -1932,7 +1947,7 @@ private final class OwlSession: ObservableObject {
       do {
         _ = try await OwlBackend.send(root: root, threadID: thread.id, transport: transport, subject: subject, body: body)
         if transport == .simplex {
-          try await OwlBackend.tickSimpleX(root: root)
+          _ = try await OwlBackend.tickSimpleX(root: root)
         }
         self.composeSubject = ""
         self.composeBody = ""
@@ -2298,7 +2313,8 @@ private final class OwlSession: ObservableObject {
       Task {
         try? await OwlBackend.setUIPref(root: url.path, key: "mail_root", value: url.path)
       }
-      refresh(tickTransport: true)
+      refresh()
+      tickTransportIfStale(force: true)
     }
   }
 
@@ -2464,8 +2480,9 @@ private enum OwlBackend {
     return try JSONDecoder().decode(Snapshot.self, from: data)
   }
 
-  static func tickSimpleX(root: String) async throws {
-    _ = try await runJSON(action: "tick-simplex", root: root, args: [])
+  static func tickSimpleX(root: String) async throws -> SimpleXTickResponse {
+    let data = try await runJSON(action: "tick-simplex", root: root, args: [])
+    return try JSONDecoder().decode(SimpleXTickResponse.self, from: data)
   }
 
   static func bootstrapStatus(root: String) async throws -> SimpleXBootstrap {
