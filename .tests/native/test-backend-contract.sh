@@ -448,7 +448,7 @@ SH
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
     ([.threads[] | select(.id == "npub1visitor")][0].simplex_address == "secure-chat:26") and
-    (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website 🦉" and .attachments == 1)) | length) == 1 and
+    (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website 🦉" and .attachments == 1 and .attachment.name == "probe-😀.txt")) | length) == 1 and
     (.messages | map(select(.body == "owner reply should not echo")) | length) == 0
   ' >/dev/null
   backend send-message "$root" npub1visitor simplex "Reply" "$(b64 'reply body 😀')" >/dev/null
@@ -473,7 +473,7 @@ SH
   grep -q 'simplex-web-file:v1:' "$ssh_log.decoded"
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
-    (.messages | map(select(.thread_id == "npub1visitor" and .body == "attachment reply 😀\nAttachment: probe.txt" and .attachments == 1)) | length) == 1
+    (.messages | map(select(.thread_id == "npub1visitor" and .body == "attachment reply 😀\nAttachment: probe.txt" and .attachments == 1 and .attachment.name == "probe.txt" and (.attachment.data_url | startswith("data:text/plain;base64,")))) | length) == 1
   ' >/dev/null
 }
 

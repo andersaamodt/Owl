@@ -132,6 +132,24 @@ simplex_web_file_marker() {
   printf 'Attachment: %s\nsimplex-web-file:v1:%s:%s\n' "$marker_name" "$marker_meta" "$marker_data"
 }
 
+simplex_web_attachment_json() {
+  attachment_file_path=$1
+  [ -f "$attachment_file_path" ] || usage_error "attachment file not found"
+  attachment_name=${attachment_file_path##*/}
+  attachment_size=$(wc -c <"$attachment_file_path" | tr -d ' ')
+  attachment_mime=application/octet-stream
+  if command -v file >/dev/null 2>&1; then
+    attachment_mime=$(file -b --mime-type "$attachment_file_path" 2>/dev/null || printf 'application/octet-stream')
+  fi
+  attachment_data=$(base64_one_line <"$attachment_file_path")
+  jq -cn \
+    --arg name "$attachment_name" \
+    --arg mime "$attachment_mime" \
+    --argjson size "$attachment_size" \
+    --arg data_url "data:$attachment_mime;base64,$attachment_data" \
+    '{name:$name,mime:$mime,size:$size,data_url:$data_url}'
+}
+
 safe_output_value() {
   case "${1-}" in
     *"$nl"*|*"$cr"*)
@@ -601,6 +619,7 @@ append_simplex_message() {
   at=${6-}
   remote_id=${7-}
   attachments=${8-0}
+  attachment_json=${9:-null}
   [ -n "$at" ] || at=$(now_iso)
   case "$from_self" in true|1|yes|on) from_self=true ;; *) from_self=false ;; esac
   case "$in_inbox" in true|1|yes|on|in) in_inbox=true ;; *) in_inbox=false ;; esac
@@ -615,9 +634,10 @@ append_simplex_message() {
     --arg received_at "$at" \
     --arg remote_id "$remote_id" \
     --argjson attachments "$attachments" \
+    --argjson attachment "$attachment_json" \
     --argjson from_self "$from_self" \
     --argjson in_inbox "$in_inbox" \
-    '{schema:1,id:$id,thread_id:$thread_id,transport:"simplex",subject:$subject,body:$body,received_at:$received_at,from_self:$from_self,in_inbox:$in_inbox,read:false,status:"queued",attachments:$attachments} + (if $remote_id != "" then {remote_id:$remote_id} else {} end)' >>"$file"
+    '{schema:1,id:$id,thread_id:$thread_id,transport:"simplex",subject:$subject,body:$body,received_at:$received_at,from_self:$from_self,in_inbox:$in_inbox,read:false,status:"queued",attachments:$attachments} + (if $attachment == null then {} else {attachment:$attachment} end) + (if $remote_id != "" then {remote_id:$remote_id} else {} end)' >>"$file"
   jq -cn --arg id "$id" --arg thread_id "$thread_id" '{ok:true,id:$id,thread_id:$thread_id}'
 }
 
@@ -829,6 +849,7 @@ snapshot_action() {
           read: (($m.read // false) == true),
           starred: false,
           attachments: (($m.attachments // 0) | tonumber? // 0),
+          attachment: ($m.attachment // null),
           status: (($m.status // "queued") | tostring),
           llm_spam_category: (($m.llm_spam_category // "") | tostring),
           llm_spam_source: (($m.llm_spam_source // "") | tostring)
@@ -958,13 +979,14 @@ send_simplex_payload_action() {
   display_body=${3-}
   wire_body=${4-}
   attachments=${5-0}
+  attachment_json=${6:-null}
   [ -n "$thread_id" ] || usage_error "send-message requires THREAD_ID"
   case "$attachments" in ''|*[!0123456789]*) attachments=0 ;; esac
   contact_file=$(native_contact_file "$thread_id")
   simplex=$(config_get "$contact_file" simplex_address 2>/dev/null || printf '')
   name=$(config_get "$contact_file" name 2>/dev/null || printf "$thread_id")
   [ -n "$simplex" ] || usage_error "SimpleX transport selected but no SimpleX path is bound for $name"
-  result=$(append_simplex_message "$thread_id" "$display_body" true false "$subject" "" "" "$attachments")
+  result=$(append_simplex_message "$thread_id" "$display_body" true false "$subject" "" "" "$attachments" "$attachment_json")
   outbox_file="$(simplex_outbox_dir)/$(printf '%s\n' "$result" | jq -r '.id').json"
   mkdir -p "$(dirname "$outbox_file")"
   printf '%s\n' "$result" | jq \
@@ -1759,6 +1781,8 @@ tick_simplex_action() {
     remote_id=$(jq -r '.remote_id // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     received_at=$(jq -r '.received_at // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     attachments=$(jq -r 'if (.attachments // 0) != 0 then (.attachments // 0) elif (.attachment // null) != null then 1 else 0 end' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    attachment_json=$(jq -c '.attachment // null' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    [ -n "$attachment_json" ] || attachment_json=null
     case "$attachments" in ''|*[!0123456789]*) attachments=0 ;; esac
     [ -n "$body" ] || continue
     if [ -n "$simplex_address" ] && [ ! -f "$(native_contact_file "$thread_id")" ]; then
@@ -1769,7 +1793,7 @@ tick_simplex_action() {
       mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").duplicate.$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
       continue
     fi
-    append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" "$received_at" "$remote_id" "$attachments" >/dev/null
+    append_simplex_message "$thread_id" "$body" "$from_self" "$in_inbox" "$subject" "$received_at" "$remote_id" "$attachments" "$attachment_json" >/dev/null
     mkdir -p "$(simplex_processed_dir)"
     mv "$simplex_incoming_file" "$(simplex_processed_dir)/$(basename "$simplex_incoming_file").$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_incoming_file"
     imported=$((imported + 1))
@@ -1914,6 +1938,7 @@ case "$action" in
     attachment_body=$(cat "$body_tmp")
     rm -f "$body_tmp"
     attachment_marker=$(simplex_web_file_marker "$attachment_path")
+    attachment_json=$(simplex_web_attachment_json "$attachment_path")
     combined_body=$(printf '%s\n%s' "$attachment_body" "$attachment_marker")
     if [ -n "$attachment_body" ]; then
       display_body="$attachment_body
@@ -1921,7 +1946,7 @@ Attachment: ${attachment_path##*/}"
     else
       display_body="Attachment: ${attachment_path##*/}"
     fi
-    send_simplex_payload_action "$thread_id" "$subject" "$display_body" "$combined_body" 1
+    send_simplex_payload_action "$thread_id" "$subject" "$display_body" "$combined_body" 1 "$attachment_json"
     ;;
   message-detail)
     message_detail_action "${1-}"
