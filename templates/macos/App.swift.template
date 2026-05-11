@@ -747,6 +747,8 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
 
   var isSimpleX: Bool { transport == "simplex" }
   var isEmail: Bool { transport == "email" }
+  var isSending: Bool { status == "sending" || status == "waiting-adapter" }
+  var isSendError: Bool { status == "error" }
   var isLongBlock: Bool { isEmail || body.count > 180 || subject.count > 0 }
   var displayBody: String { body.isEmpty ? preview : body }
   var llmDetectedCategory: String? {
@@ -944,6 +946,7 @@ private final class OwlSession: ObservableObject {
   @Published var selectedTransport: Transport = .simplex
   @Published var composeSubject: String = ""
   @Published var composeBody: String = ""
+  @Published var optimisticOutgoingMessages: [MessageItem] = []
   @Published var statusText: String = "Ready"
   @Published var isBusy: Bool = false
   @Published var isRefreshingSnapshot: Bool = false
@@ -1040,7 +1043,11 @@ private final class OwlSession: ObservableObject {
   }
 
   var timelineMessages: [MessageItem] {
-    selectedThread?.messages ?? []
+    guard let thread = selectedThread else { return [] }
+    let optimistic = optimisticOutgoingMessages
+      .filter { $0.thread_id == thread.id && !messageMatchesSnapshot($0) }
+    return (thread.messages + optimistic)
+      .sorted { FriendlyTime.sortTimestamp($0.received_at) < FriendlyTime.sortTimestamp($1.received_at) }
   }
 
   var activeMessage: MessageItem? {
@@ -1483,6 +1490,50 @@ private final class OwlSession: ObservableObject {
       .sorted { $0.latest_at > $1.latest_at }
   }
 
+  private func messageMatchesSnapshot(_ message: MessageItem) -> Bool {
+    snapshot.messages.contains { candidate in
+      candidate.id == message.id || (
+        candidate.thread_id == message.thread_id &&
+        candidate.from_self == message.from_self &&
+        candidate.transport == message.transport &&
+        candidate.subject == message.subject &&
+        candidate.body == message.body
+      )
+    }
+  }
+
+  private func upsertOptimisticOutgoingMessage(_ message: MessageItem) {
+    optimisticOutgoingMessages.removeAll { $0.id == message.id }
+    optimisticOutgoingMessages.append(message)
+  }
+
+  private func updateOptimisticOutgoingMessage(id: String, status: String) {
+    guard let index = optimisticOutgoingMessages.firstIndex(where: { $0.id == id }) else { return }
+    optimisticOutgoingMessages[index].status = status
+  }
+
+  private func optimisticMessage(for thread: ThreadItem, transport: Transport, subject: String, body: String) -> MessageItem {
+    let timestamp = ISO8601DateFormatter().string(from: Date())
+    return MessageItem(
+      id: "optimistic:\(UUID().uuidString)",
+      backend_kind: transport.rawValue,
+      transport: transport.rawValue,
+      lock: transport == .simplex ? "closed" : "open",
+      thread_id: thread.id,
+      contact_name: thread.displayName,
+      contact_kind: thread.kind,
+      email: thread.email,
+      simplex_address: thread.simplex_address,
+      subject: subject,
+      body: body,
+      preview: body,
+      received_at: timestamp,
+      from_self: true,
+      read: true,
+      status: "sending"
+    )
+  }
+
   func openMailbox(_ mailbox: MailboxItem) {
     selectedRoute = "mailbox:\(mailbox.id)"
     focusedMessageID = nil
@@ -1626,8 +1677,14 @@ private final class OwlSession: ObservableObject {
     guard let thread = selectedThread else { return }
     let transport = selectedTransport
     let subject = transport == .email ? composeSubject : ""
-    let body = composeBody
+    let body = composeBody.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !body.isEmpty else { return }
     let root = mailRoot
+    let optimistic = optimisticMessage(for: thread, transport: transport, subject: subject, body: body)
+    upsertOptimisticOutgoingMessage(optimistic)
+    composeSubject = ""
+    composeBody = ""
+    rememberTimelineAtEnd(threadID: thread.id, isAtEnd: true)
     isBusy = true
     showStatus(transport == .email ? "Sending by explicit email path..." : "Queueing SimpleX message...", busy: true)
     Task {
@@ -1636,12 +1693,12 @@ private final class OwlSession: ObservableObject {
         if transport == .simplex {
           _ = try await OwlBackend.tickSimpleX(root: root)
         }
-        self.composeSubject = ""
-        self.composeBody = ""
+        self.updateOptimisticOutgoingMessage(id: optimistic.id, status: "sent")
         self.isBusy = false
         self.showStatus(transport == .email ? "Email sent through Owl outbox." : "SimpleX message sent.")
         self.refresh()
       } catch {
+        self.updateOptimisticOutgoingMessage(id: optimistic.id, status: "error")
         self.isBusy = false
         self.showStatus(error.localizedDescription, isError: true)
       }
@@ -4278,6 +4335,11 @@ private struct TimelineView: View {
               scrollToTimelineEnd(proxy)
             }
           }
+          .onChange(of: session.timelineMessages.map(\.id).joined(separator: "|")) { _ in
+            if isAtTimelineEnd || session.timelineShouldFollowEnd(for: session.selectedThread) {
+              scrollToTimelineEnd(proxy)
+            }
+          }
         }
         Divider()
         ComposerView()
@@ -4372,6 +4434,18 @@ private struct MessageBubble: View {
           .fixedSize(horizontal: false, vertical: true)
         HStack(alignment: .center, spacing: 7) {
           Spacer(minLength: 6)
+          if message.isSending {
+            ProgressView()
+              .controlSize(.mini)
+              .scaleEffect(0.62)
+            Text("Sending...")
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+          } else if message.isSendError {
+            Label("Not sent", systemImage: "exclamationmark.triangle.fill")
+              .font(.caption2)
+              .foregroundStyle(.red)
+          }
           TransportMark(message: message)
             .font(.caption2.weight(.semibold))
           Text(friendlyTime(message.received_at))

@@ -118,6 +118,16 @@ swift_uses_native_desktop_idiom() {
 
 swift_unified_simplex_email_ui_exists() {
   cd "$repo_dir"
+  grep -q '@Published var optimisticOutgoingMessages: \\[MessageItem\\] = \\[\\]' generated/macos/Sources/App/App.swift
+  grep -q 'let optimistic = optimisticMessage(for: thread, transport: transport, subject: subject, body: body)' generated/macos/Sources/App/App.swift
+  grep -q 'upsertOptimisticOutgoingMessage(optimistic)' generated/macos/Sources/App/App.swift
+  grep -q 'composeBody = ""' generated/macos/Sources/App/App.swift
+  grep -q 'self.updateOptimisticOutgoingMessage(id: optimistic.id, status: "sent")' generated/macos/Sources/App/App.swift
+  grep -q 'self.updateOptimisticOutgoingMessage(id: optimistic.id, status: "error")' generated/macos/Sources/App/App.swift
+  grep -q 'status: "sending"' generated/macos/Sources/App/App.swift
+  grep -q 'var isSending: Bool { status == "sending" || status == "waiting-adapter" }' generated/macos/Sources/App/App.swift
+  grep -q 'ProgressView()' generated/macos/Sources/App/App.swift
+  grep -q 'Text("Sending...")' generated/macos/Sources/App/App.swift
   grep -q 'selectedTransport = thread.hasSimpleXPath ? .simplex : .email' generated/macos/Sources/App/App.swift
   grep -q 'var canSwitchComposerTransport: Bool' generated/macos/Sources/App/App.swift
   grep -q 'return thread.hasSimpleXPath && thread.hasEmailPath' generated/macos/Sources/App/App.swift
@@ -364,6 +374,7 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq 'Image(systemName: "arrow.down.circle.fill")' generated/macos/Sources/App/App.swift
   grep -Fq 'scrollToTimelineEnd(proxy)' generated/macos/Sources/App/App.swift
   grep -Fq '.onChange(of: session.timelineEndID(for: session.selectedThread)) { _ in' generated/macos/Sources/App/App.swift
+  grep -Fq '.onChange(of: session.timelineMessages.map(\.id).joined(separator: "|")) { _ in' generated/macos/Sources/App/App.swift
   grep -Fq 'private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
   grep -Fq 'target == session.timelineEndID(for: session.selectedThread)' generated/macos/Sources/App/App.swift
   grep -Fq 'session.timelineShouldFollowEnd(for: session.selectedThread)' generated/macos/Sources/App/App.swift
