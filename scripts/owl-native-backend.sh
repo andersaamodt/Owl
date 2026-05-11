@@ -952,6 +952,30 @@ send_message_action() {
   jq -n --arg transport email --arg ulid "$ulid" --argjson draft "$saved" --argjson send "$sent" '{ok:true,transport:$transport,ulid:$ulid,draft:$draft,send:$send}'
 }
 
+send_simplex_payload_action() {
+  thread_id=$(safe_slug "${1-}")
+  subject=${2-}
+  display_body=${3-}
+  wire_body=${4-}
+  attachments=${5-0}
+  [ -n "$thread_id" ] || usage_error "send-message requires THREAD_ID"
+  case "$attachments" in ''|*[!0123456789]*) attachments=0 ;; esac
+  contact_file=$(native_contact_file "$thread_id")
+  simplex=$(config_get "$contact_file" simplex_address 2>/dev/null || printf '')
+  name=$(config_get "$contact_file" name 2>/dev/null || printf "$thread_id")
+  [ -n "$simplex" ] || usage_error "SimpleX transport selected but no SimpleX path is bound for $name"
+  result=$(append_simplex_message "$thread_id" "$display_body" true false "$subject" "" "" "$attachments")
+  outbox_file="$(simplex_outbox_dir)/$(printf '%s\n' "$result" | jq -r '.id').json"
+  mkdir -p "$(dirname "$outbox_file")"
+  printf '%s\n' "$result" | jq \
+    --arg thread_id "$thread_id" \
+    --arg simplex_address "$simplex" \
+    --arg subject "$subject" \
+    --arg body "$wire_body" \
+    '. + {transport:"simplex",thread_id:$thread_id,simplex_address:$simplex_address,subject:$subject,body:$body,queued_at:(now|todateiso8601)}' >"$outbox_file"
+  printf '%s\n' "$result" | jq --arg outbox_path "$outbox_file" '. + {transport:"simplex",outbox_path:$outbox_path}'
+}
+
 email_message_parts_from_id() {
   message_id_value=$1
   case "$message_id_value" in
@@ -1891,8 +1915,13 @@ case "$action" in
     rm -f "$body_tmp"
     attachment_marker=$(simplex_web_file_marker "$attachment_path")
     combined_body=$(printf '%s\n%s' "$attachment_body" "$attachment_marker")
-    combined_b64=$(printf '%s' "$combined_body" | base64_one_line)
-    send_message_action "$thread_id" simplex "$subject" "$combined_b64"
+    if [ -n "$attachment_body" ]; then
+      display_body="$attachment_body
+Attachment: ${attachment_path##*/}"
+    else
+      display_body="Attachment: ${attachment_path##*/}"
+    fi
+    send_simplex_payload_action "$thread_id" "$subject" "$display_body" "$combined_body" 1
     ;;
   message-detail)
     message_detail_action "${1-}"

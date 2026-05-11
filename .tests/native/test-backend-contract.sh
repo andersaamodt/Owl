@@ -401,11 +401,12 @@ case "$cmd" in
         seq:7,
         npub:"npub1visitor",
         thread_id:"npub1visitor",
-        body:"hello from website",
+        body:"hello from website 🦉",
         subject:"Website Secure Chat",
         from_self:false,
         in_inbox:true,
         simplex_address:"secure-chat:26",
+        attachment:{name:"probe-😀.txt",mime:"text/plain",size:7},
         created_at:"2026-05-05T08:00:00Z"
       },{
         id:"simplex-owner-direct:26:8",
@@ -423,6 +424,8 @@ case "$cmd" in
     ;;
   */blog-secure-chat-owl-send)
     [ "$arg1" = "npub1visitor" ] || exit 1
+    printf '%s\n' "$arg2" | base64 -d >>"${OWL_TEST_SSH_LOG:?}.decoded"
+    printf '\n' >>"${OWL_TEST_SSH_LOG:?}.decoded"
     jq -n '{success:true,npub:"npub1visitor"}'
     ;;
   *)
@@ -445,10 +448,10 @@ SH
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
     ([.threads[] | select(.id == "npub1visitor")][0].simplex_address == "secure-chat:26") and
-    (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website")) | length) == 1 and
+    (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website 🦉" and .attachments == 1)) | length) == 1 and
     (.messages | map(select(.body == "owner reply should not echo")) | length) == 0
   ' >/dev/null
-  backend send-message "$root" npub1visitor simplex "Reply" "$(b64 'reply body')" >/dev/null
+  backend send-message "$root" npub1visitor simplex "Reply" "$(b64 'reply body 😀')" >/dev/null
   PATH="$fakebin:$PATH" \
     OWL_TEST_SSH_LOG="$ssh_log" \
     HOME="$tmpdir/home" \
@@ -456,6 +459,22 @@ SH
     XDG_CONFIG_HOME="$tmpdir/config" \
     sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
   grep -q '/remote/blog-secure-chat-owl-send	npub1visitor' "$ssh_log"
+  grep -q 'reply body 😀' "$ssh_log.decoded"
+  attachment_file="$tmpdir/secure-chat-hook/probe.txt"
+  printf '%s\n' 'attachment payload 😀' >"$attachment_file"
+  backend send-attachment "$root" npub1visitor simplex "Attachment" "$(b64 'attachment reply 😀')" "$attachment_file" >/dev/null
+  PATH="$fakebin:$PATH" \
+    OWL_TEST_SSH_LOG="$ssh_log" \
+    HOME="$tmpdir/home" \
+    XDG_STATE_HOME="$tmpdir/state" \
+    XDG_CONFIG_HOME="$tmpdir/config" \
+    sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
+  grep -q 'attachment reply 😀' "$ssh_log.decoded"
+  grep -q 'simplex-web-file:v1:' "$ssh_log.decoded"
+  snapshot=$(backend snapshot "$root")
+  printf '%s\n' "$snapshot" | jq -e '
+    (.messages | map(select(.thread_id == "npub1visitor" and .body == "attachment reply 😀\nAttachment: probe.txt" and .attachments == 1)) | length) == 1
+  ' >/dev/null
 }
 
 install_simplex_cli_delegates_to_wizardry_installer() {

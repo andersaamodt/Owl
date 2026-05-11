@@ -181,6 +181,8 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'private var stackBadgeText: String?' generated/macos/Sources/App/App.swift
   grep -Fq 'guard depth > 3, let badge, !badge.isEmpty else { return nil }' generated/macos/Sources/App/App.swift
   grep -Fq 'badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(minWidth: 260, idealWidth: 420, maxWidth: 520, alignment: .leading)' generated/macos/Sources/App/App.swift
+  grep -Fq '.fixedSize(horizontal: true, vertical: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'StaticCardStackBackplates(depth: stackDepth, tint: messageTint)' generated/macos/Sources/App/App.swift
   grep -Fq 'CardStackFrame(' generated/macos/Sources/App/App.swift
   grep -Fq 'depth: 1,' generated/macos/Sources/App/App.swift
@@ -201,7 +203,10 @@ swift_new_and_inbox_use_card_stack_layout() {
   ! grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "archive"' generated/macos/Sources/App/App.swift
-  grep -Fq '.frame(maxWidth: 560)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(maxWidth: 560, alignment: .center)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(maxWidth: 540, alignment: .center)' generated/macos/Sources/App/App.swift
+  grep -Fq 'TransportPill(message: latest)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(maxWidth: .infinity, alignment: .trailing)' generated/macos/Sources/App/App.swift
   grep -Fq 'offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)' generated/macos/Sources/App/App.swift
   grep -Fq '.background(Capsule().fill(tint.opacity(0.86)))' generated/macos/Sources/App/App.swift
   grep -Fq 'private var latestMessage: MessageItem?' generated/macos/Sources/App/App.swift

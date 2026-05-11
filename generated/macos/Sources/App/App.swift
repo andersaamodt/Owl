@@ -3478,6 +3478,8 @@ private struct CardStackFrame<Content: View>: View {
   var body: some View {
     content
       .padding(14)
+      .frame(minWidth: 260, idealWidth: 420, maxWidth: 520, alignment: .leading)
+      .fixedSize(horizontal: true, vertical: false)
       .background(
         cardBackground
       )
@@ -3663,7 +3665,7 @@ private struct NewSenderStackSurface: View {
                 }
               }
             }
-            .frame(maxWidth: 540)
+            .frame(maxWidth: 540, alignment: .center)
             .frame(height: pileHeight(for: thread))
           }
         }
@@ -3771,7 +3773,6 @@ private struct NewSenderStackCard: View {
             .foregroundStyle(.orange)
           Text(thread.displayName)
             .font(.headline)
-          Spacer()
           Text(friendlyTime(thread.latest_at))
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -3785,11 +3786,9 @@ private struct NewSenderStackCard: View {
             .foregroundStyle(.secondary)
             .lineLimit(2)
         }
-        HStack {
-          Spacer()
-          if let latest = latestMessage {
-            TransportPill(message: latest)
-          }
+        if let latest = latestMessage {
+          TransportPill(message: latest)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
       }
     }
@@ -3851,7 +3850,7 @@ private struct NewSenderMessageStackSurface: View {
                 stage = .reader
               }
               .id(message.id)
-              .frame(maxWidth: 540)
+              .frame(maxWidth: 540, alignment: .center)
             }
           }
           .frame(maxWidth: .infinity)
@@ -3888,7 +3887,6 @@ private struct NewSenderMessageStackCard: View {
             Text(message.subject.isEmpty ? "(no subject)" : message.subject)
               .font(.headline)
               .lineLimit(1)
-            Spacer()
             Text(friendlyTime(message.received_at))
               .font(.caption)
               .foregroundStyle(.secondary)
@@ -4340,7 +4338,7 @@ private struct InboxView: View {
                   animationNamespace: animationNamespace
                 )
                 .id(inboxStackID(for: message))
-                .frame(maxWidth: 560)
+                .frame(maxWidth: 560, alignment: .center)
                 .zIndex(inboxStackZIndex(for: message))
               }
             }
@@ -4537,7 +4535,6 @@ private struct MessageReaderCard: View {
           TransportMark(message: message)
           Text(message.contact_name)
             .font(.headline)
-          Spacer()
           Text(friendlyTime(message.received_at))
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -4558,7 +4555,6 @@ private struct MessageReaderCard: View {
               .font(.caption)
               .foregroundStyle(.secondary)
           }
-          Spacer()
           Button { session.archive(message) } label: {
             Image(systemName: "archivebox")
           }
@@ -4641,7 +4637,6 @@ private struct InboxCardContent: View {
             .font(.caption)
             .foregroundStyle(.yellow)
         }
-        Spacer()
         Text(friendlyTime(message.received_at))
           .font(.caption)
           .foregroundStyle(.secondary)
@@ -4664,7 +4659,6 @@ private struct InboxCardContent: View {
             .foregroundStyle(.secondary)
         }
         if actionsVisible {
-          Spacer()
           Button { session.markRead(message, read: !message.read) } label: {
             Image(systemName: message.read ? "envelope.badge" : "envelope.open")
           }
