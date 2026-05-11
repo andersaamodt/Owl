@@ -4552,12 +4552,30 @@ private struct InboxCardContent: View {
   }
 }
 
+private struct TimelineViewportHeightPreferenceKey: PreferenceKey {
+  static let defaultValue: CGFloat = 0
+
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = nextValue()
+  }
+}
+
+private struct TimelineBottomMaxYPreferenceKey: PreferenceKey {
+  static let defaultValue: CGFloat = 0
+
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = nextValue()
+  }
+}
+
 private struct TimelineView: View {
   @EnvironmentObject private var session: OwlSession
   @Binding var inspectorWidth: CGFloat
   @State private var isAtTimelineEnd = true
-  @State private var timelineEndVisibilityGeneration = 0
+  @State private var timelineViewportHeight: CGFloat = 0
+  @State private var timelineBottomMaxY: CGFloat = 0
   private let timelineBottomID = "timeline-bottom-anchor"
+  private let timelineCoordinateSpace = "timeline-scroll-space"
 
   var body: some View {
     HStack(spacing: 0) {
@@ -4579,15 +4597,32 @@ private struct TimelineView: View {
               Color.clear
                 .frame(height: 18)
                 .id(timelineBottomID)
+                .background {
+                  GeometryReader { geometry in
+                    Color.clear.preference(
+                      key: TimelineBottomMaxYPreferenceKey.self,
+                      value: geometry.frame(in: .named(timelineCoordinateSpace)).maxY
+                    )
+                  }
+                }
                 .onAppear {
-                  setTimelineEndVisible(true)
+                  updateTimelineEndVisibility()
                 }
                 .onDisappear {
-                  scheduleTimelineEndHidden()
+                  setTimelineEndVisible(false)
                 }
             }
             .padding(.horizontal, 18)
             .padding(.top, 18)
+          }
+          .coordinateSpace(name: timelineCoordinateSpace)
+          .background {
+            GeometryReader { geometry in
+              Color.clear.preference(
+                key: TimelineViewportHeightPreferenceKey.self,
+                value: geometry.size.height
+              )
+            }
           }
           .overlay(alignment: .center) {
             if !isAtTimelineEnd {
@@ -4609,6 +4644,14 @@ private struct TimelineView: View {
           .onAppear {
             isAtTimelineEnd = session.timelineShouldFollowEnd(for: session.selectedThread)
             scrollToTimelineTarget(proxy)
+          }
+          .onPreferenceChange(TimelineViewportHeightPreferenceKey.self) { height in
+            timelineViewportHeight = height
+            updateTimelineEndVisibility()
+          }
+          .onPreferenceChange(TimelineBottomMaxYPreferenceKey.self) { maxY in
+            timelineBottomMaxY = maxY
+            updateTimelineEndVisibility()
           }
           .onChange(of: session.selectedThreadID) { _ in
             isAtTimelineEnd = session.timelineShouldFollowEnd(for: session.selectedThread)
@@ -4677,21 +4720,13 @@ private struct TimelineView: View {
   }
 
   private func setTimelineEndVisible(_ visible: Bool) {
-    timelineEndVisibilityGeneration += 1
     isAtTimelineEnd = visible
     session.rememberTimelineAtEnd(threadID: session.selectedThreadID, isAtEnd: visible)
   }
 
-  private func scheduleTimelineEndHidden() {
-    timelineEndVisibilityGeneration += 1
-    let generation = timelineEndVisibilityGeneration
-    Task { @MainActor in
-      try? await Task.sleep(nanoseconds: 180_000_000)
-      if timelineEndVisibilityGeneration == generation {
-        isAtTimelineEnd = false
-        session.rememberTimelineAtEnd(threadID: session.selectedThreadID, isAtEnd: false)
-      }
-    }
+  private func updateTimelineEndVisibility() {
+    guard timelineViewportHeight > 0, timelineBottomMaxY > 0 else { return }
+    setTimelineEndVisible(timelineBottomMaxY <= timelineViewportHeight + 8)
   }
 
   private func timelineSubtitle(_ thread: ThreadItem) -> String {

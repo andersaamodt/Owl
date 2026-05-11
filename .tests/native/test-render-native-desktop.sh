@@ -352,8 +352,15 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq '.id(timelineBottomID)' generated/macos/Sources/App/App.swift
   grep -Fq '.padding(.horizontal, 18)' generated/macos/Sources/App/App.swift
   grep -Fq '.padding(.top, 18)' generated/macos/Sources/App/App.swift
-  grep -Fq 'scheduleTimelineEndHidden()' generated/macos/Sources/App/App.swift
-  grep -Fq 'try? await Task.sleep(nanoseconds: 180_000_000)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TimelineViewportHeightPreferenceKey: PreferenceKey' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TimelineBottomMaxYPreferenceKey: PreferenceKey' generated/macos/Sources/App/App.swift
+  grep -Fq 'private let timelineCoordinateSpace = "timeline-scroll-space"' generated/macos/Sources/App/App.swift
+  grep -Fq '.coordinateSpace(name: timelineCoordinateSpace)' generated/macos/Sources/App/App.swift
+  grep -Fq 'geometry.frame(in: .named(timelineCoordinateSpace)).maxY' generated/macos/Sources/App/App.swift
+  grep -Fq '.onPreferenceChange(TimelineViewportHeightPreferenceKey.self)' generated/macos/Sources/App/App.swift
+  grep -Fq '.onPreferenceChange(TimelineBottomMaxYPreferenceKey.self)' generated/macos/Sources/App/App.swift
+  grep -Fq 'setTimelineEndVisible(timelineBottomMaxY <= timelineViewportHeight + 8)' generated/macos/Sources/App/App.swift
+  grep -Fq 'setTimelineEndVisible(false)' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(systemName: "arrow.down.circle.fill")' generated/macos/Sources/App/App.swift
   grep -Fq 'scrollToTimelineEnd(proxy)' generated/macos/Sources/App/App.swift
   grep -Fq '.onChange(of: session.timelineEndID(for: session.selectedThread)) { _ in' generated/macos/Sources/App/App.swift
