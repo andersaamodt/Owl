@@ -203,7 +203,8 @@ swift_new_and_inbox_use_card_stack_layout() {
   ! grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "archive"' generated/macos/Sources/App/App.swift
-  grep -Fq '.frame(maxWidth: 560, alignment: .center)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(maxWidth: 560)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(maxWidth: .infinity, alignment: .center)' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: 540, alignment: .center)' generated/macos/Sources/App/App.swift
   grep -Fq 'TransportPill(message: latest)' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: .infinity, alignment: .trailing)' generated/macos/Sources/App/App.swift

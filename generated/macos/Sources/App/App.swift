@@ -4408,7 +4408,8 @@ private struct InboxView: View {
                   animationNamespace: animationNamespace
                 )
                 .id(inboxStackID(for: message))
-                .frame(maxWidth: 560, alignment: .center)
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .zIndex(inboxStackZIndex(for: message))
               }
             }
