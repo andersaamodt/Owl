@@ -348,6 +348,8 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq 'scrollToTimelineEnd(proxy)' generated/macos/Sources/App/App.swift
   grep -Fq '.onChange(of: session.timelineEndID(for: session.selectedThread)) { _ in' generated/macos/Sources/App/App.swift
   grep -Fq 'private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
+  grep -Fq 'target == session.timelineEndID(for: session.selectedThread)' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.timelineShouldFollowEnd(for: session.selectedThread)' generated/macos/Sources/App/App.swift
   grep -Fq 'private func scrollToTimelineEnd(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
   grep -Fq 'private func performScrollToTimelineEnd(_ proxy: ScrollViewProxy, animated: Bool)' generated/macos/Sources/App/App.swift
   grep -Fq 'proxy.scrollTo(timelineBottomID, anchor: .bottom)' generated/macos/Sources/App/App.swift

@@ -4233,6 +4233,12 @@ private struct TimelineView: View {
 
   private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true) {
     guard let target = session.timelineScrollTarget(for: session.selectedThread) else { return }
+    if session.focusedMessageID != target,
+       target == session.timelineEndID(for: session.selectedThread),
+       session.timelineShouldFollowEnd(for: session.selectedThread) {
+      scrollToTimelineEnd(proxy, animated: animated)
+      return
+    }
     Task { @MainActor in
       try? await Task.sleep(nanoseconds: 20_000_000)
       if animated {
