@@ -115,6 +115,7 @@ poll_messages() {
   printf '%s\n' "$response" | jq -c '
     .messages[]?
     | select((.body // "") != "")
+    | select(((.source // "") != "simplex-owner-direct") or ((.from_self // false) != true))
     | {
         thread_id:(.thread_id // .npub // "unknown"),
         contact_key:(.thread_id // .npub // "unknown"),

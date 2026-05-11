@@ -407,6 +407,17 @@ case "$cmd" in
         in_inbox:true,
         simplex_address:"secure-chat:26",
         created_at:"2026-05-05T08:00:00Z"
+      },{
+        id:"simplex-owner-direct:26:8",
+        seq:8,
+        thread_id:"npub1visitor",
+        body:"owner reply should not echo",
+        subject:"Website Secure Chat",
+        from_self:true,
+        in_inbox:true,
+        simplex_address:"secure-chat:26",
+        source:"simplex-owner-direct",
+        created_at:"2026-05-05T08:01:00Z"
       }]
     }'
     ;;
@@ -434,7 +445,8 @@ SH
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
     ([.threads[] | select(.id == "npub1visitor")][0].simplex_address == "secure-chat:26") and
-    (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website")) | length) == 1
+    (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website")) | length) == 1 and
+    (.messages | map(select(.body == "owner reply should not echo")) | length) == 0
   ' >/dev/null
   backend send-message "$root" npub1visitor simplex "Reply" "$(b64 'reply body')" >/dev/null
   PATH="$fakebin:$PATH" \
