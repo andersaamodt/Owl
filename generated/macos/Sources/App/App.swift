@@ -4485,6 +4485,8 @@ private struct TimelineView: View {
   @EnvironmentObject private var session: OwlSession
   @Binding var inspectorWidth: CGFloat
   @State private var isAtTimelineEnd = true
+  @State private var timelineEndVisibilityGeneration = 0
+  private let timelineBottomID = "timeline-bottom-anchor"
 
   var body: some View {
     HStack(spacing: 0) {
@@ -4501,16 +4503,17 @@ private struct TimelineView: View {
                   .id(message.id)
                   .onAppear {
                     session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: message.id)
-                    if message.id == session.timelineEndID(for: session.selectedThread) {
-                      setTimelineEndVisible(true)
-                    }
-                  }
-                  .onDisappear {
-                    if message.id == session.timelineEndID(for: session.selectedThread) {
-                      setTimelineEndVisible(false)
-                    }
                   }
               }
+              Color.clear
+                .frame(height: 1)
+                .id(timelineBottomID)
+                .onAppear {
+                  setTimelineEndVisible(true)
+                }
+                .onDisappear {
+                  scheduleTimelineEndHidden()
+                }
             }
             .padding(18)
           }
@@ -4543,7 +4546,7 @@ private struct TimelineView: View {
             scrollToTimelineTarget(proxy)
           }
           .onChange(of: session.timelineEndID(for: session.selectedThread)) { _ in
-            if isAtTimelineEnd {
+            if isAtTimelineEnd || session.timelineShouldFollowEnd(for: session.selectedThread) {
               scrollToTimelineEnd(proxy)
             }
           }
@@ -4581,17 +4584,30 @@ private struct TimelineView: View {
       try? await Task.sleep(nanoseconds: 20_000_000)
       if animated {
         withAnimation(.easeOut(duration: 0.28)) {
-          proxy.scrollTo(target, anchor: .bottom)
+          proxy.scrollTo(timelineBottomID, anchor: .bottom)
         }
       } else {
-        proxy.scrollTo(target, anchor: .bottom)
+        proxy.scrollTo(timelineBottomID, anchor: .bottom)
       }
     }
   }
 
   private func setTimelineEndVisible(_ visible: Bool) {
+    timelineEndVisibilityGeneration += 1
     isAtTimelineEnd = visible
     session.rememberTimelineAtEnd(threadID: session.selectedThreadID, isAtEnd: visible)
+  }
+
+  private func scheduleTimelineEndHidden() {
+    timelineEndVisibilityGeneration += 1
+    let generation = timelineEndVisibilityGeneration
+    Task { @MainActor in
+      try? await Task.sleep(nanoseconds: 180_000_000)
+      if timelineEndVisibilityGeneration == generation {
+        isAtTimelineEnd = false
+        session.rememberTimelineAtEnd(threadID: session.selectedThreadID, isAtEnd: false)
+      }
+    }
   }
 
   private func timelineSubtitle(_ thread: ThreadItem) -> String {
