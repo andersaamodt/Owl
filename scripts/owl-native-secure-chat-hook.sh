@@ -162,7 +162,21 @@ send_message() {
     *) printf '%s\n' "owl-native-secure-chat-hook: outbox thread is not a Secure Chat target: $target" >&2; exit 2 ;;
   esac
   body_b64=$(jq -rj '.body // ""' "$outbox_file" | base64_one_line)
-  response=$(ssh "$ssh_host" "$send_command" "$target" "$body_b64")
+  attachment_path=$(jq -r '.attachment_path // ""' "$outbox_file" | head -n 1)
+  if [ -n "$attachment_path" ]; then
+    [ -f "$attachment_path" ] || {
+      printf '%s\n' "owl-native-secure-chat-hook: attachment file not found: $attachment_path" >&2
+      exit 1
+    }
+    attachment_name=$(jq -r '.attachment.name // ""' "$outbox_file" | head -n 1)
+    [ -n "$attachment_name" ] || attachment_name=${attachment_path##*/}
+    attachment_mime=$(jq -r '.attachment.mime // "application/octet-stream"' "$outbox_file" | head -n 1)
+    [ -n "$attachment_mime" ] || attachment_mime=application/octet-stream
+    attachment_name_b64=$(printf '%s' "$attachment_name" | base64_one_line)
+    response=$(ssh "$ssh_host" "$send_command" "$target" "$body_b64" "$attachment_name_b64" "$attachment_mime" < "$attachment_path")
+  else
+    response=$(ssh "$ssh_host" "$send_command" "$target" "$body_b64")
+  fi
   printf '%s\n' "$response" | jq -e '.success == true' >/dev/null
   printf '%s\n' 'transport=nostr-blog-secure-chat'
   printf '%s\n' "remote_id=$target"

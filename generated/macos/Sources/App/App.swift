@@ -1072,6 +1072,7 @@ private struct AttachmentItem: Decodable, Hashable, Sendable {
 
   var isImage: Bool { mime.lowercased().hasPrefix("image/") }
   var isVideo: Bool { mime.lowercased().hasPrefix("video/") }
+  var isAudio: Bool { mime.lowercased().hasPrefix("audio/") }
 
   init(name: String = "", mime: String = "", size: Int = 0, data_url: String = "") {
     self.name = name
@@ -1102,7 +1103,7 @@ private struct AttachmentItem: Decodable, Hashable, Sendable {
   }
 
   var temporaryURL: URL? {
-    guard isVideo, let data else { return nil }
+    guard (isVideo || isAudio), let data else { return nil }
     let safeName = name.isEmpty ? "attachment.bin" : name.replacingOccurrences(of: "/", with: "-")
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent("owl-native-secure-chat")
@@ -5259,7 +5260,7 @@ private struct AttachmentPreview: View {
           }
       } else if let url = attachment.temporaryURL {
         VideoPlayer(player: AVPlayer(url: url))
-          .frame(width: 360, height: 220)
+          .frame(width: 360, height: attachment.isAudio ? 48 : 220)
           .clipShape(RoundedRectangle(cornerRadius: 9))
           .overlay {
             RoundedRectangle(cornerRadius: 9)
@@ -5267,7 +5268,7 @@ private struct AttachmentPreview: View {
           }
       }
       HStack(spacing: 8) {
-        Image(systemName: attachment.isImage ? "photo" : (attachment.isVideo ? "film" : "doc"))
+        Image(systemName: attachment.isImage ? "photo" : (attachment.isVideo ? "film" : (attachment.isAudio ? "waveform" : "doc")))
           .foregroundStyle(.secondary)
         VStack(alignment: .leading, spacing: 1) {
           Text(attachment.name.isEmpty ? "Attachment" : attachment.name)

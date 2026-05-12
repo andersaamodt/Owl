@@ -118,20 +118,6 @@ base64_one_line() {
   base64 | tr -d '\n'
 }
 
-simplex_web_file_marker() {
-  marker_file_path=$1
-  [ -f "$marker_file_path" ] || usage_error "attachment file not found"
-  marker_name=${marker_file_path##*/}
-  marker_size=$(wc -c <"$marker_file_path" | tr -d ' ')
-  marker_mime=application/octet-stream
-  if command -v file >/dev/null 2>&1; then
-    marker_mime=$(file -b --mime-type "$marker_file_path" 2>/dev/null || printf 'application/octet-stream')
-  fi
-  marker_meta=$(jq -cn --arg name "$marker_name" --arg mime "$marker_mime" --argjson size "$marker_size" '{name:$name,mime:$mime,size:$size}' | base64_one_line | tr '+/' '-_' | tr -d '=')
-  marker_data=$(base64_one_line <"$marker_file_path")
-  printf 'Attachment: %s\nsimplex-web-file:v1:%s:%s\n' "$marker_name" "$marker_meta" "$marker_data"
-}
-
 simplex_web_attachment_json() {
   attachment_file_path=$1
   [ -f "$attachment_file_path" ] || usage_error "attachment file not found"
@@ -148,6 +134,39 @@ simplex_web_attachment_json() {
     --argjson size "$attachment_size" \
     --arg data_url "data:$attachment_mime;base64,$attachment_data" \
     '{name:$name,mime:$mime,size:$size,data_url:$data_url}'
+}
+
+mime_from_name() {
+  case "$(printf '%s' "${1-}" | tr '[:upper:]' '[:lower:]')" in
+    *.apng) printf 'image/apng\n' ;;
+    *.avif) printf 'image/avif\n' ;;
+    *.gif) printf 'image/gif\n' ;;
+    *.jpg|*.jpeg) printf 'image/jpeg\n' ;;
+    *.png) printf 'image/png\n' ;;
+    *.webp) printf 'image/webp\n' ;;
+    *.m4a) printf 'audio/mp4\n' ;;
+    *.mp3) printf 'audio/mpeg\n' ;;
+    *.ogg|*.oga) printf 'audio/ogg\n' ;;
+    *.wav) printf 'audio/wav\n' ;;
+    *.m4v|*.mp4) printf 'video/mp4\n' ;;
+    *.webm) printf 'video/webm\n' ;;
+    *.txt|*.md) printf 'text/plain\n' ;;
+    *) printf 'application/octet-stream\n' ;;
+  esac
+}
+
+normalize_simplex_attachment_json() {
+  attachment_json_value=${1:-null}
+  [ "$attachment_json_value" != null ] || {
+    printf 'null\n'
+    return 0
+  }
+  attachment_name=$(printf '%s\n' "$attachment_json_value" | jq -r '.name // ""' 2>/dev/null || printf '')
+  attachment_mime=$(printf '%s\n' "$attachment_json_value" | jq -r '.mime // ""' 2>/dev/null || printf '')
+  if [ -z "$attachment_mime" ]; then
+    attachment_mime=$(mime_from_name "$attachment_name")
+  fi
+  printf '%s\n' "$attachment_json_value" | jq -c --arg mime "$attachment_mime" '.mime = $mime'
 }
 
 safe_output_value() {
@@ -623,6 +642,7 @@ append_simplex_message() {
   [ -n "$at" ] || at=$(now_iso)
   case "$from_self" in true|1|yes|on) from_self=true ;; *) from_self=false ;; esac
   case "$in_inbox" in true|1|yes|on|in) in_inbox=true ;; *) in_inbox=false ;; esac
+  attachment_json=$(normalize_simplex_attachment_json "$attachment_json")
   id="simplex:$(message_id)"
   file=$(simplex_thread_file "$thread_id")
   mkdir -p "$(dirname "$file")"
@@ -980,6 +1000,7 @@ send_simplex_payload_action() {
   wire_body=${4-}
   attachments=${5-0}
   attachment_json=${6:-null}
+  attachment_path=${7-}
   [ -n "$thread_id" ] || usage_error "send-message requires THREAD_ID"
   case "$attachments" in ''|*[!0123456789]*) attachments=0 ;; esac
   contact_file=$(native_contact_file "$thread_id")
@@ -994,7 +1015,8 @@ send_simplex_payload_action() {
     --arg simplex_address "$simplex" \
     --arg subject "$subject" \
     --arg body "$wire_body" \
-    '. + {transport:"simplex",thread_id:$thread_id,simplex_address:$simplex_address,subject:$subject,body:$body,queued_at:(now|todateiso8601)}' >"$outbox_file"
+    --arg attachment_path "$attachment_path" \
+    '. + {transport:"simplex",thread_id:$thread_id,simplex_address:$simplex_address,subject:$subject,body:$body,queued_at:(now|todateiso8601)} + (if $attachment_path == "" then {} else {attachment_path:$attachment_path} end)' >"$outbox_file"
   printf '%s\n' "$result" | jq --arg outbox_path "$outbox_file" '. + {transport:"simplex",outbox_path:$outbox_path}'
 }
 
@@ -1937,16 +1959,14 @@ case "$action" in
     }
     attachment_body=$(cat "$body_tmp")
     rm -f "$body_tmp"
-    attachment_marker=$(simplex_web_file_marker "$attachment_path")
     attachment_json=$(simplex_web_attachment_json "$attachment_path")
-    combined_body=$(printf '%s\n%s' "$attachment_body" "$attachment_marker")
     if [ -n "$attachment_body" ]; then
       display_body="$attachment_body
 Attachment: ${attachment_path##*/}"
     else
       display_body="Attachment: ${attachment_path##*/}"
     fi
-    send_simplex_payload_action "$thread_id" "$subject" "$display_body" "$combined_body" 1 "$attachment_json"
+    send_simplex_payload_action "$thread_id" "$subject" "$display_body" "$attachment_body" 1 "$attachment_json" "$attachment_path"
     ;;
   message-detail)
     message_detail_action "${1-}"
