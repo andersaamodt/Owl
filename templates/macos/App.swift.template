@@ -1,6 +1,5 @@
 // Generated from ir/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh.
 import AppKit
-import AVKit
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
@@ -4910,14 +4909,28 @@ private struct AttachmentPreview: View {
             RoundedRectangle(cornerRadius: 9)
               .stroke(Color.primary.opacity(0.10), lineWidth: 1)
           }
-      } else if let url = attachment.temporaryURL {
-        VideoPlayer(player: AVPlayer(url: url))
-          .frame(width: 360, height: attachment.isAudio ? 48 : 220)
-          .clipShape(RoundedRectangle(cornerRadius: 9))
+      } else if attachment.isVideo || attachment.isAudio {
+        Button {
+          if let url = attachment.temporaryURL {
+            NSWorkspace.shared.open(url)
+          }
+        } label: {
+          HStack(spacing: 10) {
+            Image(systemName: attachment.isAudio ? "waveform.circle.fill" : "play.rectangle.fill")
+              .font(.title2)
+              .foregroundStyle(.secondary)
+            Text(attachment.isAudio ? "Open audio attachment" : "Open video attachment")
+              .font(.caption.weight(.semibold))
+          }
+          .frame(width: 360, height: attachment.isAudio ? 48 : 96)
+          .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(0.06)))
           .overlay {
             RoundedRectangle(cornerRadius: 9)
               .stroke(Color.primary.opacity(0.10), lineWidth: 1)
           }
+        }
+        .buttonStyle(.plain)
+        .help("Open attachment")
       }
       HStack(spacing: 8) {
         Image(systemName: attachment.isImage ? "photo" : (attachment.isVideo ? "film" : (attachment.isAudio ? "waveform" : "doc")))

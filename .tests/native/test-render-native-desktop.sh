@@ -498,11 +498,13 @@ swift_message_surfaces_use_colored_backgrounds() {
   grep -Fq 'private var messageTint: Color' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct TelegramBubbleShape: Shape' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct MessageDetailsView: View' generated/macos/Sources/App/App.swift
-  grep -Fq 'import AVKit' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'import AVKit' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct AttachmentPreview: View' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(nsImage: image)' generated/macos/Sources/App/App.swift
-  grep -Fq 'VideoPlayer(player: AVPlayer(url: url))' generated/macos/Sources/App/App.swift
-  grep -Fq 'Image(systemName: attachment.isImage ? "photo" : (attachment.isVideo ? "film" : "doc"))' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'VideoPlayer(player: AVPlayer(url: url))' generated/macos/Sources/App/App.swift
+  grep -Fq 'NSWorkspace.shared.open(url)' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: attachment.isAudio ? "waveform.circle.fill" : "play.rectangle.fill")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: attachment.isImage ? "photo" : (attachment.isVideo ? "film" : (attachment.isAudio ? "waveform" : "doc")))' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct InboxSplitPill: View' generated/macos/Sources/App/App.swift
   grep -Fq 'InboxSplitPill(message: message)' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(systemName: "tray.full")' generated/macos/Sources/App/App.swift
