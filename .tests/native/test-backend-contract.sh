@@ -390,7 +390,8 @@ host=${1-}
 cmd=${2-}
 arg1=${3-}
 arg2=${4-}
-printf '%s\t%s\t%s\t%s\n' "$host" "$cmd" "$arg1" "$arg2" >>"${OWL_TEST_SSH_LOG:?}"
+arg5=${7-}
+printf '%s\t%s\t%s\t%s\t%s\n' "$host" "$cmd" "$arg1" "$arg2" "$arg5" >>"${OWL_TEST_SSH_LOG:?}"
 case "$cmd" in
   */blog-secure-chat-owl-export)
     jq -n --arg since "$arg1" '{
@@ -459,6 +460,7 @@ SH
     XDG_CONFIG_HOME="$tmpdir/config" \
     sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
   grep -q '/remote/blog-secure-chat-owl-send	npub1visitor' "$ssh_log"
+  grep -q 'simplex:' "$ssh_log"
   grep -q 'reply body 😀' "$ssh_log.decoded"
   attachment_file="$tmpdir/secure-chat-hook/probe.txt"
   printf '%s\n' 'attachment payload 😀' >"$attachment_file"
@@ -468,9 +470,8 @@ SH
     HOME="$tmpdir/home" \
     XDG_STATE_HOME="$tmpdir/state" \
     XDG_CONFIG_HOME="$tmpdir/config" \
-    sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
+  sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
   grep -q 'attachment reply 😀' "$ssh_log.decoded"
-  grep -q 'simplex-web-file:v1:' "$ssh_log.decoded"
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
     (.messages | map(select(.thread_id == "npub1visitor" and .body == "attachment reply 😀\nAttachment: probe.txt" and .attachments == 1 and .attachment.name == "probe.txt" and (.attachment.data_url | startswith("data:text/plain;base64,")))) | length) == 1

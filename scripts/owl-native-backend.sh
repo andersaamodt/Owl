@@ -1755,28 +1755,37 @@ process_simplex_outbox() {
   ident=$(safe_slug "${1:-default}")
   hook=$(simplex_transport_hook_path "$ident" 2>/dev/null || printf '')
   processed_root="$(simplex_processed_dir)/outbox"
-  mkdir -p "$processed_root"
+  processing_root="$(simplex_processed_dir)/outbox-processing"
+  mkdir -p "$processed_root" "$processing_root"
   sent=0
   waiting=0
   failed=0
   for simplex_outbox_file in "$(simplex_outbox_dir)"/*.json; do
     [ -f "$simplex_outbox_file" ] || continue
-    id=$(jq -r '.id // ""' "$simplex_outbox_file" 2>/dev/null | head -n 1)
+    outbox_basename=$(basename "$simplex_outbox_file")
+    processing_file="$processing_root/$outbox_basename"
+    if ! mv "$simplex_outbox_file" "$processing_file" 2>/dev/null; then
+      continue
+    fi
+    id=$(jq -r '.id // ""' "$processing_file" 2>/dev/null | head -n 1)
     [ -n "$id" ] || {
+      mv "$processing_file" "$simplex_outbox_file" 2>/dev/null || true
       failed=$((failed + 1))
       continue
     }
     if [ -z "$hook" ] || [ ! -x "$hook" ]; then
       rewrite_simplex_message_field "$id" status waiting-adapter 2>/dev/null || true
+      mv "$processing_file" "$simplex_outbox_file" 2>/dev/null || true
       waiting=$((waiting + 1))
       continue
     fi
-    if "$hook" send "$ident" "$ROOT" "$simplex_outbox_file" >"$processed_root/last-send.log" 2>"$processed_root/last-send-error.log"; then
+    if "$hook" send "$ident" "$ROOT" "$processing_file" >"$processed_root/last-send.log" 2>"$processed_root/last-send-error.log"; then
       rewrite_simplex_message_field "$id" status sent 2>/dev/null || true
-      mv "$simplex_outbox_file" "$processed_root/$(basename "$simplex_outbox_file").sent.$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$simplex_outbox_file"
+      mv "$processing_file" "$processed_root/$outbox_basename.sent.$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || rm -f "$processing_file"
       sent=$((sent + 1))
     else
       rewrite_simplex_message_field "$id" status error 2>/dev/null || true
+      mv "$processing_file" "$simplex_outbox_file" 2>/dev/null || true
       failed=$((failed + 1))
     fi
   done
