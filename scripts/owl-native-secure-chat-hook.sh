@@ -104,11 +104,19 @@ require_cmd ssh
 ssh_transport() {
   timeout_seconds=${OWL_NATIVE_TRANSPORT_TIMEOUT:-4}
   case "$timeout_seconds" in ''|*[!0123456789]*) timeout_seconds=4 ;; esac
+  control_persist=${OWL_NATIVE_SSH_CONTROL_PERSIST:-60}
+  case "$control_persist" in ''|*[!0123456789]*) control_persist=60 ;; esac
+  control_dir="${TMPDIR:-/tmp}/owl-native-ssh-control"
+  mkdir -p "$control_dir" 2>/dev/null || true
+  chmod 700 "$control_dir" 2>/dev/null || true
   ssh \
     -o BatchMode=yes \
     -o ConnectTimeout="$timeout_seconds" \
     -o ServerAliveInterval="$timeout_seconds" \
     -o ServerAliveCountMax=1 \
+    -o ControlMaster=auto \
+    -o ControlPersist="$control_persist" \
+    -o ControlPath="$control_dir/$identity-%C" \
     "$ssh_host" "$@"
 }
 

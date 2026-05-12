@@ -318,6 +318,40 @@ SH
   ' >/dev/null
 }
 
+simplex_tick_sends_before_polling() {
+  root="$tmpdir/simplex-hook-order/mail"
+  hook="$tmpdir/simplex-hook-order.sh"
+  mkdir -p "$tmpdir/home"
+  cat >"$hook" <<'SH'
+#!/bin/sh
+set -eu
+mode=${1-}
+root=${3-}
+case "$mode" in
+  poll)
+    [ -f "$root/.hook-order/sent-before-poll" ] || {
+      printf '%s\n' 'poll ran before send' >&2
+      exit 23
+    }
+    ;;
+  send)
+    mkdir -p "$root/.hook-order"
+    printf '%s\n' sent >"$root/.hook-order/sent-before-poll"
+    ;;
+  *)
+    exit 64
+    ;;
+esac
+SH
+  chmod +x "$hook"
+  backend prepare "$root" >/dev/null
+  backend bind-contact "$root" carol "Carol Cipher" person carol@example.org simplex://carol yes >/dev/null
+  backend send-message "$root" carol simplex "Outbound" "$(b64 'hook outbound')" >/dev/null
+  backend set-simplex-transport-hook "$root" default "$hook" | jq -e '.hook_ready == true' >/dev/null
+  tick=$(backend tick-simplex "$root" default)
+  printf '%s\n' "$tick" | jq -e '.ok == true and .outbox.sent == 1 and .outbox.failed == 0 and .poll_error == ""' >/dev/null
+}
+
 simplex_tick_dedupes_by_remote_id_not_body() {
   root="$tmpdir/simplex-remote-id-dedupe/mail"
   hook="$tmpdir/simplex-remote-id-dedupe.sh"
@@ -386,11 +420,16 @@ secure_chat_transport_imports_and_replies_over_ssh_hook() {
   cat >"$fakebin/ssh" <<'SH'
 #!/bin/sh
 set -eu
+while [ "${1-}" = "-o" ]; do
+  shift 2
+done
 host=${1-}
-cmd=${2-}
-arg1=${3-}
-arg2=${4-}
-arg5=${7-}
+shift || true
+cmd=${1-}
+shift || true
+arg1=${1-}
+arg2=${2-}
+arg5=${5-}
 printf '%s\t%s\t%s\t%s\t%s\n' "$host" "$cmd" "$arg1" "$arg2" "$arg5" >>"${OWL_TEST_SSH_LOG:?}"
 case "$cmd" in
   */blog-secure-chat-owl-export)
@@ -538,6 +577,7 @@ run_case "Owl actions are hard allowlisted and pass through" owl_actions_are_har
 run_case "UI prefs are plaintext XDG state" ui_prefs_are_plaintext_xdg_state
 run_case "message detail returns SimpleX and email messages" message_detail_returns_simplex_and_email_messages
 run_case "SimpleX tick uses transport hook for poll and send" simplex_tick_uses_transport_hook_for_poll_and_send
+run_case "SimpleX tick sends queued outbox before polling" simplex_tick_sends_before_polling
 run_case "SimpleX tick dedupes by remote id, not repeated body text" simplex_tick_dedupes_by_remote_id_not_body
 run_case "bundled SimpleX local transport is end-to-end" bundled_simplex_local_transport_is_end_to_end
 run_case "Secure Chat transport imports and replies over SSH hook" secure_chat_transport_imports_and_replies_over_ssh_hook
@@ -549,4 +589,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "18/18 backend contract tests passed"
+printf '%s\n' "19/19 backend contract tests passed"

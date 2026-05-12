@@ -1796,10 +1796,10 @@ tick_simplex_action() {
   ensure_roots
   ident=${1:-default}
   poll_error=
+  outbox_json=$(process_simplex_outbox "$ident")
   if ! run_simplex_poll_hook "$ident" >"$(simplex_processed_dir)/last-poll.log" 2>"$(simplex_processed_dir)/last-poll-error.log"; then
     poll_error=$(cat "$(simplex_processed_dir)/last-poll-error.log" 2>/dev/null | head -n 3 | paste -sd ' ' -)
   fi
-  outbox_json=$(process_simplex_outbox "$ident")
   imported=0
   for simplex_incoming_file in "$(simplex_incoming_dir)"/*.json "$ROOT/.transport/incoming"/*.json; do
     [ -f "$simplex_incoming_file" ] || continue
