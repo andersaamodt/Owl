@@ -61,6 +61,19 @@ linux_actions_cover_ir() {
 
 swift_uses_native_desktop_idiom() {
   cd "$repo_dir"
+  grep -Fq '@Published var snapshot: Snapshot = Snapshot(root: defaultMailRoot())' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var hasLoadedInitialSnapshot: Bool = false' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var startupMessage: String = "Loading mailbox..."' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var startupErrorMessage: String?' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct StartupSplashView: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'if session.hasLoadedInitialSnapshot {' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(nsImage: NSApp.applicationIconImage)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func retryInitialLoad()' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func loadInitialSnapshot() async' generated/macos/Sources/App/App.swift
+  grep -Fq 'self.hasLoadedInitialSnapshot = true' generated/macos/Sources/App/App.swift
+  grep -Fq 'Task { await loadInitialSnapshot() }' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'snapshot = SeedData.snapshot' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Using seed state' generated/macos/Sources/App/App.swift
   grep -q 'PrimaryTabBar' generated/macos/Sources/App/App.swift
   grep -q 'NSTitlebarAccessoryViewController' generated/macos/Sources/App/App.swift
   grep -q 'window.titleVisibility = .hidden' generated/macos/Sources/App/App.swift

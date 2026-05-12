@@ -1367,7 +1367,10 @@ private struct PendingAttachment: Identifiable, Hashable {
 
 @MainActor
 private final class OwlSession: ObservableObject {
-  @Published var snapshot: Snapshot = SeedData.snapshot
+  @Published var snapshot: Snapshot = Snapshot(root: defaultMailRoot())
+  @Published var hasLoadedInitialSnapshot: Bool = false
+  @Published var startupMessage: String = "Loading mailbox..."
+  @Published var startupErrorMessage: String?
   @Published var selectedRoute: String = "new"
   @Published var focusedMessageID: String?
   @Published var selectedMessageID: String?
@@ -1413,11 +1416,10 @@ private final class OwlSession: ObservableObject {
   private var toastGeneration = 0
 
   init() {
-    snapshot = SeedData.snapshot
+    snapshot = Snapshot(root: defaultMailRoot())
     mailRoot = defaultMailRoot()
     selectedRoute = "new"
     selectedTransport = .simplex
-    startTransportAutoSync()
     Task { await loadPreferencesThenRefresh() }
   }
 
@@ -1517,6 +1519,7 @@ private final class OwlSession: ObservableObject {
   }
 
   func loadPreferencesThenRefresh() async {
+    startupMessage = "Loading preferences..."
     do {
       let prefs = try await OwlBackend.uiPrefs(root: mailRoot)
       if !prefs.mail_root.isEmpty {
@@ -1525,13 +1528,46 @@ private final class OwlSession: ObservableObject {
       selectedRoute = prefs.selected_route.isEmpty ? "new" : prefs.selected_route
       apply(uiPrefs: prefs)
     } catch {
-      showStatus("Preferences unavailable: \(error.localizedDescription)", isError: true)
+      statusText = "Preferences unavailable: \(error.localizedDescription)"
     }
-    refresh()
-    tickTransportIfStale()
+    await loadInitialSnapshot()
+    if hasLoadedInitialSnapshot {
+      startTransportAutoSync()
+      tickTransportIfStale()
+    }
+  }
+
+  func retryInitialLoad() {
+    startupErrorMessage = nil
+    Task { await loadPreferencesThenRefresh() }
+  }
+
+  private func loadInitialSnapshot() async {
+    if isRefreshingSnapshot { return }
+    startupMessage = "Loading mailbox..."
+    lastRefreshAt = Date()
+    let root = mailRoot
+    isRefreshingSnapshot = true
+    do {
+      let next = try await OwlBackend.snapshot(root: root)
+      self.apply(snapshot: next)
+      self.statusText = "Loaded \(next.threads.count) conversations from \(next.root)"
+      self.hasLoadedInitialSnapshot = true
+      self.startupErrorMessage = nil
+      self.isRefreshingSnapshot = false
+      self.refreshBootstrapStatus()
+    } catch {
+      self.isRefreshingSnapshot = false
+      self.startupErrorMessage = "Mailbox unavailable: \(error.localizedDescription)"
+      self.statusText = self.startupErrorMessage ?? "Mailbox unavailable"
+    }
   }
 
   func refresh() {
+    if !hasLoadedInitialSnapshot {
+      Task { await loadInitialSnapshot() }
+      return
+    }
     if isRefreshingSnapshot { return }
     lastRefreshAt = Date()
     let root = mailRoot
@@ -1544,7 +1580,7 @@ private final class OwlSession: ObservableObject {
         self.isRefreshingSnapshot = false
       } catch {
         self.isRefreshingSnapshot = false
-        self.showStatus("Using seed state; backend unavailable: \(error.localizedDescription)", isError: true)
+        self.showStatus("Mailbox refresh failed: \(error.localizedDescription)", isError: true)
       }
     }
     refreshBootstrapStatus()
@@ -2850,21 +2886,27 @@ private struct RootView: View {
   @EnvironmentObject private var session: OwlSession
 
   var body: some View {
-    VStack(spacing: 0) {
-      MainContentView()
-    }
-    .overlay(alignment: .top) {
-      ToastOverlay()
-        .padding(.top, 12)
-    }
-    .overlay(alignment: .bottom) {
-      if session.selectedRoute == "new" {
-        SenderDropDock()
-          .padding(.bottom, 24)
-      } else if showsMessageDropDock {
-        MessageDropDock()
-          .padding(.bottom, 24)
-          .zIndex(session.draggingMessageID == nil ? 10 : 0)
+    Group {
+      if session.hasLoadedInitialSnapshot {
+        VStack(spacing: 0) {
+          MainContentView()
+        }
+        .overlay(alignment: .top) {
+          ToastOverlay()
+            .padding(.top, 12)
+        }
+        .overlay(alignment: .bottom) {
+          if session.selectedRoute == "new" {
+            SenderDropDock()
+              .padding(.bottom, 24)
+          } else if showsMessageDropDock {
+            MessageDropDock()
+              .padding(.bottom, 24)
+              .zIndex(session.draggingMessageID == nil ? 10 : 0)
+          }
+        }
+      } else {
+        StartupSplashView()
       }
     }
   }
@@ -2872,6 +2914,45 @@ private struct RootView: View {
   private var showsMessageDropDock: Bool {
     session.selectedRoute == "inbox" ||
       session.selectedRoute == "inbox-message"
+  }
+}
+
+private struct StartupSplashView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    VStack(spacing: 18) {
+      Image(nsImage: NSApp.applicationIconImage)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 96, height: 96)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 5)
+      ProgressView()
+        .controlSize(.small)
+      VStack(spacing: 5) {
+        Text(session.startupMessage)
+          .font(.callout.weight(.semibold))
+          .foregroundStyle(.primary)
+        if let error = session.startupErrorMessage {
+          Text(error)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .lineLimit(3)
+            .frame(maxWidth: 420)
+          Button {
+            session.retryInitialLoad()
+          } label: {
+            Label("Retry", systemImage: "arrow.clockwise")
+          }
+          .controlSize(.small)
+          .padding(.top, 4)
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color(nsColor: .windowBackgroundColor))
   }
 }
 
