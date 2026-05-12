@@ -423,7 +423,10 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq 'private struct TimelineViewportHeightPreferenceKey: PreferenceKey' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct TimelineBottomMaxYPreferenceKey: PreferenceKey' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct TimelineScrollEndObserver: NSViewRepresentable' generated/macos/Sources/App/App.swift
-  grep -Fq 'private final class TimelineScrollEndObserverView: NSView' generated/macos/Sources/App/App.swift
+  grep -Fq 'func makeCoordinator() -> Coordinator' generated/macos/Sources/App/App.swift
+  grep -Fq 'func makeNSView(context: Context) -> NSView' generated/macos/Sources/App/App.swift
+  grep -Fq 'final class Coordinator: NSObject' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'TimelineScrollEndObserverView: NSView' generated/macos/Sources/App/App.swift
   grep -Fq 'NSView.boundsDidChangeNotification' generated/macos/Sources/App/App.swift
   grep -Fq 'let distanceFromEnd = documentHeight - visibleMaxY' generated/macos/Sources/App/App.swift
   grep -Fq 'onIsAtEndChanged?(distanceFromEnd <= 18)' generated/macos/Sources/App/App.swift
@@ -651,6 +654,16 @@ linux_uses_native_gtk_and_argv_backend() {
   ! grep -q '/bin/sh -c' generated/linux/src/main.c
 }
 
+secure_chat_hook_has_offline_timeout() {
+  cd "$repo_dir"
+  grep -Fq 'ssh_transport()' scripts/owl-native-secure-chat-hook.sh
+  grep -Fq 'timeout_seconds=${OWL_NATIVE_TRANSPORT_TIMEOUT:-4}' scripts/owl-native-secure-chat-hook.sh
+  grep -Fq -- '-o BatchMode=yes' scripts/owl-native-secure-chat-hook.sh
+  grep -Fq -- '-o ConnectTimeout="$timeout_seconds"' scripts/owl-native-secure-chat-hook.sh
+  grep -Fq -- '-o ServerAliveCountMax=1' scripts/owl-native-secure-chat-hook.sh
+  ! grep -Fq 'response=$(ssh "$ssh_host"' scripts/owl-native-secure-chat-hook.sh
+}
+
 run_case "render is deterministic" render_is_deterministic
 run_case "generated sources have no template tokens" generated_sources_have_no_template_tokens
 run_case "Swift actions cover IR" swift_actions_cover_ir
@@ -672,10 +685,11 @@ run_case "Native UI has no manual refresh controls" native_ui_has_no_manual_refr
 run_case "Swift uses toasts not status bar" swift_uses_toasts_not_status_bar
 run_case "Swift refresh is quiet and incremental" swift_refresh_is_quiet_and_incremental
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
+run_case "Secure Chat hook has offline timeout" secure_chat_hook_has_offline_timeout
 
 if [ "$failures" -ne 0 ]; then
   printf '%s\n' "$failures test(s) failed" >&2
   exit 1
 fi
 
-printf '%s\n' "20/20 native render tests passed"
+printf '%s\n' "21/21 native render tests passed"

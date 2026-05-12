@@ -101,13 +101,24 @@ send_command=$(validate_remote_path "$send_command")
 require_cmd jq
 require_cmd ssh
 
+ssh_transport() {
+  timeout_seconds=${OWL_NATIVE_TRANSPORT_TIMEOUT:-4}
+  case "$timeout_seconds" in ''|*[!0123456789]*) timeout_seconds=4 ;; esac
+  ssh \
+    -o BatchMode=yes \
+    -o ConnectTimeout="$timeout_seconds" \
+    -o ServerAliveInterval="$timeout_seconds" \
+    -o ServerAliveCountMax=1 \
+    "$ssh_host" "$@"
+}
+
 poll_messages() {
   incoming_dir=$1
   mkdir -p "$incoming_dir" "$(dirname "$cursor_file")"
   since=$(cat "$cursor_file" 2>/dev/null || printf '0')
   case "$since" in ''|*[!0123456789]*) since=0 ;; esac
 
-  response=$(ssh "$ssh_host" "$export_command" "$since")
+  response=$(ssh_transport "$export_command" "$since")
   printf '%s\n' "$response" | jq -e '.success == true' >/dev/null
 
   imported=0
@@ -174,9 +185,9 @@ send_message() {
     attachment_mime=$(jq -r '.attachment.mime // "application/octet-stream"' "$outbox_file" | head -n 1)
     [ -n "$attachment_mime" ] || attachment_mime=application/octet-stream
     attachment_name_b64=$(printf '%s' "$attachment_name" | base64_one_line)
-    response=$(ssh "$ssh_host" "$send_command" "$target" "$body_b64" "$attachment_name_b64" "$attachment_mime" "$client_message_id" < "$attachment_path")
+    response=$(ssh_transport "$send_command" "$target" "$body_b64" "$attachment_name_b64" "$attachment_mime" "$client_message_id" < "$attachment_path")
   else
-    response=$(ssh "$ssh_host" "$send_command" "$target" "$body_b64" "" "" "$client_message_id")
+    response=$(ssh_transport "$send_command" "$target" "$body_b64" "" "" "$client_message_id")
   fi
   printf '%s\n' "$response" | jq -e '.success == true' >/dev/null
   printf '%s\n' 'transport=nostr-blog-secure-chat'

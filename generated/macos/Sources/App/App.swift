@@ -4876,61 +4876,61 @@ private struct TimelineBottomMaxYPreferenceKey: PreferenceKey {
 private struct TimelineScrollEndObserver: NSViewRepresentable {
   let onIsAtEndChanged: (Bool) -> Void
 
-  func makeNSView(context: Context) -> TimelineScrollEndObserverView {
-    let view = TimelineScrollEndObserverView()
-    view.onIsAtEndChanged = onIsAtEndChanged
-    return view
+  func makeCoordinator() -> Coordinator {
+    Coordinator()
   }
 
-  func updateNSView(_ nsView: TimelineScrollEndObserverView, context: Context) {
-    nsView.onIsAtEndChanged = onIsAtEndChanged
-    nsView.attachIfNeeded()
+  func makeNSView(context: Context) -> NSView {
+    NSView(frame: .zero)
   }
-}
 
-private final class TimelineScrollEndObserverView: NSView {
-  var onIsAtEndChanged: ((Bool) -> Void)?
-  private weak var observedScrollView: NSScrollView?
-
-  override func viewDidMoveToWindow() {
-    super.viewDidMoveToWindow()
-    DispatchQueue.main.async { [weak self] in
-      self?.attachIfNeeded()
+  func updateNSView(_ nsView: NSView, context: Context) {
+    context.coordinator.onIsAtEndChanged = onIsAtEndChanged
+    let coordinator = context.coordinator
+    DispatchQueue.main.async {
+      coordinator.attachIfNeeded(from: nsView)
     }
   }
 
-  func attachIfNeeded() {
-    guard let scrollView = enclosingScrollView, observedScrollView !== scrollView else {
+  @MainActor
+  final class Coordinator: NSObject {
+    var onIsAtEndChanged: ((Bool) -> Void)?
+    private weak var observedScrollView: NSScrollView?
+
+    func attachIfNeeded(from view: NSView) {
+      guard let scrollView = view.enclosingScrollView else {
+        return
+      }
+      if observedScrollView !== scrollView {
+        NotificationCenter.default.removeObserver(self)
+        observedScrollView = scrollView
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+          self,
+          selector: #selector(observedBoundsDidChange(_:)),
+          name: NSView.boundsDidChangeNotification,
+          object: scrollView.contentView
+        )
+      }
       reportScrollPosition()
-      return
     }
-    NotificationCenter.default.removeObserver(self)
-    observedScrollView = scrollView
-    scrollView.contentView.postsBoundsChangedNotifications = true
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(observedBoundsDidChange(_:)),
-      name: NSView.boundsDidChangeNotification,
-      object: scrollView.contentView
-    )
-    reportScrollPosition()
-  }
 
-  @objc private func observedBoundsDidChange(_ notification: Notification) {
-    reportScrollPosition()
-  }
+    @objc private func observedBoundsDidChange(_ notification: Notification) {
+      reportScrollPosition()
+    }
 
-  private func reportScrollPosition() {
-    guard let scrollView = observedScrollView,
-          let documentView = scrollView.documentView else { return }
-    let visibleMaxY = scrollView.contentView.bounds.maxY
-    let documentHeight = documentView.bounds.height
-    let distanceFromEnd = documentHeight - visibleMaxY
-    onIsAtEndChanged?(distanceFromEnd <= 18)
-  }
+    private func reportScrollPosition() {
+      guard let scrollView = observedScrollView,
+            let documentView = scrollView.documentView else { return }
+      let visibleMaxY = scrollView.contentView.bounds.maxY
+      let documentHeight = documentView.bounds.height
+      let distanceFromEnd = documentHeight - visibleMaxY
+      onIsAtEndChanged?(distanceFromEnd <= 18)
+    }
 
-  deinit {
-    NotificationCenter.default.removeObserver(self)
+    deinit {
+      NotificationCenter.default.removeObserver(self)
+    }
   }
 }
 
