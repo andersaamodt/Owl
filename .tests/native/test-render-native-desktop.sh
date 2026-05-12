@@ -435,24 +435,22 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq '.padding(.top, 18)' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct TimelineViewportHeightPreferenceKey: PreferenceKey' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct TimelineBottomMaxYPreferenceKey: PreferenceKey' generated/macos/Sources/App/App.swift
-  grep -Fq 'private struct TimelineScrollEndObserver: NSViewRepresentable' generated/macos/Sources/App/App.swift
-  grep -Fq 'func makeCoordinator() -> Coordinator' generated/macos/Sources/App/App.swift
-  grep -Fq 'func makeNSView(context: Context) -> NSView' generated/macos/Sources/App/App.swift
-  grep -Fq 'final class Coordinator: NSObject' generated/macos/Sources/App/App.swift
-  ! grep -Fq 'TimelineScrollEndObserverView: NSView' generated/macos/Sources/App/App.swift
-  grep -Fq 'NSView.boundsDidChangeNotification' generated/macos/Sources/App/App.swift
-  grep -Fq 'let distanceFromEnd = documentHeight - visibleMaxY' generated/macos/Sources/App/App.swift
-  grep -Fq 'onIsAtEndChanged?(distanceFromEnd <= 18)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TimelineContentMinYPreferenceKey: PreferenceKey' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'NSViewRepresentable' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'TimelineScrollEndObserver' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'NSView.boundsDidChangeNotification' generated/macos/Sources/App/App.swift
   grep -Fq 'private let timelineCoordinateSpace = "timeline-scroll-space"' generated/macos/Sources/App/App.swift
   grep -Fq '.coordinateSpace(name: timelineCoordinateSpace)' generated/macos/Sources/App/App.swift
+  grep -Fq 'geometry.frame(in: .named(timelineCoordinateSpace)).minY' generated/macos/Sources/App/App.swift
   grep -Fq 'geometry.frame(in: .named(timelineCoordinateSpace)).maxY' generated/macos/Sources/App/App.swift
   grep -Fq '.onPreferenceChange(TimelineViewportHeightPreferenceKey.self)' generated/macos/Sources/App/App.swift
   grep -Fq '.onPreferenceChange(TimelineBottomMaxYPreferenceKey.self)' generated/macos/Sources/App/App.swift
-  grep -Fq 'TimelineScrollEndObserver { isAtEnd in' generated/macos/Sources/App/App.swift
+  grep -Fq '.onPreferenceChange(TimelineContentMinYPreferenceKey.self)' generated/macos/Sources/App/App.swift
   grep -Fq '.overlay(alignment: .bottom)' generated/macos/Sources/App/App.swift
   grep -Fq '.padding(.bottom, 14)' generated/macos/Sources/App/App.swift
   grep -Fq 'let distanceFromEnd = timelineBottomMaxY - timelineViewportHeight' generated/macos/Sources/App/App.swift
-  grep -Fq 'setTimelineEndVisible(distanceFromEnd <= 16)' generated/macos/Sources/App/App.swift
+  grep -Fq 'let tolerance: CGFloat = timelineContentMinY > 0 ? 24 : 16' generated/macos/Sources/App/App.swift
+  grep -Fq 'setTimelineEndVisible(distanceFromEnd <= tolerance)' generated/macos/Sources/App/App.swift
   grep -Fq 'setTimelineEndVisible(false)' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(systemName: "arrow.down.circle.fill")' generated/macos/Sources/App/App.swift
   grep -Fq 'scrollToTimelineEnd(proxy)' generated/macos/Sources/App/App.swift

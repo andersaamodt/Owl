@@ -4954,64 +4954,11 @@ private struct TimelineBottomMaxYPreferenceKey: PreferenceKey {
   }
 }
 
-private struct TimelineScrollEndObserver: NSViewRepresentable {
-  let onIsAtEndChanged: (Bool) -> Void
+private struct TimelineContentMinYPreferenceKey: PreferenceKey {
+  static let defaultValue: CGFloat = 0
 
-  func makeCoordinator() -> Coordinator {
-    Coordinator()
-  }
-
-  func makeNSView(context: Context) -> NSView {
-    NSView(frame: .zero)
-  }
-
-  func updateNSView(_ nsView: NSView, context: Context) {
-    context.coordinator.onIsAtEndChanged = onIsAtEndChanged
-    let coordinator = context.coordinator
-    DispatchQueue.main.async {
-      coordinator.attachIfNeeded(from: nsView)
-    }
-  }
-
-  @MainActor
-  final class Coordinator: NSObject {
-    var onIsAtEndChanged: ((Bool) -> Void)?
-    private weak var observedScrollView: NSScrollView?
-
-    func attachIfNeeded(from view: NSView) {
-      guard let scrollView = view.enclosingScrollView else {
-        return
-      }
-      if observedScrollView !== scrollView {
-        NotificationCenter.default.removeObserver(self)
-        observedScrollView = scrollView
-        scrollView.contentView.postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(
-          self,
-          selector: #selector(observedBoundsDidChange(_:)),
-          name: NSView.boundsDidChangeNotification,
-          object: scrollView.contentView
-        )
-      }
-      reportScrollPosition()
-    }
-
-    @objc private func observedBoundsDidChange(_ notification: Notification) {
-      reportScrollPosition()
-    }
-
-    private func reportScrollPosition() {
-      guard let scrollView = observedScrollView,
-            let documentView = scrollView.documentView else { return }
-      let visibleMaxY = scrollView.contentView.bounds.maxY
-      let documentHeight = documentView.bounds.height
-      let distanceFromEnd = documentHeight - visibleMaxY
-      onIsAtEndChanged?(distanceFromEnd <= 18)
-    }
-
-    deinit {
-      NotificationCenter.default.removeObserver(self)
-    }
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = nextValue()
   }
 }
 
@@ -5023,6 +4970,7 @@ private struct TimelineView: View {
   @State private var isAttachmentTargeted = false
   @State private var timelineViewportHeight: CGFloat = 0
   @State private var timelineBottomMaxY: CGFloat = 0
+  @State private var timelineContentMinY: CGFloat = 0
   private let timelineBottomID = "timeline-bottom-anchor"
   private let timelineCoordinateSpace = "timeline-scroll-space"
 
@@ -5044,6 +4992,16 @@ private struct TimelineView: View {
         ScrollViewReader { proxy in
           ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
+              Color.clear
+                .frame(height: 0)
+                .background {
+                  GeometryReader { geometry in
+                    Color.clear.preference(
+                      key: TimelineContentMinYPreferenceKey.self,
+                      value: geometry.frame(in: .named(timelineCoordinateSpace)).minY
+                    )
+                  }
+                }
               ForEach(session.timelineMessages) { message in
                 MessageBubble(message: message)
                   .id(message.id)
@@ -5074,16 +5032,11 @@ private struct TimelineView: View {
           }
           .coordinateSpace(name: timelineCoordinateSpace)
           .background {
-            ZStack {
-              GeometryReader { geometry in
-                Color.clear.preference(
-                  key: TimelineViewportHeightPreferenceKey.self,
-                  value: geometry.size.height
-                )
-              }
-              TimelineScrollEndObserver { isAtEnd in
-                setTimelineEndVisible(isAtEnd)
-              }
+            GeometryReader { geometry in
+              Color.clear.preference(
+                key: TimelineViewportHeightPreferenceKey.self,
+                value: geometry.size.height
+              )
             }
           }
           .overlay(alignment: .bottom) {
@@ -5127,6 +5080,10 @@ private struct TimelineView: View {
           }
           .onPreferenceChange(TimelineBottomMaxYPreferenceKey.self) { maxY in
             timelineBottomMaxY = maxY
+            updateTimelineEndVisibility()
+          }
+          .onPreferenceChange(TimelineContentMinYPreferenceKey.self) { minY in
+            timelineContentMinY = minY
             updateTimelineEndVisibility()
           }
           .onChange(of: session.selectedThreadID) { _ in
@@ -5212,7 +5169,8 @@ private struct TimelineView: View {
   private func updateTimelineEndVisibility() {
     guard timelineViewportHeight > 0, timelineBottomMaxY > 0 else { return }
     let distanceFromEnd = timelineBottomMaxY - timelineViewportHeight
-    setTimelineEndVisible(distanceFromEnd <= 16)
+    let tolerance: CGFloat = timelineContentMinY > 0 ? 24 : 16
+    setTimelineEndVisible(distanceFromEnd <= tolerance)
   }
 
   private func timelineSubtitle(_ thread: ThreadItem) -> String {
