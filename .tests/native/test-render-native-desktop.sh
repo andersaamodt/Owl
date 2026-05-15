@@ -383,6 +383,8 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'MessageDropTarget(action: .archive)' generated/macos/Sources/App/App.swift
   grep -q 'func trash(_ message: MessageItem)' generated/macos/Sources/App/App.swift
   grep -q 'NSWorkspace.shared.recycle(urls)' generated/macos/Sources/App/App.swift
+  grep -q 'if response.delete_after_trash' generated/macos/Sources/App/App.swift
+  ! grep -q 'Deleting SimpleX message' generated/macos/Sources/App/App.swift
   grep -q 'private func recycleInSystemTrash(_ urls: \\[URL\\]) async throws -> \\[URL: URL\\]' generated/macos/Sources/App/App.swift
   grep -q 'func undoLastTrashAction()' generated/macos/Sources/App/App.swift
   grep -q 'func openSystemTrash()' generated/macos/Sources/App/App.swift
@@ -390,6 +392,7 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'Label("Open System Trash", systemImage: "trash")' generated/macos/Sources/App/App.swift
   grep -q 'static func messageTrashFiles(root: String, messageID: String) async throws -> TrashFilesResponse' generated/macos/Sources/App/App.swift
   grep -q 'message-trash-files' generated/macos/Sources/App/App.swift scripts/owl-native-backend.sh
+  grep -q 'delete_after_trash' generated/macos/Sources/App/App.swift scripts/owl-native-backend.sh
   grep -Fq '.zIndex(session.draggingMessageID == nil ? 10 : 0)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var showsMessageDropDock: Bool' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "inbox-message"' generated/macos/Sources/App/App.swift

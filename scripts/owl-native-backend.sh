@@ -238,6 +238,10 @@ simplex_processed_dir() {
   printf '%s\n' "$(simplex_state_root)/processed"
 }
 
+simplex_trash_staging_dir() {
+  printf '%s\n' "$(simplex_state_root)/trash-staging"
+}
+
 simplex_system_root() {
   printf '%s\n' "$ROOT/.system/simplex"
 }
@@ -1166,7 +1170,18 @@ message_trash_files_action() {
         '{ok:true,id:$id,paths:$paths}'
       ;;
     simplex:*)
-      jq -n --arg id "$id" '{ok:true,id:$id,paths:[],file_backed:false}'
+      row=$(simplex_message_lookup "$id" || true)
+      [ -n "$row" ] || usage_error "SimpleX message not found: $id"
+      safe_id=$(safe_slug "$id")
+      staging_dir=$(simplex_trash_staging_dir)
+      mkdir -p "$staging_dir"
+      staging_path="$staging_dir/$safe_id.json"
+      printf '%s\n' "$row" | jq '.' >"$staging_path"
+      chmod 600 "$staging_path" 2>/dev/null || true
+      jq -n \
+        --arg id "$id" \
+        --arg path "$staging_path" \
+        '{ok:true,id:$id,paths:[$path],file_backed:true,delete_after_trash:true}'
       ;;
     *)
       usage_error "unsupported message id: $id"

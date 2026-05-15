@@ -451,6 +451,7 @@ private struct TrashFilesResponse: Decodable, Sendable {
   var ok: Bool = false
   var id: String = ""
   var paths: [String] = []
+  var delete_after_trash: Bool = false
 }
 
 private struct SimpleXTickResponse: Decodable, Sendable {
@@ -1918,30 +1919,25 @@ private final class OwlSession: ObservableObject {
   func trash(_ message: MessageItem) {
     let root = mailRoot
     isBusy = true
-    showStatus(message.isSimpleX ? "Deleting SimpleX message" : "Moving message to system Trash", busy: true)
+    showStatus("Moving message to system Trash", busy: true)
     Task {
       do {
-        if message.isSimpleX {
-          _ = try await OwlBackend.runJSON(action: "delete-message", root: root, args: [message.id])
-          self.lastSystemTrashAction = nil
-          self.applyDeleted(messageID: message.id)
-          self.isBusy = false
-          self.showStatus("Deleted SimpleX message")
-        } else {
-          let response = try await OwlBackend.messageTrashFiles(root: root, messageID: message.id)
-          let urls = response.paths.map { URL(fileURLWithPath: $0) }
-          guard !urls.isEmpty else {
-            throw NSError(domain: "OwlNativeTrash", code: 1, userInfo: [NSLocalizedDescriptionKey: "Message files were not found for system Trash."])
-          }
-          let recycled = try await recycleInSystemTrash(urls)
-          self.lastSystemTrashAction = SystemTrashAction(
-            messageID: message.id,
-            originalToTrash: recycled.map { (original: $0.key, trashed: $0.value) }
-          )
-          self.applyDeleted(messageID: message.id)
-          self.isBusy = false
-          self.showStatus("Moved message to system Trash")
+        let response = try await OwlBackend.messageTrashFiles(root: root, messageID: message.id)
+        let urls = response.paths.map { URL(fileURLWithPath: $0) }
+        guard !urls.isEmpty else {
+          throw NSError(domain: "OwlNativeTrash", code: 1, userInfo: [NSLocalizedDescriptionKey: "Message files were not found for system Trash."])
         }
+        let recycled = try await recycleInSystemTrash(urls)
+        if response.delete_after_trash {
+          _ = try await OwlBackend.runJSON(action: "delete-message", root: root, args: [message.id])
+        }
+        self.lastSystemTrashAction = SystemTrashAction(
+          messageID: message.id,
+          originalToTrash: recycled.map { (original: $0.key, trashed: $0.value) }
+        )
+        self.applyDeleted(messageID: message.id)
+        self.isBusy = false
+        self.showStatus("Moved message to system Trash")
         self.refresh()
       } catch {
         self.isBusy = false

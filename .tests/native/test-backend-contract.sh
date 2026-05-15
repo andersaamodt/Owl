@@ -181,6 +181,20 @@ simplex_inbox_state_is_metadata_not_thread_movement() {
   ' >/dev/null
 }
 
+simplex_trash_stages_file_for_system_trash() {
+  root="$tmpdir/simplex-trash/mail"
+  mkdir -p "$tmpdir/home"
+  backend prepare "$root" >/dev/null
+  backend bind-contact "$root" river "River Stone" person "" simplex://river no >/dev/null
+  backend import-simplex "$root" river "$(b64 'trash me')" false true "SimpleX trash" >/dev/null
+  id=$(backend snapshot "$root" | jq -r '.inbox[] | select(.transport == "simplex") | .id' | head -n 1)
+  trash=$(backend message-trash-files "$root" "$id")
+  path=$(printf '%s\n' "$trash" | jq -r '.paths[0] // ""')
+  printf '%s\n' "$trash" | jq -e '.ok == true and .delete_after_trash == true and (.paths | length) == 1' >/dev/null
+  [ -f "$path" ] || return 1
+  jq -e --arg id "$id" '.id == $id and .body == "trash me"' "$path" >/dev/null
+}
+
 bootstrap_status_is_structured() {
   root="$tmpdir/bootstrap/mail"
   mkdir -p "$tmpdir/home"
@@ -571,6 +585,7 @@ run_case "prepare creates shared roots" prepare_creates_shared_roots
 run_case "SimpleX messages share one timeline and inbox" simplex_messages_share_one_timeline_and_inbox
 run_case "SimpleX send queues without email fallback" simplex_send_queues_without_email_fallback
 run_case "SimpleX inbox state does not move timeline messages" simplex_inbox_state_is_metadata_not_thread_movement
+run_case "SimpleX trash stages a file for system Trash" simplex_trash_stages_file_for_system_trash
 run_case "bootstrap status is structured" bootstrap_status_is_structured
 run_case "bootstrap status detects Wizardry SimpleX install" bootstrap_status_detects_wizardry_simplex_install
 run_case "snapshot includes Owl mailboxes, drafts, events, and settings" snapshot_includes_owl_mailboxes_drafts_events_settings
