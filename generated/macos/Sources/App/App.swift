@@ -4140,10 +4140,10 @@ private struct NewSenderMessageStackCard: View {
       CardStackFrame(depth: 1, tint: message.isSimpleX ? .green : .red, isSelected: isSelected) {
         VStack(alignment: .leading, spacing: 10) {
           HStack(alignment: .firstTextBaseline, spacing: 8) {
-            TransportMark(message: message)
             Text(message.subject.isEmpty ? "(no subject)" : message.subject)
               .font(.headline)
               .lineLimit(1)
+            Spacer(minLength: 10)
             Text(friendlyTime(message.received_at))
               .font(.caption)
               .foregroundStyle(.secondary)
@@ -4162,6 +4162,7 @@ private struct NewSenderMessageStackCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+            Spacer(minLength: 0)
           }
         }
       }
@@ -4790,9 +4791,9 @@ private struct MessageReaderCard: View {
     CardStackFrame(depth: 1, tint: message.isSimpleX ? .green : .red, isSelected: true) {
       VStack(alignment: .leading, spacing: 8) {
         HStack(alignment: .firstTextBaseline) {
-          TransportMark(message: message)
           Text(message.contact_name)
             .font(.headline)
+          Spacer(minLength: 10)
           Text(friendlyTime(message.received_at))
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -4817,6 +4818,7 @@ private struct MessageReaderCard: View {
               .font(.caption)
               .foregroundStyle(.secondary)
           }
+          Spacer(minLength: 0)
           Button { session.archive(message) } label: {
             Image(systemName: "archivebox")
           }
@@ -4891,7 +4893,6 @@ private struct InboxCardContent: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .firstTextBaseline, spacing: 8) {
-        TransportMark(message: message)
         Text(message.contact_name)
           .font(.headline)
         if message.starred {
@@ -4899,6 +4900,7 @@ private struct InboxCardContent: View {
             .font(.caption)
             .foregroundStyle(.yellow)
         }
+        Spacer(minLength: 10)
         Text(friendlyTime(message.received_at))
           .font(.caption)
           .foregroundStyle(.secondary)
@@ -4921,11 +4923,7 @@ private struct InboxCardContent: View {
             .foregroundStyle(.secondary)
         }
         if actionsVisible {
-          Button { session.markRead(message, read: !message.read) } label: {
-            Image(systemName: message.read ? "envelope.badge" : "envelope.open")
-          }
-          .help(message.read ? "Mark Unread" : "Mark Read")
-          .buttonStyle(.borderless)
+          Spacer(minLength: 0)
           Button { session.archive(message) } label: {
             Image(systemName: "archivebox")
           }

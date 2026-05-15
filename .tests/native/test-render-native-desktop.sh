@@ -227,6 +227,17 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'let revealedMessage: MessageItem?' generated/macos/Sources/App/App.swift
   grep -Fq 'InboxCardContent(message: revealedMessage, actionsVisible: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct InboxCardContent: View' generated/macos/Sources/App/App.swift
+  awk '
+    /private struct InboxCardContent/ { in_view = 1 }
+    /private struct TimelineViewportHeightPreferenceKey/ { in_view = 0 }
+    in_view && /Spacer[(]minLength: 10[)]/ { top_spacer = 1 }
+    in_view && /Text[(]friendlyTime[(]message[.]received_at[)][)]/ { time = 1 }
+    in_view && /Spacer[(]minLength: 0[)]/ { bottom_spacer = 1 }
+    in_view && /Button [{] session[.]archive[(]message[)] [}] label:/ { archive = 1 }
+    in_view && /TransportMark[(]message: message[)]/ { bad_lock = 1 }
+    in_view && /session[.]markRead[(]message/ { bad_mark = 1 }
+    END { exit (top_spacer && time && bottom_spacer && archive && !bad_lock && !bad_mark) ? 0 : 1 }
+  ' generated/macos/Sources/App/App.swift
   grep -Fq '.id(inboxStackID(for: message))' generated/macos/Sources/App/App.swift
   grep -Fq '.zIndex(inboxStackZIndex(for: message))' generated/macos/Sources/App/App.swift
   grep -Fq 'private func inboxStackZIndex(for message: MessageItem) -> Double' generated/macos/Sources/App/App.swift
@@ -540,7 +551,7 @@ swift_message_surfaces_use_colored_backgrounds() {
   grep -Fq 'actionItem("Archive", action: "archive_selected"' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(systemName: "archivebox")' generated/macos/Sources/App/App.swift
   grep -Fq '.help("Archive")' generated/macos/Sources/App/App.swift
-  grep -Fq '.help(message.read ? "Mark Unread" : "Mark Read")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label(message.read ? "Mark Unread" : "Mark Read", systemImage: message.read ? "envelope.badge" : "envelope.open")' generated/macos/Sources/App/App.swift
 }
 
 swift_chat_bubble_colors_are_preferences() {
