@@ -106,7 +106,11 @@ ssh_transport() {
   case "$timeout_seconds" in ''|*[!0123456789]*) timeout_seconds=4 ;; esac
   control_persist=${OWL_NATIVE_SSH_CONTROL_PERSIST:-60}
   case "$control_persist" in ''|*[!0123456789]*) control_persist=60 ;; esac
-  control_dir="${TMPDIR:-/tmp}/owl-native-ssh-control"
+  # OpenSSH's Unix-domain ControlPath has a hard length limit on macOS.
+  # TMPDIR often expands to /var/folders/... and can make the socket path too
+  # long, so keep the default short while still allowing tests/operators to
+  # override it explicitly.
+  control_dir=${OWL_NATIVE_SSH_CONTROL_DIR:-"/tmp/owl-ssh-${UID:-$(id -u 2>/dev/null || printf 0)}"}
   mkdir -p "$control_dir" 2>/dev/null || true
   chmod 700 "$control_dir" 2>/dev/null || true
   ssh \
@@ -195,7 +199,10 @@ send_message() {
     attachment_name_b64=$(printf '%s' "$attachment_name" | base64_one_line)
     response=$(ssh_transport "$send_command" "$target" "$body_b64" "$attachment_name_b64" "$attachment_mime" "$client_message_id" < "$attachment_path")
   else
-    response=$(ssh_transport "$send_command" "$target" "$body_b64" "" "" "$client_message_id")
+    # Empty SSH arguments are not reliably preserved through the remote shell.
+    # Use an explicit no-attachment sentinel so the site helper can still
+    # receive the idempotency key in the fifth argument.
+    response=$(ssh_transport "$send_command" "$target" "$body_b64" "-" "-" "$client_message_id")
   fi
   printf '%s\n' "$response" | jq -e '.success == true' >/dev/null
   printf '%s\n' 'transport=nostr-blog-secure-chat'
