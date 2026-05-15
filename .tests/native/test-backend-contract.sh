@@ -441,6 +441,7 @@ case "$cmd" in
         seq:7,
         npub:"npub1visitor",
         thread_id:"npub1visitor",
+        contact_name:"Nostr Username",
         body:"hello from website 🦉",
         subject:"Website Secure Chat",
         from_self:false,
@@ -488,6 +489,7 @@ SH
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
     ([.threads[] | select(.id == "npub1visitor")][0].simplex_address == "secure-chat:26") and
+    ([.threads[] | select(.id == "npub1visitor")][0].contact_name == "Nostr Username") and
     (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website 🦉" and .attachments == 1 and .attachment.name == "probe-😀.txt")) | length) == 1 and
     (.messages | map(select(.body == "owner reply should not echo")) | length) == 0
   ' >/dev/null

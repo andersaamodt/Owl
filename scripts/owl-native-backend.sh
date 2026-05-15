@@ -1806,6 +1806,7 @@ tick_simplex_action() {
     thread_id=$(jq -r '.thread_id // .contact_key // .contact // "unknown"' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     body=$(jq -r '.body // .text // .message // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     subject=$(jq -r '.subject // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
+    contact_name=$(jq -r '.contact_name // .name // .display_name // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     from_self=$(jq -r '.from_self // false' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     in_inbox=$(jq -r '.in_inbox // true' "$simplex_incoming_file" 2>/dev/null | head -n 1)
     simplex_address=$(jq -r '.simplex_address // ""' "$simplex_incoming_file" 2>/dev/null | head -n 1)
@@ -1816,8 +1817,18 @@ tick_simplex_action() {
     [ -n "$attachment_json" ] || attachment_json=null
     case "$attachments" in ''|*[!0123456789]*) attachments=0 ;; esac
     [ -n "$body" ] || continue
-    if [ -n "$simplex_address" ] && [ ! -f "$(native_contact_file "$thread_id")" ]; then
-      save_contact_binding "$thread_id" "$thread_id" person "" "$simplex_address" no >/dev/null
+    [ -n "$contact_name" ] || contact_name=$thread_id
+    if [ -n "$simplex_address" ]; then
+      contact_file=$(native_contact_file "$thread_id")
+      current_name=
+      if [ -f "$contact_file" ]; then
+        current_name=$(config_get "$contact_file" name 2>/dev/null || printf '')
+      fi
+      case "$current_name" in
+        ''|"$thread_id"|"$simplex_address"|npub1*|secure-chat-contact-*)
+          save_contact_binding "$thread_id" "$contact_name" person "" "$simplex_address" no >/dev/null
+          ;;
+      esac
     fi
     if simplex_duplicate_message_exists "$thread_id" "$body" "$from_self" "$remote_id"; then
       mkdir -p "$(simplex_processed_dir)"

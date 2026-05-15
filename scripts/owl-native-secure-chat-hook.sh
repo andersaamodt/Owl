@@ -142,6 +142,7 @@ poll_messages() {
     | {
         thread_id:(.thread_id // .npub // "unknown"),
         contact_key:(.thread_id // .npub // "unknown"),
+        contact_name:(.contact_name // .name // .display_name // .thread_id // .npub // "unknown"),
         body:(.body // ""),
         subject:(.subject // "Website Secure Chat"),
         from_self:((.from_self // false) == true),
