@@ -221,12 +221,16 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'cardTextWeight > 720 ? 500 : 420' generated/macos/Sources/App/App.swift
   grep -Fq 'cardTextWeight > 720 ? 375 : (cardTextWeight > 260 ? 360 : 315)' generated/macos/Sources/App/App.swift
   grep -Fq 'var cardBodyLineLimit: Int' generated/macos/Sources/App/App.swift
+  grep -Fq 'var inboxCardWidth: CGFloat' generated/macos/Sources/App/App.swift
+  grep -Fq 'cardTextWeight > 720 ? 360 : 300' generated/macos/Sources/App/App.swift
+  grep -Fq 'cardTextWeight > 720 ? 330 : (cardTextWeight > 260 ? 290 : 250)' generated/macos/Sources/App/App.swift
+  grep -Fq 'var inboxCardBodyLineLimit: Int' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(width: width, alignment: .topLeading)' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(minHeight: minHeight, alignment: .topLeading)' generated/macos/Sources/App/App.swift
   grep -Fq '.fixedSize(horizontal: true, vertical: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'StaticCardStackBackplates(' generated/macos/Sources/App/App.swift
-  grep -Fq 'width: message.cardWidth,' generated/macos/Sources/App/App.swift
-  grep -Fq 'minHeight: message.cardMinHeight' generated/macos/Sources/App/App.swift
+  grep -Fq 'width: message.inboxCardWidth,' generated/macos/Sources/App/App.swift
+  grep -Fq 'minHeight: message.inboxCardMinHeight' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(width: width, height: minHeight)' generated/macos/Sources/App/App.swift
   grep -Fq 'private func stackOffsetX(_ index: Int) -> CGFloat' generated/macos/Sources/App/App.swift
   grep -Fq 'CardStackFrame(' generated/macos/Sources/App/App.swift
@@ -259,7 +263,7 @@ swift_new_and_inbox_use_card_stack_layout() {
   ! grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "archive"' generated/macos/Sources/App/App.swift
-  grep -Fq '.frame(maxWidth: 620)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(maxWidth: 420)' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: .infinity, alignment: .center)' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: 540, alignment: .center)' generated/macos/Sources/App/App.swift
   grep -Fq 'TransportPill(message: latest)' generated/macos/Sources/App/App.swift

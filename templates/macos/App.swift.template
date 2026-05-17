@@ -867,6 +867,15 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
   var cardBodyLineLimit: Int {
     cardTextWeight > 720 ? 12 : (cardTextWeight > 260 ? 8 : 5)
   }
+  var inboxCardWidth: CGFloat {
+    cardTextWeight > 720 ? 360 : 300
+  }
+  var inboxCardMinHeight: CGFloat {
+    cardTextWeight > 720 ? 330 : (cardTextWeight > 260 ? 290 : 250)
+  }
+  var inboxCardBodyLineLimit: Int {
+    cardTextWeight > 720 ? 9 : (cardTextWeight > 260 ? 6 : 4)
+  }
   var llmDetectedCategory: String? {
     let category = llm_spam_category.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !category.isEmpty, category != "unknown" else { return nil }
@@ -4552,7 +4561,7 @@ private struct InboxView: View {
                   animationNamespace: animationNamespace
                 )
                 .id(inboxStackID(for: message))
-                .frame(maxWidth: 620)
+                .frame(maxWidth: 420)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .zIndex(inboxStackZIndex(for: message))
               }
@@ -4808,15 +4817,15 @@ private struct InboxStackCard: View {
       StaticCardStackBackplates(
         depth: stackDepth,
         tint: messageTint,
-        width: message.cardWidth,
-        minHeight: message.cardMinHeight
+        width: message.inboxCardWidth,
+        minHeight: message.inboxCardMinHeight
       )
       CardStackFrame(
         depth: 1,
         tint: messageTint,
         isSelected: isFocused,
-        width: message.cardWidth,
-        minHeight: message.cardMinHeight
+        width: message.inboxCardWidth,
+        minHeight: message.inboxCardMinHeight
       ) {
         InboxCardContent(message: message, actionsVisible: true)
       }
@@ -4872,7 +4881,7 @@ private struct InboxCardContent: View {
       Text(message.displayBody.isEmpty ? "No preview" : message.displayBody)
         .font(message.isLongBlock ? .body : .callout)
         .foregroundStyle(.primary)
-        .lineLimit(message.cardBodyLineLimit)
+        .lineLimit(message.inboxCardBodyLineLimit)
       Spacer(minLength: 8)
       HStack(spacing: 8) {
         TransportPill(message: message)
