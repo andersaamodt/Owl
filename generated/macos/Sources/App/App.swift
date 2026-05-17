@@ -359,6 +359,10 @@ private let generatedAppVersion = "0.1.0"
 private let messageDragPayloadPrefix = "owl-native-message:"
 private let senderDragPayloadPrefix = "owl-native-sender:"
 
+private final class NonDraggableHostingView<Content: View>: NSHostingView<Content> {
+  override var mouseDownCanMoveWindow: Bool { false }
+}
+
 @main
 private enum OwlNativeGeneratedApp {
   @MainActor private static var appDelegate: OwlNativeAppDelegate?
@@ -435,6 +439,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let tabsView = PrimaryTabBar()
       .environmentObject(session)
     let controller = NSHostingController(rootView: AnyView(tabsView))
+    controller.view = NonDraggableHostingView(rootView: AnyView(tabsView))
     controller.view.frame = NSRect(x: 0, y: 0, width: 500, height: 34)
     let accessory = NSTitlebarAccessoryViewController()
     accessory.view = controller.view

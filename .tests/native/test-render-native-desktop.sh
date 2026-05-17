@@ -78,6 +78,9 @@ swift_uses_native_desktop_idiom() {
   grep -q 'NSTitlebarAccessoryViewController' generated/macos/Sources/App/App.swift
   grep -q 'window.titleVisibility = .hidden' generated/macos/Sources/App/App.swift
   grep -q 'installTitlebarTabs(in: window)' generated/macos/Sources/App/App.swift
+  grep -q 'private final class NonDraggableHostingView<Content: View>: NSHostingView<Content>' generated/macos/Sources/App/App.swift
+  grep -q 'override var mouseDownCanMoveWindow: Bool { false }' generated/macos/Sources/App/App.swift
+  grep -q 'controller.view = NonDraggableHostingView(rootView: AnyView(tabsView))' generated/macos/Sources/App/App.swift
   grep -q 'NewSendersView' generated/macos/Sources/App/App.swift
   grep -q 'MailView' generated/macos/Sources/App/App.swift
   grep -q 'TabButton(title: "New Senders", systemImage: "tray.and.arrow.down"' generated/macos/Sources/App/App.swift
