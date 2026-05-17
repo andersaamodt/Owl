@@ -519,6 +519,8 @@ swift_message_surfaces_use_colored_backgrounds() {
   grep -Fq 'private struct AttachmentPreview: View' generated/macos/Sources/App/App.swift
   grep -Fq 'Image(nsImage: image)' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct InlineVideoAttachmentView: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct InlineAudioAttachmentView: View' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(width: 360, height: 58)' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct NativeVideoPlayerView: NSViewRepresentable' generated/macos/Sources/App/App.swift
   grep -Fq 'func makeNSView(context: Context) -> AVPlayerView' generated/macos/Sources/App/App.swift
   grep -Fq 'view.player = AVPlayer(url: url)' generated/macos/Sources/App/App.swift

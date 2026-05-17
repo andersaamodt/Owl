@@ -5299,6 +5299,8 @@ private struct AttachmentPreview: View {
       } else if attachment.isVideo || attachment.isAudio {
         if attachment.isVideo, let url = attachment.temporaryURL {
           InlineVideoAttachmentView(url: url)
+        } else if attachment.isAudio, let url = attachment.temporaryURL {
+          InlineAudioAttachmentView(url: url)
         } else {
           ExternalAttachmentOpenButton(attachment: attachment)
         }
@@ -5337,6 +5339,21 @@ private struct InlineVideoAttachmentView: View {
   var body: some View {
     NativeVideoPlayerView(url: url)
       .frame(width: 360, height: 220)
+      .clipShape(RoundedRectangle(cornerRadius: 9))
+      .overlay {
+        RoundedRectangle(cornerRadius: 9)
+          .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+      }
+  }
+}
+
+private struct InlineAudioAttachmentView: View {
+  let url: URL
+
+  var body: some View {
+    NativeVideoPlayerView(url: url)
+      .frame(width: 360, height: 58)
+      .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(0.06)))
       .clipShape(RoundedRectangle(cornerRadius: 9))
       .overlay {
         RoundedRectangle(cornerRadius: 9)
