@@ -131,7 +131,10 @@ let package = Package(
   targets: [
     .executableTarget(
       name: "App",
-      path: "Sources/App"
+      path: "Sources/App",
+      linkerSettings: [
+        .linkedFramework("AVKit")
+      ]
     )
   ]
 )
