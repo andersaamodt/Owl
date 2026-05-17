@@ -50,7 +50,7 @@
           {
             "id": "menu.app",
             "type": "Menu",
-            "title": "Owl Native",
+            "title": "Owl",
             "children": [
               {"id": "menuitem.settings", "type": "MenuItem", "title": "Settings", "action": "open_settings", "shortcut": "cmd+,"},
               {"id": "menuitem.quit", "type": "MenuItem", "title": "Quit", "action": "quit_app", "shortcut": "cmd+q"}

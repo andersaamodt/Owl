@@ -43,9 +43,11 @@ Actions:
   bind-contact ROOT THREAD_ID NAME KIND EMAIL SIMPLEX_ADDRESS FAVORITE
   contact-get ROOT IDENTITY [FALLBACK_LABEL] [CONTACT_KEY]
   contact-save ROOT IDENTITY CONTACT_KEY NAME EMAIL PHONE ADDRESS URL NOTE
+  set-temporal-distance ROOT THREAD_ID SECONDS|auto
   import-simplex ROOT THREAD_ID BODY_B64 [FROM_SELF] [IN_INBOX] [SUBJECT]
   mark-inbox ROOT MESSAGE_ID in|out
   mark-read ROOT MESSAGE_ID true|false
+  mark-seen ROOT MESSAGE_ID...
   send-message ROOT THREAD_ID simplex|email SUBJECT BODY_B64
   send-attachment ROOT THREAD_ID simplex SUBJECT BODY_B64 FILE_PATH
   message-detail ROOT MESSAGE_ID
@@ -398,6 +400,18 @@ ui_pref_value() {
     bubble_other_email)
       config_get "$(ui_prefs_file)" bubble_other_email 2>/dev/null || printf '%s\n' '#F5ECEC'
       ;;
+    mark_read_when_seen)
+      config_get "$(ui_prefs_file)" mark_read_when_seen 2>/dev/null || printf '%s\n' true
+      ;;
+    mark_earlier_seen)
+      config_get "$(ui_prefs_file)" mark_earlier_seen 2>/dev/null || printf '%s\n' true
+      ;;
+    show_temporal_distance)
+      config_get "$(ui_prefs_file)" show_temporal_distance 2>/dev/null || printf '%s\n' true
+      ;;
+    detect_temporal_distance)
+      config_get "$(ui_prefs_file)" detect_temporal_distance 2>/dev/null || printf '%s\n' true
+      ;;
     *)
       return 1
       ;;
@@ -412,14 +426,18 @@ ui_prefs_action() {
     --arg bubble_self_email "$(ui_pref_value bubble_self_email)" \
     --arg bubble_other_simplex "$(ui_pref_value bubble_other_simplex)" \
     --arg bubble_other_email "$(ui_pref_value bubble_other_email)" \
-    '{ok:true,mail_root:$mail_root,selected_route:$selected_route,bubble_self_simplex:$bubble_self_simplex,bubble_self_email:$bubble_self_email,bubble_other_simplex:$bubble_other_simplex,bubble_other_email:$bubble_other_email}'
+    --arg mark_read_when_seen "$(ui_pref_value mark_read_when_seen)" \
+    --arg mark_earlier_seen "$(ui_pref_value mark_earlier_seen)" \
+    --arg show_temporal_distance "$(ui_pref_value show_temporal_distance)" \
+    --arg detect_temporal_distance "$(ui_pref_value detect_temporal_distance)" \
+    '{ok:true,mail_root:$mail_root,selected_route:$selected_route,bubble_self_simplex:$bubble_self_simplex,bubble_self_email:$bubble_self_email,bubble_other_simplex:$bubble_other_simplex,bubble_other_email:$bubble_other_email,mark_read_when_seen:$mark_read_when_seen,mark_earlier_seen:$mark_earlier_seen,show_temporal_distance:$show_temporal_distance,detect_temporal_distance:$detect_temporal_distance}'
 }
 
 set_ui_pref_action() {
   key=${1-}
   value=${2-}
   case "$key" in
-    mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email) ;;
+    mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email|mark_read_when_seen|mark_earlier_seen|show_temporal_distance|detect_temporal_distance) ;;
     *) usage_error "unsupported UI preference: $key" ;;
   esac
   case "$value" in
@@ -578,6 +596,7 @@ contact_conf_to_json() {
   simplex=$(config_get "$file" simplex_address 2>/dev/null || printf '')
   favorite=$(config_get "$file" favorite 2>/dev/null || printf no)
   group=$(config_get "$file" group 2>/dev/null || printf '')
+  temporal_distance=$(config_get "$file" temporal_distance_seconds 2>/dev/null || printf '')
   jq -cn \
     --arg id "$id" \
     --arg name "$name" \
@@ -586,7 +605,8 @@ contact_conf_to_json() {
     --arg simplex_address "$simplex" \
     --arg favorite "$favorite" \
     --arg group "$group" \
-    '{id:$id,name:$name,kind:(if $kind == "group" then "group" else "person" end),email:$email,simplex_address:$simplex_address,favorite:($favorite=="yes" or $favorite=="true" or $favorite=="1"),group:$group}'
+    --arg temporal_distance_seconds "$temporal_distance" \
+    '{id:$id,name:$name,kind:(if $kind == "group" then "group" else "person" end),email:$email,simplex_address:$simplex_address,favorite:($favorite=="yes" or $favorite=="true" or $favorite=="1"),group:$group,temporal_distance_seconds:(if $temporal_distance_seconds == "" then null else ($temporal_distance_seconds | tonumber? // null) end)}'
 }
 
 contacts_json_array() {
@@ -628,6 +648,38 @@ save_contact_binding() {
   config_set "$file" email "$email"
   config_set "$file" simplex_address "$simplex"
   config_set "$file" favorite "$favorite"
+  contact_conf_to_json "$file"
+}
+
+set_temporal_distance_action() {
+  thread_id=$(safe_slug "${1-}")
+  value=${2-}
+  [ -n "$thread_id" ] || usage_error "set-temporal-distance requires THREAD_ID"
+  case "$value" in
+    ''|auto|clear|none)
+      seconds=''
+      ;;
+    *[!0123456789]*)
+      usage_error "temporal distance must be seconds or auto"
+      ;;
+    *)
+      seconds=$value
+      [ "$seconds" -ge 0 ] 2>/dev/null || usage_error "temporal distance must be seconds or auto"
+      if [ "$seconds" -eq 0 ]; then
+        seconds=''
+      fi
+      ;;
+  esac
+  file=$(native_contact_file "$thread_id")
+  if [ ! -f "$file" ]; then
+    config_set "$file" id "$thread_id"
+    config_set "$file" name "$thread_id"
+    config_set "$file" kind person
+    config_set "$file" email ""
+    config_set "$file" simplex_address ""
+    config_set "$file" favorite no
+  fi
+  config_set "$file" temporal_distance_seconds "$seconds"
   contact_conf_to_json "$file"
 }
 
@@ -865,6 +917,7 @@ snapshot_action() {
           simplex_address: ($contact.simplex_address // ""),
           favorite: ($contact.favorite // false),
           group: ($contact.group // ""),
+          temporal_distance_seconds: ($contact.temporal_distance_seconds // null),
           list: $list,
           sender: (($m.sender // "") | tostring),
           ulid: (($m.ulid // "") | tostring),
@@ -901,6 +954,7 @@ snapshot_action() {
           simplex_address: ($contact.simplex_address // ($m.simplex_address // "")),
           favorite: ($contact.favorite // false),
           group: ($contact.group // ""),
+          temporal_distance_seconds: ($contact.temporal_distance_seconds // null),
           list: "simplex",
           sender: (($m.sender // "") | tostring),
           ulid: "",
@@ -924,12 +978,13 @@ snapshot_action() {
         kind: .kind,
         name: (if (.name // "") != "" then .name else (.email // .simplex_address // .id) end),
         email: (.email // ""),
-        simplex_address: (.simplex_address // ""),
-        favorite: (.favorite // false),
-        group: (.group // ""),
-        unread_count: 0,
-        latest_at: "",
-        messages: []
+          simplex_address: (.simplex_address // ""),
+          favorite: (.favorite // false),
+          group: (.group // ""),
+          temporal_distance_seconds: (.temporal_distance_seconds // null),
+          unread_count: 0,
+          latest_at: "",
+          messages: []
       };
     (($email_raw | map(email_msg)) + ($simplex_raw | map(select((.status // "") != "deleted") | simplex_msg))) as $messages
     | ($contacts | map(thread_from_contact)) as $contact_threads
@@ -941,6 +996,7 @@ snapshot_action() {
         simplex_address: (.[0].simplex_address // ""),
         favorite: (.[0].favorite // false),
         group: (.[0].group // ""),
+        temporal_distance_seconds: (.[0].temporal_distance_seconds // null),
         unread_count: (map(select(.in_inbox and (.read | not))) | length),
         latest_at: (map(.received_at) | max // ""),
         messages: (sort_by(.received_at))
@@ -1257,6 +1313,42 @@ archive_message_action() {
       usage_error "unsupported message id: $id"
       ;;
   esac
+}
+
+mark_read_action() {
+  id=${1-}
+  value=${2-true}
+  case "$value" in true|1|yes|on) value=true ;; *) value=false ;; esac
+  case "$id" in
+    simplex:*)
+      rewrite_simplex_message_field "$id" read "$value" || usage_error "message not found: $id"
+      jq -n --arg id "$id" --argjson read "$value" '{ok:true,id:$id,read:$read}'
+      ;;
+    email:*)
+      row=$(email_message_lookup "$id")
+      [ -n "$row" ] || usage_error "email message not found: $id"
+      list=$(printf '%s\n' "$row" | awk -F '\t' '{print $1}')
+      sender=$(printf '%s\n' "$row" | awk -F '\t' '{print $2}')
+      ulid=$(printf '%s\n' "$row" | awk -F '\t' '{print $3}')
+      owl_backend_json set-flag "$list" "$sender" "$ulid" read "$value"
+      ;;
+    *)
+      usage_error "unsupported message id: $id"
+      ;;
+  esac
+}
+
+mark_seen_action() {
+  [ "$#" -gt 0 ] || usage_error "mark-seen requires at least one MESSAGE_ID"
+  ids_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-mark-seen.XXXXXX")
+  for id in "$@"; do
+    mark_read_action "$id" true >/dev/null
+    archive_message_action "$id" >/dev/null
+    printf '%s\n' "$id" >>"$ids_tmp"
+  done
+  ids_json=$(jq -R -s 'split("\n") | map(select(length > 0))' "$ids_tmp")
+  rm -f "$ids_tmp"
+  jq -n --argjson ids "$ids_json" '{ok:true,ids:$ids}'
 }
 
 delete_message_action() {
@@ -1965,6 +2057,11 @@ case "$action" in
     ensure_roots
     save_contact_binding "${1-}" "${2-}" "${3-person}" "${4-}" "${5-}" "${6-no}" | jq '{ok:true,contact:.}'
     ;;
+  set-temporal-distance)
+    ensure_roots
+    contact_json=$(set_temporal_distance_action "${1-}" "${2-auto}")
+    printf '%s\n' "$contact_json" | jq '{ok:true,contact:.}'
+    ;;
   import-simplex)
     ensure_roots
     thread_id=${1-}
@@ -2009,26 +2106,10 @@ case "$action" in
     esac
     ;;
   mark-read)
-    id=${1-}
-    value=${2-true}
-    case "$value" in true|1|yes|on) value=true ;; *) value=false ;; esac
-    case "$id" in
-      simplex:*)
-        rewrite_simplex_message_field "$id" read "$value" || usage_error "message not found: $id"
-        jq -n --arg id "$id" --argjson read "$value" '{ok:true,id:$id,read:$read}'
-        ;;
-      email:*)
-        row=$(email_message_lookup "$id")
-        [ -n "$row" ] || usage_error "email message not found: $id"
-        list=$(printf '%s\n' "$row" | awk -F '\t' '{print $1}')
-        sender=$(printf '%s\n' "$row" | awk -F '\t' '{print $2}')
-        ulid=$(printf '%s\n' "$row" | awk -F '\t' '{print $3}')
-        owl_backend_json set-flag "$list" "$sender" "$ulid" read "$value"
-        ;;
-      *)
-        usage_error "unsupported message id: $id"
-        ;;
-    esac
+    mark_read_action "${1-}" "${2-true}"
+    ;;
+  mark-seen)
+    mark_seen_action "$@"
     ;;
   send-message)
     ensure_roots

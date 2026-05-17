@@ -127,7 +127,7 @@ private let canonicalIR = #"""
           {
             "id": "menu.app",
             "type": "Menu",
-            "title": "Owl Native",
+            "title": "Owl",
             "children": [
               {
                 "id": "menuitem.settings",
@@ -354,6 +354,7 @@ private let canonicalIR = #"""
 """#
 
 private let generatedAppName = "Owl Native"
+private let generatedAppMenuTitle = "Owl"
 private let generatedAppID = "owl-native"
 private let generatedAppVersion = "0.1.0"
 private let messageDragPayloadPrefix = "owl-native-message:"
@@ -393,6 +394,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
   }
 
   func applicationDidBecomeActive(_ notification: Notification) {
+    session.noteApplicationFocused()
     session.refreshIfStale()
   }
 
@@ -432,6 +434,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
   }
 
   func windowDidBecomeKey(_ notification: Notification) {
+    session.noteApplicationFocused()
     session.refreshIfStale()
   }
 
@@ -481,12 +484,12 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let mainMenu = NSMenu()
 
     let appMenuItem = NSMenuItem()
-    let appMenu = NSMenu(title: generatedAppName)
-    appMenu.addItem(NSMenuItem(title: "About \(generatedAppName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+    let appMenu = NSMenu(title: generatedAppMenuTitle)
+    appMenu.addItem(NSMenuItem(title: "About \(generatedAppMenuTitle)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
     appMenu.addItem(.separator())
     appMenu.addItem(actionItem("Preferences...", action: "open_settings", key: ",", modifiers: [.command]))
     appMenu.addItem(.separator())
-    appMenu.addItem(actionItem("Quit \(generatedAppName)", action: "quit_app", key: "q", modifiers: [.command]))
+    appMenu.addItem(actionItem("Quit \(generatedAppMenuTitle)", action: "quit_app", key: "q", modifiers: [.command]))
     appMenuItem.submenu = appMenu
     mainMenu.addItem(appMenuItem)
 
@@ -760,6 +763,10 @@ private struct UIPrefs: Decodable, Sendable {
   var bubble_self_email: String
   var bubble_other_simplex: String
   var bubble_other_email: String
+  var mark_read_when_seen: String
+  var mark_earlier_seen: String
+  var show_temporal_distance: String
+  var detect_temporal_distance: String
 
   init(
     mail_root: String = "",
@@ -767,7 +774,11 @@ private struct UIPrefs: Decodable, Sendable {
     bubble_self_simplex: String = BubbleColors.defaultSelfSimpleXHex,
     bubble_self_email: String = BubbleColors.defaultSelfEmailHex,
     bubble_other_simplex: String = BubbleColors.defaultOtherSimpleXHex,
-    bubble_other_email: String = BubbleColors.defaultOtherEmailHex
+    bubble_other_email: String = BubbleColors.defaultOtherEmailHex,
+    mark_read_when_seen: String = "true",
+    mark_earlier_seen: String = "true",
+    show_temporal_distance: String = "true",
+    detect_temporal_distance: String = "true"
   ) {
     self.mail_root = mail_root
     self.selected_route = selected_route
@@ -775,6 +786,10 @@ private struct UIPrefs: Decodable, Sendable {
     self.bubble_self_email = bubble_self_email
     self.bubble_other_simplex = bubble_other_simplex
     self.bubble_other_email = bubble_other_email
+    self.mark_read_when_seen = mark_read_when_seen
+    self.mark_earlier_seen = mark_earlier_seen
+    self.show_temporal_distance = show_temporal_distance
+    self.detect_temporal_distance = detect_temporal_distance
   }
 
   private enum CodingKeys: String, CodingKey {
@@ -784,6 +799,10 @@ private struct UIPrefs: Decodable, Sendable {
     case bubble_self_email
     case bubble_other_simplex
     case bubble_other_email
+    case mark_read_when_seen
+    case mark_earlier_seen
+    case show_temporal_distance
+    case detect_temporal_distance
   }
 
   init(from decoder: Decoder) throws {
@@ -794,6 +813,10 @@ private struct UIPrefs: Decodable, Sendable {
     bubble_self_email = try values.decodeIfPresent(String.self, forKey: .bubble_self_email) ?? BubbleColors.defaultSelfEmailHex
     bubble_other_simplex = try values.decodeIfPresent(String.self, forKey: .bubble_other_simplex) ?? BubbleColors.defaultOtherSimpleXHex
     bubble_other_email = try values.decodeIfPresent(String.self, forKey: .bubble_other_email) ?? BubbleColors.defaultOtherEmailHex
+    mark_read_when_seen = try values.decodeIfPresent(String.self, forKey: .mark_read_when_seen) ?? "true"
+    mark_earlier_seen = try values.decodeIfPresent(String.self, forKey: .mark_earlier_seen) ?? "true"
+    show_temporal_distance = try values.decodeIfPresent(String.self, forKey: .show_temporal_distance) ?? "true"
+    detect_temporal_distance = try values.decodeIfPresent(String.self, forKey: .detect_temporal_distance) ?? "true"
   }
 }
 
@@ -884,6 +907,19 @@ private extension Color {
     let green = Int((color.greenComponent * 255.0).rounded()).clamped(to: 0...255)
     let blue = Int((color.blueComponent * 255.0).rounded()).clamped(to: 0...255)
     return String(format: "#%02X%02X%02X", red, green, blue)
+  }
+}
+
+private extension String {
+  func owlBool(defaultValue: Bool) -> Bool {
+    switch trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "true", "1", "yes", "on":
+      return true
+    case "false", "0", "no", "off":
+      return false
+    default:
+      return defaultValue
+    }
   }
 }
 
@@ -1019,6 +1055,7 @@ private struct ThreadItem: Identifiable, Decodable, Hashable, Sendable {
   var simplex_address: String
   var favorite: Bool
   var group: String
+  var temporal_distance_seconds: Int?
   var unread_count: Int
   var latest_at: String
   var messages: [MessageItem]
@@ -1035,6 +1072,7 @@ private struct ThreadItem: Identifiable, Decodable, Hashable, Sendable {
     simplex_address: String = "",
     favorite: Bool = false,
     group: String = "",
+    temporal_distance_seconds: Int? = nil,
     unread_count: Int = 0,
     latest_at: String = "",
     messages: [MessageItem] = []
@@ -1046,13 +1084,14 @@ private struct ThreadItem: Identifiable, Decodable, Hashable, Sendable {
     self.simplex_address = simplex_address
     self.favorite = favorite
     self.group = group
+    self.temporal_distance_seconds = temporal_distance_seconds
     self.unread_count = unread_count
     self.latest_at = latest_at
     self.messages = messages
   }
 
   private enum CodingKeys: String, CodingKey {
-    case id, kind, name, email, simplex_address, favorite, group, unread_count, latest_at, messages
+    case id, kind, name, email, simplex_address, favorite, group, temporal_distance_seconds, unread_count, latest_at, messages
   }
 
   init(from decoder: Decoder) throws {
@@ -1064,6 +1103,7 @@ private struct ThreadItem: Identifiable, Decodable, Hashable, Sendable {
     simplex_address = try values.decodeIfPresent(String.self, forKey: .simplex_address) ?? ""
     favorite = try values.decodeIfPresent(Bool.self, forKey: .favorite) ?? false
     group = try values.decodeIfPresent(String.self, forKey: .group) ?? ""
+    temporal_distance_seconds = try values.decodeIfPresent(Int.self, forKey: .temporal_distance_seconds)
     unread_count = try values.decodeIfPresent(Int.self, forKey: .unread_count) ?? 0
     latest_at = try values.decodeIfPresent(String.self, forKey: .latest_at) ?? ""
     messages = try values.decodeIfPresent([MessageItem].self, forKey: .messages) ?? []
@@ -1354,6 +1394,60 @@ private func fullTimestamp(_ rawValue: String) -> String {
   rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No timestamp" : rawValue
 }
 
+private enum TemporalDistance {
+  static let steps: [Int] = [
+    60 * 60,
+    4 * 60 * 60,
+    8 * 60 * 60,
+    12 * 60 * 60,
+    24 * 60 * 60,
+    2 * 24 * 60 * 60,
+    3 * 24 * 60 * 60,
+    4 * 24 * 60 * 60,
+    7 * 24 * 60 * 60,
+    14 * 24 * 60 * 60,
+    30 * 24 * 60 * 60,
+    90 * 24 * 60 * 60
+  ]
+
+  static func label(_ seconds: Int) -> String {
+    let value = max(seconds, 60 * 60)
+    if value < 24 * 60 * 60 {
+      return "\(max(1, value / (60 * 60)))h"
+    }
+    let days = value / (24 * 60 * 60)
+    if days < 7 {
+      return "\(days)d"
+    }
+    if days < 30 {
+      return "\(max(1, days / 7))w"
+    }
+    return "\(max(1, days / 30))mo"
+  }
+
+  static func roundedStep(for seconds: Int) -> Int {
+    steps.min { abs($0 - seconds) < abs($1 - seconds) } ?? steps[4]
+  }
+
+  static func next(after seconds: Int?) -> Int {
+    guard let seconds else { return steps[4] }
+    let current = roundedStep(for: seconds)
+    guard let index = steps.firstIndex(of: current), index < steps.count - 1 else {
+      return steps.last ?? current
+    }
+    return steps[index + 1]
+  }
+
+  static func previous(before seconds: Int?) -> Int {
+    guard let seconds else { return steps[4] }
+    let current = roundedStep(for: seconds)
+    guard let index = steps.firstIndex(of: current), index > 0 else {
+      return steps.first ?? current
+    }
+    return steps[index - 1]
+  }
+}
+
 private func formatBytes(_ size: Int) -> String {
   if size >= 1024 * 1024 {
     return String(format: "%.1f MB", Double(size) / Double(1024 * 1024)).replacingOccurrences(of: ".0 MB", with: " MB")
@@ -1424,7 +1518,14 @@ private final class OwlSession: ObservableObject {
   @Published var bubbleSelfEmailColor: Color = BubbleColors.defaultSelfEmail
   @Published var bubbleOtherSimpleXColor: Color = BubbleColors.defaultOtherSimpleX
   @Published var bubbleOtherEmailColor: Color = BubbleColors.defaultOtherEmail
+  @Published var markMessagesReadWhenSeen: Bool = true
+  @Published var markEarlierMessagesSeen: Bool = true
+  @Published var showTemporalDistance: Bool = true
+  @Published var detectTemporalDistanceAutomatically: Bool = true
+  @Published var applicationFocusGeneration: Int = 0
   private var lastSystemTrashAction: SystemTrashAction?
+  private var seenMessageIDsInFlight: Set<String> = []
+  private var witnessedTimelineMessageEdges: [String: [String: SeenMessageEdges]] = [:]
   private var lastRefreshAt: Date?
   private var lastTransportTickAt: Date?
   private var transportAutoSyncTimer: Timer?
@@ -1456,6 +1557,45 @@ private final class OwlSession: ObservableObject {
   var selectedThread: ThreadItem? {
     guard let id = selectedThreadID else { return nil }
     return snapshot.threads.first(where: { $0.id == id })
+  }
+
+  func automaticTemporalDistance(for thread: ThreadItem) -> Int? {
+    guard detectTemporalDistanceAutomatically else { return nil }
+    let messages = thread.messages.sorted {
+      FriendlyTime.sortTimestamp($0.received_at) < FriendlyTime.sortTimestamp($1.received_at)
+    }
+    var replyDelays: [Int] = []
+    for (index, message) in messages.enumerated() where !message.from_self {
+      let received = FriendlyTime.sortTimestamp(message.received_at)
+      guard received > 0 else { continue }
+      if let reply = messages[(index + 1)...].first(where: { $0.from_self && FriendlyTime.sortTimestamp($0.received_at) > received }) {
+        let delay = Int(FriendlyTime.sortTimestamp(reply.received_at) - received)
+        if delay > 0 {
+          replyDelays.append(delay)
+        }
+      }
+    }
+    guard !replyDelays.isEmpty else { return nil }
+    let sorted = replyDelays.sorted()
+    return TemporalDistance.roundedStep(for: sorted[sorted.count / 2])
+  }
+
+  func effectiveTemporalDistance(for thread: ThreadItem) -> Int? {
+    thread.temporal_distance_seconds ?? automaticTemporalDistance(for: thread)
+  }
+
+  func temporalDistanceHelp(for thread: ThreadItem) -> String {
+    let automatic = automaticTemporalDistance(for: thread)
+    if let explicit = thread.temporal_distance_seconds, let automatic {
+      return "Temporal distance \(TemporalDistance.label(explicit)); automatic \(TemporalDistance.label(automatic))"
+    }
+    if let explicit = thread.temporal_distance_seconds {
+      return "Temporal distance \(TemporalDistance.label(explicit))"
+    }
+    if let automatic {
+      return "Automatic temporal distance \(TemporalDistance.label(automatic))"
+    }
+    return "Temporal distance not set"
   }
 
   var newSenderThreads: [ThreadItem] {
@@ -1616,6 +1756,10 @@ private final class OwlSession: ObservableObject {
     if force {
       tickTransportIfStale(force: true)
     }
+  }
+
+  func noteApplicationFocused() {
+    applicationFocusGeneration += 1
   }
 
   private func startTransportAutoSync() {
@@ -1884,6 +2028,15 @@ private final class OwlSession: ObservableObject {
     }
   }
 
+  func applySeen(messageID: String) {
+    applyMessageUpdate(id: messageID) { message in
+      message.read = true
+      message.in_inbox = false
+      message.list = "archive"
+      message.status = "archive"
+    }
+  }
+
   func applyDeleted(messageID: String) {
     snapshot.messages.removeAll { $0.id == messageID }
     snapshot.inbox.removeAll { $0.id == messageID }
@@ -2095,6 +2248,68 @@ private final class OwlSession: ObservableObject {
     return thread.messages.last?.id
   }
 
+  func markVisibleTimelineMessagesSeen(threadID: String?, visibleFrames: [String: CGRect], viewportHeight: CGFloat) {
+    guard markMessagesReadWhenSeen,
+          selectedRoute == "mail",
+          let threadID,
+          selectedThreadID == threadID,
+          viewportHeight > 0 else {
+      return
+    }
+    let messages = timelineMessages
+    let validMessageIDs = Set(messages.map(\.id))
+    var edgeMap = witnessedTimelineMessageEdges[threadID] ?? [:]
+    for (id, frame) in visibleFrames where validMessageIDs.contains(id) {
+      let fullyVisible = frame.minY >= -1 && frame.maxY <= viewportHeight + 1
+      var edges = edgeMap[id] ?? SeenMessageEdges()
+      if fullyVisible || (frame.minY >= -1 && frame.minY <= viewportHeight + 1) {
+        edges.top = true
+      }
+      if fullyVisible || (frame.maxY >= -1 && frame.maxY <= viewportHeight + 1) {
+        edges.bottom = true
+      }
+      edgeMap[id] = edges
+    }
+    edgeMap = edgeMap.filter { validMessageIDs.contains($0.key) }
+    witnessedTimelineMessageEdges[threadID] = edgeMap
+
+    let witnessedIDs = Set(edgeMap.compactMap { id, edges in
+      edges.top && edges.bottom ? id : nil
+    })
+    guard !witnessedIDs.isEmpty else { return }
+
+    var candidates: [MessageItem]
+    if markEarlierMessagesSeen,
+       let lastWitnessedIndex = messages.lastIndex(where: { witnessedIDs.contains($0.id) }) {
+      candidates = Array(messages.prefix(through: lastWitnessedIndex))
+    } else {
+      candidates = messages.filter { witnessedIDs.contains($0.id) }
+    }
+
+    let ids = candidates
+      .filter { !$0.from_self && ($0.in_inbox || !$0.read) && !seenMessageIDsInFlight.contains($0.id) }
+      .map(\.id)
+    markMessagesSeen(ids)
+  }
+
+  private func markMessagesSeen(_ ids: [String]) {
+    let uniqueIDs = Array(Set(ids)).sorted()
+    guard !uniqueIDs.isEmpty else { return }
+    seenMessageIDsInFlight.formUnion(uniqueIDs)
+    let root = mailRoot
+    Task {
+      do {
+        _ = try await OwlBackend.runJSON(action: "mark-seen", root: root, args: uniqueIDs)
+        for id in uniqueIDs {
+          self.applySeen(messageID: id)
+        }
+      } catch {
+        self.statusText = "Seen update failed: \(error.localizedDescription)"
+      }
+      self.seenMessageIDsInFlight.subtract(uniqueIDs)
+    }
+  }
+
   func persistSelectedRoute() {
     let route = selectedRoute
     let root = mailRoot
@@ -2108,6 +2323,30 @@ private final class OwlSession: ObservableObject {
     bubbleSelfEmailColor = Color(hex: prefs.bubble_self_email, fallback: BubbleColors.defaultSelfEmail)
     bubbleOtherSimpleXColor = Color(hex: prefs.bubble_other_simplex, fallback: BubbleColors.defaultOtherSimpleX)
     bubbleOtherEmailColor = Color(hex: prefs.bubble_other_email, fallback: BubbleColors.defaultOtherEmail)
+    markMessagesReadWhenSeen = prefs.mark_read_when_seen.owlBool(defaultValue: true)
+    markEarlierMessagesSeen = prefs.mark_earlier_seen.owlBool(defaultValue: true)
+    showTemporalDistance = prefs.show_temporal_distance.owlBool(defaultValue: true)
+    detectTemporalDistanceAutomatically = prefs.detect_temporal_distance.owlBool(defaultValue: true)
+  }
+
+  func persistSeenPreferences() {
+    let root = mailRoot
+    let markWhenSeen = markMessagesReadWhenSeen
+    let markEarlier = markEarlierMessagesSeen
+    Task {
+      try? await OwlBackend.setUIPref(root: root, key: "mark_read_when_seen", value: markWhenSeen ? "true" : "false")
+      try? await OwlBackend.setUIPref(root: root, key: "mark_earlier_seen", value: markEarlier ? "true" : "false")
+    }
+  }
+
+  func persistTemporalDistancePreferences() {
+    let root = mailRoot
+    let show = showTemporalDistance
+    let detect = detectTemporalDistanceAutomatically
+    Task {
+      try? await OwlBackend.setUIPref(root: root, key: "show_temporal_distance", value: show ? "true" : "false")
+      try? await OwlBackend.setUIPref(root: root, key: "detect_temporal_distance", value: detect ? "true" : "false")
+    }
   }
 
   func persistBubbleColors() {
@@ -2587,6 +2826,37 @@ private final class OwlSession: ObservableObject {
     if favorite {
       snapshot.favorites.insert(updated, at: 0)
     }
+  }
+
+  func setTemporalDistance(for thread: ThreadItem, seconds: Int?) {
+    let normalized = seconds.map { TemporalDistance.roundedStep(for: $0) }
+    applyTemporalDistance(threadID: thread.id, seconds: normalized)
+    let root = mailRoot
+    runMessageAction(status: normalized == nil ? "Temporal distance automatic" : "Temporal distance \(TemporalDistance.label(normalized ?? 0))", refreshAfter: false) {
+      try await OwlBackend.runJSON(action: "set-temporal-distance", root: root, args: [thread.id, normalized.map(String.init) ?? "auto"])
+    }
+  }
+
+  func increaseTemporalDistance(for thread: ThreadItem) {
+    setTemporalDistance(for: thread, seconds: TemporalDistance.next(after: thread.temporal_distance_seconds ?? effectiveTemporalDistance(for: thread)))
+  }
+
+  func decreaseTemporalDistance(for thread: ThreadItem) {
+    setTemporalDistance(for: thread, seconds: TemporalDistance.previous(before: thread.temporal_distance_seconds ?? effectiveTemporalDistance(for: thread)))
+  }
+
+  func applyTemporalDistance(threadID: String, seconds: Int?) {
+    func updatedThread(_ thread: ThreadItem) -> ThreadItem {
+      guard thread.id == threadID else { return thread }
+      var updated = thread
+      updated.temporal_distance_seconds = seconds
+      return updated
+    }
+
+    snapshot.threads = snapshot.threads.map(updatedThread)
+    snapshot.individuals = snapshot.individuals.map(updatedThread)
+    snapshot.groups = snapshot.groups.map(updatedThread)
+    snapshot.favorites = snapshot.favorites.map(updatedThread)
   }
 
   func saveEmailDomain() {
@@ -3502,6 +3772,7 @@ private struct SidebarThreadRow: View {
   @State private var isAttachmentTargeted = false
   @State private var draftName = ""
   let thread: ThreadItem
+  var showsTemporalDistance = false
 
   var body: some View {
     HStack(spacing: 9) {
@@ -3539,6 +3810,9 @@ private struct SidebarThreadRow: View {
         .foregroundStyle(.secondary)
       }
       Spacer()
+      if showsTemporalDistance, session.showTemporalDistance {
+        TemporalDistanceBadge(thread: thread)
+      }
       CountBadge(count: thread.unread_count)
     }
     .padding(.vertical, 2)
@@ -3636,6 +3910,41 @@ private struct CountBadge: View {
         .background(Capsule().fill(Color.accentColor.opacity(0.16)))
         .foregroundStyle(Color.accentColor)
         .fixedSize(horizontal: true, vertical: false)
+    }
+  }
+}
+
+private struct TemporalDistanceBadge: View {
+  @EnvironmentObject private var session: OwlSession
+  let thread: ThreadItem
+
+  var body: some View {
+    if let seconds = session.effectiveTemporalDistance(for: thread) {
+      Button {
+        session.increaseTemporalDistance(for: thread)
+      } label: {
+        HStack(spacing: 3) {
+          Image(systemName: thread.temporal_distance_seconds == nil ? "clock" : "clock.badge.checkmark")
+          Text(TemporalDistance.label(seconds))
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(thread.temporal_distance_seconds == nil ? Color.secondary : Color.accentColor)
+        .fixedSize(horizontal: true, vertical: false)
+      }
+      .buttonStyle(.plain)
+      .contextMenu {
+        Button { session.decreaseTemporalDistance(for: thread) } label: {
+          Label("Decrease", systemImage: "minus")
+        }
+        Button { session.increaseTemporalDistance(for: thread) } label: {
+          Label("Increase", systemImage: "plus")
+        }
+        Button { session.setTemporalDistance(for: thread, seconds: nil) } label: {
+          Label("Automatic", systemImage: "wand.and.stars")
+        }
+      }
+      .help(session.temporalDistanceHelp(for: thread))
+      .accessibilityLabel("Temporal distance \(TemporalDistance.label(seconds))")
     }
   }
 }
@@ -4459,7 +4768,7 @@ private struct ContactListView: View {
   }
 
   private func mailThreadRow(_ thread: ThreadItem) -> some View {
-    SidebarThreadRow(thread: thread)
+    SidebarThreadRow(thread: thread, showsTemporalDistance: true)
       .matchedGeometryEffect(id: thread.id, in: threadMoveNamespace, properties: .position)
       .tag(thread.id)
       .onTapGesture { session.selectThread(thread) }
@@ -4996,6 +5305,19 @@ private struct TimelineContentMinYPreferenceKey: PreferenceKey {
   }
 }
 
+private struct TimelineMessageFramePreferenceKey: PreferenceKey {
+  static let defaultValue: [String: CGRect] = [:]
+
+  static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+    value.merge(nextValue(), uniquingKeysWith: { _, next in next })
+  }
+}
+
+private struct SeenMessageEdges {
+  var top: Bool = false
+  var bottom: Bool = false
+}
+
 private struct TimelineView: View {
   @EnvironmentObject private var session: OwlSession
   @Binding var inspectorWidth: CGFloat
@@ -5005,6 +5327,7 @@ private struct TimelineView: View {
   @State private var timelineViewportHeight: CGFloat = 0
   @State private var timelineBottomMaxY: CGFloat = 0
   @State private var timelineContentMinY: CGFloat = 0
+  @State private var visibleMessageFrames: [String: CGRect] = [:]
   private let timelineBottomID = "timeline-bottom-anchor"
   private let timelineCoordinateSpace = "timeline-scroll-space"
 
@@ -5039,6 +5362,14 @@ private struct TimelineView: View {
               ForEach(session.timelineMessages) { message in
                 MessageBubble(message: message)
                   .id(message.id)
+                  .background {
+                    GeometryReader { geometry in
+                      Color.clear.preference(
+                        key: TimelineMessageFramePreferenceKey.self,
+                        value: [message.id: geometry.frame(in: .named(timelineCoordinateSpace))]
+                      )
+                    }
+                  }
                   .onAppear {
                     session.rememberTimelineScrollPosition(threadID: session.selectedThreadID, messageID: message.id)
                   }
@@ -5107,10 +5438,12 @@ private struct TimelineView: View {
           .onAppear {
             isAtTimelineEnd = session.timelineShouldFollowEnd(for: session.selectedThread)
             scrollToTimelineTarget(proxy)
+            evaluateSeenMessages()
           }
           .onPreferenceChange(TimelineViewportHeightPreferenceKey.self) { height in
             timelineViewportHeight = height
             updateTimelineEndVisibility()
+            evaluateSeenMessages()
           }
           .onPreferenceChange(TimelineBottomMaxYPreferenceKey.self) { maxY in
             timelineBottomMaxY = maxY
@@ -5120,9 +5453,17 @@ private struct TimelineView: View {
             timelineContentMinY = minY
             updateTimelineEndVisibility()
           }
+          .onPreferenceChange(TimelineMessageFramePreferenceKey.self) { frames in
+            visibleMessageFrames = frames
+            evaluateSeenMessages()
+          }
           .onChange(of: session.selectedThreadID) { _ in
+            visibleMessageFrames = [:]
             isAtTimelineEnd = session.timelineShouldFollowEnd(for: session.selectedThread)
             scrollToTimelineTarget(proxy, animated: false)
+          }
+          .onChange(of: session.applicationFocusGeneration) { _ in
+            evaluateSeenMessages()
           }
           .onChange(of: session.focusedMessageID) { _ in
             scrollToTimelineTarget(proxy)
@@ -5136,6 +5477,7 @@ private struct TimelineView: View {
             if isAtTimelineEnd || session.timelineShouldFollowEnd(for: session.selectedThread) {
               scrollToTimelineEnd(proxy)
             }
+            evaluateSeenMessages()
           }
         }
         Divider()
@@ -5205,6 +5547,14 @@ private struct TimelineView: View {
     let distanceFromEnd = timelineBottomMaxY - timelineViewportHeight
     let tolerance: CGFloat = timelineContentMinY > 0 ? 24 : 16
     setTimelineEndVisible(distanceFromEnd <= tolerance)
+  }
+
+  private func evaluateSeenMessages() {
+    session.markVisibleTimelineMessagesSeen(
+      threadID: session.selectedThreadID,
+      visibleFrames: visibleMessageFrames,
+      viewportHeight: timelineViewportHeight
+    )
   }
 
   private func timelineSubtitle(_ thread: ThreadItem) -> String {
@@ -5798,6 +6148,44 @@ private struct ContactInspectorView: View {
         Label("Save Contact", systemImage: "person.crop.circle.badge.checkmark")
       }
       .buttonStyle(.bordered)
+      if let thread = session.selectedThread {
+        Divider()
+        VStack(alignment: .leading, spacing: 8) {
+          HStack {
+            Label(
+              session.effectiveTemporalDistance(for: thread).map { TemporalDistance.label($0) } ?? "Auto",
+              systemImage: thread.temporal_distance_seconds == nil ? "clock" : "clock.badge.checkmark"
+            )
+            .font(.callout.weight(.semibold))
+            Spacer()
+            Button { session.decreaseTemporalDistance(for: thread) } label: {
+              Image(systemName: "minus")
+                .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.borderless)
+            .help("Decrease temporal distance")
+            Button { session.increaseTemporalDistance(for: thread) } label: {
+              Image(systemName: "plus")
+                .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.borderless)
+            .help("Increase temporal distance")
+          }
+          if let automatic = session.automaticTemporalDistance(for: thread) {
+            HStack(spacing: 6) {
+              Text("Automatic")
+                .foregroundStyle(.secondary)
+              Text(TemporalDistance.label(automatic))
+            }
+            .font(.caption)
+          }
+          Button { session.setTemporalDistance(for: thread, seconds: nil) } label: {
+            Label("Use Automatic", systemImage: "wand.and.stars")
+          }
+          .buttonStyle(.bordered)
+          .fixedSize()
+        }
+      }
       Divider()
       if let thread = session.selectedThread {
         Label(thread.hasSimpleXPath ? "SimpleX address bound" : "No SimpleX address", systemImage: thread.hasSimpleXPath ? "lock.fill" : "lock.slash")
@@ -5951,6 +6339,30 @@ private struct SettingsView: View {
             Label("Events", systemImage: "waveform.path.ecg")
           }
         }
+      }
+      Section("Reading") {
+        Toggle("Mark messages read when seen", isOn: Binding(
+          get: { session.markMessagesReadWhenSeen },
+          set: { session.markMessagesReadWhenSeen = $0; session.persistSeenPreferences() }
+        ))
+        Toggle("Mark all earlier messages seen", isOn: Binding(
+          get: { session.markEarlierMessagesSeen },
+          set: { session.markEarlierMessagesSeen = $0; session.persistSeenPreferences() }
+        ))
+        .padding(.leading, 22)
+        .disabled(!session.markMessagesReadWhenSeen)
+      }
+      Section("Temporal Distance") {
+        Toggle("Show temporal distance", isOn: Binding(
+          get: { session.showTemporalDistance },
+          set: { session.showTemporalDistance = $0; session.persistTemporalDistancePreferences() }
+        ))
+        .fixedSize()
+        Toggle("Detect temporal distance automatically", isOn: Binding(
+          get: { session.detectTemporalDistanceAutomatically },
+          set: { session.detectTemporalDistanceAutomatically = $0; session.persistTemporalDistancePreferences() }
+        ))
+        .fixedSize()
       }
     }
     .formStyle(.grouped)

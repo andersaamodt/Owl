@@ -17,6 +17,7 @@ version_file="$project_dir/VERSION"
 app_name=$(jq -r '.app.name' "$ir_path")
 app_id=$(jq -r '.app.id' "$ir_path")
 window_title=$(jq -r '.app.window.title // .app.name' "$ir_path")
+app_menu_title=$(jq -r '([.app.window.menuBar.children[]? | select(.id == "menu.app") | .title][0] // .app.name)' "$ir_path")
 if [ -f "$version_file" ]; then
   app_version=$(tr -d ' \t\r\n' <"$version_file")
 else
@@ -106,6 +107,7 @@ render_template_file() {
         printf '%s\n' "$line" \
           | sed \
             -e "s/__APP_NAME__/$app_name/g" \
+            -e "s/__APP_MENU_TITLE__/$app_menu_title/g" \
             -e "s/__APP_ID__/$app_id/g" \
             -e "s/__APP_VERSION__/$app_version/g" \
             -e "s/__WINDOW_TITLE__/$window_title/g" >>"$output_tmp"
@@ -126,7 +128,7 @@ let package = Package(
     .macOS(.v13)
   ],
   products: [
-    .executable(name: "$app_id", targets: ["App"])
+    .executable(name: "$app_menu_title", targets: ["App"])
   ],
   targets: [
     .executableTarget(

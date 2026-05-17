@@ -123,7 +123,7 @@ static const char *wizardry_app_ir =
   "          {\n"
   "            \"id\": \"menu.app\",\n"
   "            \"type\": \"Menu\",\n"
-  "            \"title\": \"Owl Native\",\n"
+  "            \"title\": \"Owl\",\n"
   "            \"children\": [\n"
   "              {\n"
   "                \"id\": \"menuitem.settings\",\n"

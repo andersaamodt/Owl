@@ -8,7 +8,7 @@ let package = Package(
     .macOS(.v13)
   ],
   products: [
-    .executable(name: "owl-native", targets: ["App"])
+    .executable(name: "Owl", targets: ["App"])
   ],
   targets: [
     .executableTarget(

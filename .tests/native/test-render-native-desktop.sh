@@ -108,6 +108,8 @@ swift_uses_native_desktop_idiom() {
   grep -q 'NSApp.windowsMenu = windowMenu' generated/macos/Sources/App/App.swift
   grep -q 'let editMenu = NSMenu(title: "Edit")' generated/macos/Sources/App/App.swift
   grep -q 'let messageMenu = NSMenu(title: "Message")' generated/macos/Sources/App/App.swift
+  grep -q 'private let generatedAppMenuTitle = "Owl"' generated/macos/Sources/App/App.swift
+  grep -q '.executable(name: "Owl", targets: \["App"\])' generated/macos/Package.swift
   grep -q 'actionItem("Preferences...", action: "open_settings", key: ",", modifiers: \\[.command\\])' generated/macos/Sources/App/App.swift
   ! grep -q 'actionItem("Settings...", action: "open_settings"' generated/macos/Sources/App/App.swift
   grep -q 'settingsWindow.title = "Preferences"' generated/macos/Sources/App/App.swift
@@ -482,6 +484,25 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq 'scrollToTimelineEnd(proxy)' generated/macos/Sources/App/App.swift
   grep -Fq '.onChange(of: session.timelineEndID(for: session.selectedThread)) { _ in' generated/macos/Sources/App/App.swift
   grep -Fq '.onChange(of: session.timelineMessages.map(\.id).joined(separator: "|")) { _ in' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TimelineMessageFramePreferenceKey: PreferenceKey' generated/macos/Sources/App/App.swift
+  grep -Fq 'visibleMessageFrames = frames' generated/macos/Sources/App/App.swift
+  grep -Fq 'geometry.frame(in: .named(timelineCoordinateSpace))' generated/macos/Sources/App/App.swift
+  grep -Fq 'func markVisibleTimelineMessagesSeen(threadID: String?, visibleFrames: [String: CGRect], viewportHeight: CGFloat)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct SeenMessageEdges' generated/macos/Sources/App/App.swift
+  grep -Fq 'private var witnessedTimelineMessageEdges: [String: [String: SeenMessageEdges]] = [:]' generated/macos/Sources/App/App.swift
+  grep -Fq 'frame.minY >= -1 && frame.maxY <= viewportHeight + 1' generated/macos/Sources/App/App.swift
+  grep -Fq 'frame.minY >= -1 && frame.minY <= viewportHeight + 1' generated/macos/Sources/App/App.swift
+  grep -Fq 'frame.maxY >= -1 && frame.maxY <= viewportHeight + 1' generated/macos/Sources/App/App.swift
+  grep -Fq 'edges.top && edges.bottom ? id : nil' generated/macos/Sources/App/App.swift
+  grep -Fq 'selectedRoute == "mail"' generated/macos/Sources/App/App.swift
+  grep -Fq 'markEarlierMessagesSeen' generated/macos/Sources/App/App.swift
+  grep -Fq 'action: "mark-seen"' generated/macos/Sources/App/App.swift
+  grep -Fq 'func applySeen(messageID: String)' generated/macos/Sources/App/App.swift
+  grep -Fq 'session.noteApplicationFocused()' generated/macos/Sources/App/App.swift
+  grep -Fq 'mark-seen ROOT MESSAGE_ID...' scripts/owl-native-backend.sh
+  grep -Fq 'mark_seen_action()' scripts/owl-native-backend.sh
+  grep -Fq 'mark_read_action "$id" true >/dev/null' scripts/owl-native-backend.sh
+  grep -Fq 'archive_message_action "$id" >/dev/null' scripts/owl-native-backend.sh
   grep -Fq 'private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
   grep -Fq 'target == session.timelineEndID(for: session.selectedThread)' generated/macos/Sources/App/App.swift
   grep -Fq 'session.timelineShouldFollowEnd(for: session.selectedThread)' generated/macos/Sources/App/App.swift
@@ -609,7 +630,46 @@ swift_chat_bubble_colors_are_preferences() {
   grep -Fq 'llm_spam_source: (($m.llm_spam_source // "") | tostring)' scripts/owl-native-backend.sh
   grep -Fq 'bubble_self_simplex)' scripts/owl-native-backend.sh
   grep -Fq 'bubble_self_simplex:$bubble_self_simplex' scripts/owl-native-backend.sh
-  grep -Fq 'mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email)' scripts/owl-native-backend.sh
+  grep -Fq 'mark_read_when_seen)' scripts/owl-native-backend.sh
+  grep -Fq 'mark_earlier_seen)' scripts/owl-native-backend.sh
+  grep -Fq 'mark_read_when_seen:$mark_read_when_seen' scripts/owl-native-backend.sh
+  grep -Fq 'mark_earlier_seen:$mark_earlier_seen' scripts/owl-native-backend.sh
+  grep -Fq 'mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email|mark_read_when_seen|mark_earlier_seen|show_temporal_distance|detect_temporal_distance)' scripts/owl-native-backend.sh
+  grep -Fq '@Published var markMessagesReadWhenSeen: Bool = true' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var markEarlierMessagesSeen: Bool = true' generated/macos/Sources/App/App.swift
+  grep -Fq 'Toggle("Mark messages read when seen"' generated/macos/Sources/App/App.swift
+  grep -Fq 'Toggle("Mark all earlier messages seen"' generated/macos/Sources/App/App.swift
+  grep -Fq '.disabled(!session.markMessagesReadWhenSeen)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func persistSeenPreferences()' generated/macos/Sources/App/App.swift
+  grep -Fq 'show_temporal_distance)' scripts/owl-native-backend.sh
+  grep -Fq 'detect_temporal_distance)' scripts/owl-native-backend.sh
+  grep -Fq 'show_temporal_distance:$show_temporal_distance' scripts/owl-native-backend.sh
+  grep -Fq 'detect_temporal_distance:$detect_temporal_distance' scripts/owl-native-backend.sh
+  grep -Fq '@Published var showTemporalDistance: Bool = true' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var detectTemporalDistanceAutomatically: Bool = true' generated/macos/Sources/App/App.swift
+  grep -Fq 'Toggle("Show temporal distance"' generated/macos/Sources/App/App.swift
+  grep -Fq 'Toggle("Detect temporal distance automatically"' generated/macos/Sources/App/App.swift
+  grep -Fq 'func persistTemporalDistancePreferences()' generated/macos/Sources/App/App.swift
+}
+
+swift_temporal_distance_ui_exists() {
+  cd "$repo_dir"
+  grep -Fq 'set-temporal-distance ROOT THREAD_ID SECONDS|auto' scripts/owl-native-backend.sh
+  grep -Fq 'set_temporal_distance_action()' scripts/owl-native-backend.sh
+  grep -Fq 'temporal_distance_seconds:(if $temporal_distance_seconds == "" then null else ($temporal_distance_seconds | tonumber? // null) end)' scripts/owl-native-backend.sh
+  grep -Fq 'temporal_distance_seconds: ($contact.temporal_distance_seconds // null)' scripts/owl-native-backend.sh
+  grep -Fq 'temporal_distance_seconds: (.temporal_distance_seconds // null)' scripts/owl-native-backend.sh
+  grep -Fq 'private enum TemporalDistance' generated/macos/Sources/App/App.swift
+  grep -Fq 'func automaticTemporalDistance(for thread: ThreadItem) -> Int?' generated/macos/Sources/App/App.swift
+  grep -Fq 'thread.temporal_distance_seconds ?? automaticTemporalDistance(for: thread)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TemporalDistanceBadge: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'SidebarThreadRow(thread: thread, showsTemporalDistance: true)' generated/macos/Sources/App/App.swift
+  grep -Fq 'if showsTemporalDistance, session.showTemporalDistance' generated/macos/Sources/App/App.swift
+  grep -Fq 'Image(systemName: thread.temporal_distance_seconds == nil ? "clock" : "clock.badge.checkmark")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text(TemporalDistance.label(seconds))' generated/macos/Sources/App/App.swift
+  grep -Fq 'func increaseTemporalDistance(for thread: ThreadItem)' generated/macos/Sources/App/App.swift
+  grep -Fq 'func decreaseTemporalDistance(for thread: ThreadItem)' generated/macos/Sources/App/App.swift
+  grep -Fq 'Button { session.setTemporalDistance(for: thread, seconds: nil) } label:' generated/macos/Sources/App/App.swift
 }
 
 swift_new_sender_actions_skip_full_refresh() {
@@ -728,6 +788,7 @@ run_case "Swift Mail timelines restore scroll position" swift_mail_timelines_res
 run_case "Swift Inbox cards open reader before Mail" swift_inbox_cards_open_reader_before_mail
 run_case "Swift message surfaces use colored backgrounds" swift_message_surfaces_use_colored_backgrounds
 run_case "Swift chat bubble colors are preferences" swift_chat_bubble_colors_are_preferences
+run_case "Swift temporal distance UI exists" swift_temporal_distance_ui_exists
 run_case "Swift new sender actions skip full refresh" swift_new_sender_actions_skip_full_refresh
 run_case "Native UI has no manual refresh controls" native_ui_has_no_manual_refresh_controls
 run_case "Swift uses toasts not status bar" swift_uses_toasts_not_status_bar
@@ -740,4 +801,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "21/21 native render tests passed"
+printf '%s\n' "22/22 native render tests passed"
