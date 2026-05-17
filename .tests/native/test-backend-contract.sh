@@ -447,6 +447,31 @@ arg5=${5-}
 printf '%s\t%s\t%s\t%s\t%s\n' "$host" "$cmd" "$arg1" "$arg2" "$arg5" >>"${OWL_TEST_SSH_LOG:?}"
 case "$cmd" in
   */blog-secure-chat-owl-export)
+    if [ "$arg1" = "9" ]; then
+      jq -n '{success:true,cursor_seq:9,messages:[]}'
+      exit 0
+    fi
+    if [ "$arg1" = "7" ]; then
+      jq -n '{
+        success:true,
+        cursor_seq:9,
+        messages:[{
+          id:"simplex-owner-direct:27:9",
+          seq:9,
+          npub:"npub1visitor",
+          thread_id:"npub1visitor",
+          contact_name:"Nostr Username",
+          body:"hello again from same identity",
+          subject:"Website Secure Chat",
+          from_self:false,
+          in_inbox:true,
+          simplex_address:"secure-chat:27",
+          source:"simplex-owner-direct",
+          created_at:"2026-05-05T08:02:00Z"
+        }]
+      }'
+      exit 0
+    fi
     jq -n --arg since "$arg1" '{
       success:true,
       cursor_seq:7,
@@ -478,7 +503,7 @@ case "$cmd" in
     }'
     ;;
   */blog-secure-chat-owl-send)
-    [ "$arg1" = "npub1visitor" ] || exit 1
+    [ "$arg1" = "secure-chat:27" ] || exit 1
     printf '%s\n' "$arg2" | base64 -d >>"${OWL_TEST_SSH_LOG:?}.decoded"
     printf '\n' >>"${OWL_TEST_SSH_LOG:?}.decoded"
     jq -n '{success:true,npub:"npub1visitor"}'
@@ -507,6 +532,22 @@ SH
     (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello from website 🦉" and .attachments == 1 and .attachment.name == "probe-😀.txt")) | length) == 1 and
     (.messages | map(select(.body == "owner reply should not echo")) | length) == 0
   ' >/dev/null
+  backend bind-contact "$root" secure-chat-contact-27 "Legacy Contact" person "" secure-chat:27 no >/dev/null
+  backend import-simplex "$root" secure-chat-contact-27 "$(b64 'legacy duplicate thread')" false true "Website Secure Chat" >/dev/null
+  PATH="$fakebin:$PATH" \
+    OWL_TEST_SSH_LOG="$ssh_log" \
+    HOME="$tmpdir/home" \
+    XDG_STATE_HOME="$tmpdir/state" \
+    XDG_CONFIG_HOME="$tmpdir/config" \
+    sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
+  snapshot=$(backend snapshot "$root")
+  printf '%s\n' "$snapshot" | jq -e '
+    ([.threads[] | select(.id == "npub1visitor")] | length) == 1 and
+    ([.threads[] | select(.id == "secure-chat-contact-27")] | length) == 0 and
+    ([.threads[] | select(.id == "npub1visitor")][0].simplex_address == "secure-chat:27") and
+    (.messages | map(select(.thread_id == "npub1visitor" and .body == "legacy duplicate thread")) | length) == 1 and
+    (.inbox | map(select(.thread_id == "npub1visitor" and .body == "hello again from same identity")) | length) == 1
+  ' >/dev/null
   backend send-message "$root" npub1visitor simplex "Reply" "$(b64 'reply body 😀')" >/dev/null
   PATH="$fakebin:$PATH" \
     OWL_TEST_SSH_LOG="$ssh_log" \
@@ -514,7 +555,7 @@ SH
     XDG_STATE_HOME="$tmpdir/state" \
     XDG_CONFIG_HOME="$tmpdir/config" \
     sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
-  grep -q '/remote/blog-secure-chat-owl-send	npub1visitor' "$ssh_log"
+  grep -q '/remote/blog-secure-chat-owl-send	secure-chat:27' "$ssh_log"
   grep -q 'simplex:' "$ssh_log"
   grep -q 'reply body 😀' "$ssh_log.decoded"
   attachment_file="$tmpdir/secure-chat-hook/probe.txt"

@@ -127,6 +127,9 @@ simplex_web_attachment_json() {
   if command -v file >/dev/null 2>&1; then
     attachment_mime=$(file -b --mime-type "$attachment_file_path" 2>/dev/null || printf 'application/octet-stream')
   fi
+  if [ "$attachment_mime" = "application/octet-stream" ]; then
+    attachment_mime=$(mime_from_name "$attachment_name")
+  fi
   attachment_data=$(base64_one_line <"$attachment_file_path")
   jq -cn \
     --arg name "$attachment_name" \
@@ -633,6 +636,43 @@ simplex_thread_file() {
   printf '%s/%s.jsonl\n' "$(simplex_threads_dir)" "$thread_id"
 }
 
+legacy_secure_chat_thread_for_address() {
+  case "${1-}" in
+    secure-chat:[0-9]*)
+      printf 'secure-chat-contact-%s\n' "${1#secure-chat:}"
+      ;;
+  esac
+}
+
+migrate_simplex_thread_messages() {
+  from_thread=$(safe_slug "${1-}")
+  to_thread=$(safe_slug "${2-}")
+  [ -n "$from_thread" ] && [ -n "$to_thread" ] || return 0
+  [ "$from_thread" != "$to_thread" ] || return 0
+  from_file=$(simplex_thread_file "$from_thread")
+  [ -f "$from_file" ] || return 0
+  to_file=$(simplex_thread_file "$to_thread")
+  mkdir -p "$(dirname "$to_file")"
+  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex-merge.XXXXXX")
+  {
+    [ -f "$to_file" ] && cat "$to_file"
+    jq -c --arg thread_id "$to_thread" '.thread_id = $thread_id' "$from_file"
+  } | jq -cs '
+    reduce .[] as $message ({order:[], by_key:{}}; 
+      (($message.remote_id // "") | tostring) as $remote
+      | (($message.id // "") | tostring) as $id
+      | (if $remote != "" then "remote:" + $remote else "id:" + $id end) as $key
+      | if (.by_key[$key] // null) == null then .order += [$key] else . end
+      | .by_key[$key] = $message
+    )
+    | .order[] as $key
+    | .by_key[$key]
+  ' >"$tmp"
+  mv "$tmp" "$to_file"
+  rm -f "$from_file"
+  rm -f "$(native_contact_file "$from_thread")"
+}
+
 append_simplex_message() {
   thread_id=$(safe_slug "$1")
   body=${2-}
@@ -1012,6 +1052,7 @@ send_simplex_payload_action() {
   name=$(config_get "$contact_file" name 2>/dev/null || printf "$thread_id")
   [ -n "$simplex" ] || usage_error "SimpleX transport selected but no SimpleX path is bound for $name"
   result=$(append_simplex_message "$thread_id" "$display_body" true false "$subject" "" "" "$attachments" "$attachment_json")
+  attachment_json=$(normalize_simplex_attachment_json "$attachment_json")
   outbox_file="$(simplex_outbox_dir)/$(printf '%s\n' "$result" | jq -r '.id').json"
   mkdir -p "$(dirname "$outbox_file")"
   printf '%s\n' "$result" | jq \
@@ -1020,7 +1061,8 @@ send_simplex_payload_action() {
     --arg subject "$subject" \
     --arg body "$wire_body" \
     --arg attachment_path "$attachment_path" \
-    '. + {transport:"simplex",thread_id:$thread_id,simplex_address:$simplex_address,subject:$subject,body:$body,queued_at:(now|todateiso8601)} + (if $attachment_path == "" then {} else {attachment_path:$attachment_path} end)' >"$outbox_file"
+    --argjson attachment "$attachment_json" \
+    '. + {transport:"simplex",thread_id:$thread_id,simplex_address:$simplex_address,subject:$subject,body:$body,queued_at:(now|todateiso8601)} + (if $attachment == null then {} else {attachment:$attachment} end) + (if $attachment_path == "" then {} else {attachment_path:$attachment_path} end)' >"$outbox_file"
   printf '%s\n' "$result" | jq --arg outbox_path "$outbox_file" '. + {transport:"simplex",outbox_path:$outbox_path}'
 }
 
@@ -1836,14 +1878,27 @@ tick_simplex_action() {
     if [ -n "$simplex_address" ]; then
       contact_file=$(native_contact_file "$thread_id")
       current_name=
+      current_simplex=
+      current_favorite=no
       if [ -f "$contact_file" ]; then
         current_name=$(config_get "$contact_file" name 2>/dev/null || printf '')
+        current_simplex=$(config_get "$contact_file" simplex_address 2>/dev/null || printf '')
+        current_favorite=$(config_get "$contact_file" favorite 2>/dev/null || printf no)
       fi
       case "$current_name" in
         ''|"$thread_id"|"$simplex_address"|npub1*|secure-chat-contact-*)
-          save_contact_binding "$thread_id" "$contact_name" person "" "$simplex_address" no >/dev/null
+          save_contact_binding "$thread_id" "$contact_name" person "" "$simplex_address" "$current_favorite" >/dev/null
+          ;;
+        *)
+          if [ "$current_simplex" != "$simplex_address" ]; then
+            save_contact_binding "$thread_id" "$current_name" person "" "$simplex_address" "$current_favorite" >/dev/null
+          fi
           ;;
       esac
+      legacy_thread_id=$(legacy_secure_chat_thread_for_address "$simplex_address")
+      if [ -n "$legacy_thread_id" ] && [ "$legacy_thread_id" != "$thread_id" ]; then
+        migrate_simplex_thread_messages "$legacy_thread_id" "$thread_id"
+      fi
     fi
     if simplex_duplicate_message_exists "$thread_id" "$body" "$from_self" "$remote_id"; then
       mkdir -p "$(simplex_processed_dir)"

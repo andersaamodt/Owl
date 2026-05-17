@@ -180,7 +180,7 @@ send_message() {
     printf '%s\n' "owl-native-secure-chat-hook: outbox file not found: $outbox_file" >&2
     exit 1
   }
-  target=$(jq -r '.thread_id // .contact_key // .simplex_address // ""' "$outbox_file" | head -n 1)
+  target=$(jq -r '.simplex_address // .thread_id // .contact_key // ""' "$outbox_file" | head -n 1)
   case "$target" in
     npub1*|secure-chat:[0-9]*|secure-chat-contact-[0-9]*) ;;
     *) printf '%s\n' "owl-native-secure-chat-hook: outbox thread is not a Secure Chat target: $target" >&2; exit 2 ;;
