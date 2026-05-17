@@ -205,7 +205,7 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -q 'private struct NewSenderRealPile: View' generated/macos/Sources/App/App.swift
   grep -Fq 'ForEach(messages.indices, id: \.self)' generated/macos/Sources/App/App.swift
   grep -Fq '.offset(x: cardOffsetX(index), y: cardOffsetY(index))' generated/macos/Sources/App/App.swift
-  grep -Fq 'isExpanded ? CGFloat(index) * 176 : -CGFloat(index) * 5.4' generated/macos/Sources/App/App.swift
+  grep -Fq 'isExpanded ? CGFloat(index) * 326 : -CGFloat(index) * 5.4' generated/macos/Sources/App/App.swift
   grep -Fq 'isExpanded ? 0 : [0.0, -8.0, 6.0, -5.0, 4.0][min(index, 4)]' generated/macos/Sources/App/App.swift
   grep -q 'NewSenderMessageStackCard' generated/macos/Sources/App/App.swift
   grep -q 'InboxStackCard' generated/macos/Sources/App/App.swift
@@ -215,9 +215,18 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'private var stackBadgeText: String?' generated/macos/Sources/App/App.swift
   grep -Fq 'guard depth > 3, let badge, !badge.isEmpty else { return nil }' generated/macos/Sources/App/App.swift
   grep -Fq 'badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil' generated/macos/Sources/App/App.swift
-  grep -Fq '.frame(minWidth: 260, idealWidth: 420, maxWidth: 520, alignment: .leading)' generated/macos/Sources/App/App.swift
+  grep -Fq 'var cardWidth: CGFloat' generated/macos/Sources/App/App.swift
+  grep -Fq 'cardTextWeight > 720 ? 500 : 420' generated/macos/Sources/App/App.swift
+  grep -Fq 'cardTextWeight > 720 ? 375 : (cardTextWeight > 260 ? 360 : 315)' generated/macos/Sources/App/App.swift
+  grep -Fq 'var cardBodyLineLimit: Int' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(width: width, alignment: .topLeading)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(minHeight: minHeight, alignment: .topLeading)' generated/macos/Sources/App/App.swift
   grep -Fq '.fixedSize(horizontal: true, vertical: false)' generated/macos/Sources/App/App.swift
-  grep -Fq 'StaticCardStackBackplates(depth: stackDepth, tint: messageTint)' generated/macos/Sources/App/App.swift
+  grep -Fq 'StaticCardStackBackplates(' generated/macos/Sources/App/App.swift
+  grep -Fq 'width: message.cardWidth,' generated/macos/Sources/App/App.swift
+  grep -Fq 'minHeight: message.cardMinHeight' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(width: width, height: minHeight)' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func stackOffsetX(_ index: Int) -> CGFloat' generated/macos/Sources/App/App.swift
   grep -Fq 'CardStackFrame(' generated/macos/Sources/App/App.swift
   grep -Fq 'depth: 1,' generated/macos/Sources/App/App.swift
   grep -Fq 'Text("\\(stackDepth)")' generated/macos/Sources/App/App.swift
@@ -225,10 +234,10 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'ForEach(inboxStackCards)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var inboxStackCards: [MessageItem]' generated/macos/Sources/App/App.swift
   grep -Fq 'let grouped = Dictionary(grouping: session.snapshot.inbox, by: { inboxStackKey(for: $0) })' generated/macos/Sources/App/App.swift
-  grep -Fq 'revealedMessage: inboxStackMessages(for: message).dropFirst().first' generated/macos/Sources/App/App.swift
   grep -Fq 'private func inboxStackMessages(for message: MessageItem) -> [MessageItem]' generated/macos/Sources/App/App.swift
-  grep -Fq 'let revealedMessage: MessageItem?' generated/macos/Sources/App/App.swift
-  grep -Fq 'InboxCardContent(message: revealedMessage, actionsVisible: false)' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'revealedMessage: inboxStackMessages(for: message).dropFirst().first' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'let revealedMessage: MessageItem?' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'InboxCardContent(message: revealedMessage, actionsVisible: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct InboxCardContent: View' generated/macos/Sources/App/App.swift
   awk '
     /private struct InboxCardContent/ { in_view = 1 }
@@ -248,7 +257,7 @@ swift_new_and_inbox_use_card_stack_layout() {
   ! grep -Fq 'SidebarMailboxRow(mailbox: trashMailbox)' generated/macos/Sources/App/App.swift
   ! grep -Fq 'private var trashMailbox: MailboxItem' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "archive"' generated/macos/Sources/App/App.swift
-  grep -Fq '.frame(maxWidth: 560)' generated/macos/Sources/App/App.swift
+  grep -Fq '.frame(maxWidth: 620)' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: .infinity, alignment: .center)' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(maxWidth: 540, alignment: .center)' generated/macos/Sources/App/App.swift
   grep -Fq 'TransportPill(message: latest)' generated/macos/Sources/App/App.swift

@@ -1159,6 +1159,18 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
   var isSendError: Bool { status == "error" }
   var isLongBlock: Bool { isEmail || body.count > 180 || subject.count > 0 }
   var displayBody: String { body.isEmpty ? preview : body }
+  var cardTextWeight: Int {
+    subject.count + displayBody.count + (attachment == nil ? 0 : 260)
+  }
+  var cardWidth: CGFloat {
+    cardTextWeight > 720 ? 500 : 420
+  }
+  var cardMinHeight: CGFloat {
+    cardTextWeight > 720 ? 375 : (cardTextWeight > 260 ? 360 : 315)
+  }
+  var cardBodyLineLimit: Int {
+    cardTextWeight > 720 ? 12 : (cardTextWeight > 260 ? 8 : 5)
+  }
   var llmDetectedCategory: String? {
     let category = llm_spam_category.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !category.isEmpty, category != "unknown" else { return nil }
@@ -3690,6 +3702,8 @@ private struct CardStackFrame<Content: View>: View {
   let badge: String?
   let tint: Color
   let isSelected: Bool
+  let width: CGFloat
+  let minHeight: CGFloat
   let content: Content
 
   init(
@@ -3697,12 +3711,16 @@ private struct CardStackFrame<Content: View>: View {
     badge: String? = nil,
     tint: Color = .accentColor,
     isSelected: Bool = false,
+    width: CGFloat = 420,
+    minHeight: CGFloat = 315,
     @ViewBuilder content: () -> Content
   ) {
     self.depth = depth
     self.badge = badge
     self.tint = tint
     self.isSelected = isSelected
+    self.width = width
+    self.minHeight = minHeight
     self.content = content()
   }
 
@@ -3736,8 +3754,10 @@ private struct CardStackFrame<Content: View>: View {
 
   var body: some View {
     content
+      .frame(maxWidth: .infinity, minHeight: max(0, minHeight - 28), alignment: .topLeading)
       .padding(14)
-      .frame(minWidth: 260, idealWidth: 420, maxWidth: 520, alignment: .leading)
+      .frame(width: width, alignment: .topLeading)
+      .frame(minHeight: minHeight, alignment: .topLeading)
       .fixedSize(horizontal: true, vertical: false)
       .background(
         cardBackground
@@ -3781,6 +3801,8 @@ private struct CardStackFrame<Content: View>: View {
 private struct StaticCardStackBackplates: View {
   let depth: Int
   let tint: Color
+  let width: CGFloat
+  let minHeight: CGFloat
 
   private var backCount: Int {
     min(max(depth - 1, 0), 4)
@@ -3791,6 +3813,7 @@ private struct StaticCardStackBackplates: View {
       ForEach(0..<backCount, id: \.self) { index in
         RoundedRectangle(cornerRadius: 14, style: .continuous)
           .fill(stackedFill(index))
+          .frame(width: width, height: minHeight)
           .shadow(color: Color.black.opacity(0.13), radius: 5, x: 0, y: 2)
           .offset(x: stackOffsetX(index), y: -CGFloat(index + 1) * 5.4)
           .rotationEffect(.degrees(stackRotation(index)))
@@ -3815,7 +3838,7 @@ private struct StaticCardStackBackplates: View {
   }
 
   private func stackOffsetX(_ index: Int) -> CGFloat {
-    [-8.0, 6.0, -5.0, 4.0][index % 4]
+    0
   }
 }
 
@@ -3942,8 +3965,8 @@ private struct NewSenderStackSurface: View {
 
   private func pileHeight(for thread: ThreadItem) -> CGFloat {
     let count = quarantineMessages(for: thread).count
-    guard expandedSenderID == thread.id else { return 180 }
-    return max(180, CGFloat(count) * 176)
+    guard expandedSenderID == thread.id else { return 330 }
+    return max(330, CGFloat(count) * 326)
   }
 }
 
@@ -3994,7 +4017,7 @@ private struct NewSenderRealPile: View {
   }
 
   private func cardOffsetY(_ index: Int) -> CGFloat {
-    isExpanded ? CGFloat(index) * 176 : -CGFloat(index) * 5.4
+    isExpanded ? CGFloat(index) * 326 : -CGFloat(index) * 5.4
   }
 
   private func cardRotation(_ index: Int) -> Double {
@@ -4024,7 +4047,9 @@ private struct NewSenderStackCard: View {
       depth: max(1, quarantineMessages.count),
       badge: quarantineMessages.count > 3 ? String(quarantineMessages.count) : nil,
       tint: .orange,
-      isSelected: isSelected
+      isSelected: isSelected,
+      width: latestMessage?.cardWidth ?? 420,
+      minHeight: latestMessage?.cardMinHeight ?? 315
     ) {
       VStack(alignment: .leading, spacing: 10) {
         HStack(alignment: .firstTextBaseline, spacing: 9) {
@@ -4043,8 +4068,9 @@ private struct NewSenderStackCard: View {
           Text(latest.displayBody.isEmpty ? latest.preview : latest.displayBody)
             .font(.callout)
             .foregroundStyle(.secondary)
-            .lineLimit(2)
+            .lineLimit(latest.cardBodyLineLimit)
         }
+        Spacer(minLength: 8)
         if let latest = latestMessage {
           TransportPill(message: latest)
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -4139,7 +4165,13 @@ private struct NewSenderMessageStackCard: View {
 
   var body: some View {
     Button(action: action) {
-      CardStackFrame(depth: 1, tint: message.isSimpleX ? .green : .red, isSelected: isSelected) {
+      CardStackFrame(
+        depth: 1,
+        tint: message.isSimpleX ? .green : .red,
+        isSelected: isSelected,
+        width: message.cardWidth,
+        minHeight: message.cardMinHeight
+      ) {
         VStack(alignment: .leading, spacing: 10) {
           HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(message.subject.isEmpty ? "(no subject)" : message.subject)
@@ -4156,7 +4188,8 @@ private struct NewSenderMessageStackCard: View {
             .foregroundStyle(.secondary)
           Text(message.displayBody.isEmpty ? "No preview" : message.displayBody)
             .font(.body)
-            .lineLimit(message.isLongBlock ? 5 : 3)
+            .lineLimit(message.cardBodyLineLimit)
+          Spacer(minLength: 8)
           HStack {
             TransportPill(message: message)
             if message.attachments > 0 {
@@ -4592,13 +4625,12 @@ private struct InboxView: View {
               ForEach(inboxStackCards) { message in
                 InboxStackCard(
                   message: message,
-                  revealedMessage: inboxStackMessages(for: message).dropFirst().first,
                   stackDepth: inboxStackDepth(for: message),
                   isFocused: isFocusedStack(message),
                   animationNamespace: animationNamespace
                 )
                 .id(inboxStackID(for: message))
-                .frame(maxWidth: 560)
+                .frame(maxWidth: 620)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .zIndex(inboxStackZIndex(for: message))
               }
@@ -4790,7 +4822,13 @@ private struct MessageReaderCard: View {
   var animationNamespace: Namespace.ID? = nil
 
   var body: some View {
-    CardStackFrame(depth: 1, tint: message.isSimpleX ? .green : .red, isSelected: true) {
+    CardStackFrame(
+      depth: 1,
+      tint: message.isSimpleX ? .green : .red,
+      isSelected: true,
+      width: message.cardWidth,
+      minHeight: message.cardMinHeight
+    ) {
       VStack(alignment: .leading, spacing: 8) {
         HStack(alignment: .firstTextBaseline) {
           Text(message.contact_name)
@@ -4808,11 +4846,12 @@ private struct MessageReaderCard: View {
         Text(message.displayBody.isEmpty ? "No preview" : message.displayBody)
           .font(.body)
           .foregroundStyle(.primary)
-          .lineLimit(message.isLongBlock ? 5 : 2)
+          .lineLimit(message.cardBodyLineLimit)
         if let attachment = message.attachment {
           AttachmentPreview(attachment: attachment)
             .frame(maxWidth: 420, alignment: .leading)
         }
+        Spacer(minLength: 8)
         HStack {
           TransportPill(message: message)
           if message.attachments > 0 {
@@ -4838,29 +4877,24 @@ private struct MessageReaderCard: View {
 private struct InboxStackCard: View {
   @EnvironmentObject private var session: OwlSession
   let message: MessageItem
-  let revealedMessage: MessageItem?
   let stackDepth: Int
   let isFocused: Bool
   let animationNamespace: Namespace.ID
 
   var body: some View {
-    ZStack(alignment: .topTrailing) {
-      StaticCardStackBackplates(depth: stackDepth, tint: messageTint)
-      if let revealedMessage {
-        CardStackFrame(
-          depth: 1,
-          tint: revealedMessage.isSimpleX ? .green : .red,
-          isSelected: false
-        ) {
-          InboxCardContent(message: revealedMessage, actionsVisible: false)
-        }
-        .offset(x: -5, y: 9)
-        .allowsHitTesting(false)
-      }
+    ZStack(alignment: .top) {
+      StaticCardStackBackplates(
+        depth: stackDepth,
+        tint: messageTint,
+        width: message.cardWidth,
+        minHeight: message.cardMinHeight
+      )
       CardStackFrame(
         depth: 1,
         tint: messageTint,
-        isSelected: isFocused
+        isSelected: isFocused,
+        width: message.cardWidth,
+        minHeight: message.cardMinHeight
       ) {
         InboxCardContent(message: message, actionsVisible: true)
       }
@@ -4916,7 +4950,8 @@ private struct InboxCardContent: View {
       Text(message.displayBody.isEmpty ? "No preview" : message.displayBody)
         .font(message.isLongBlock ? .body : .callout)
         .foregroundStyle(.primary)
-        .lineLimit(message.isLongBlock ? 6 : 3)
+        .lineLimit(message.cardBodyLineLimit)
+      Spacer(minLength: 8)
       HStack(spacing: 8) {
         TransportPill(message: message)
         if message.attachments > 0 {
