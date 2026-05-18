@@ -109,7 +109,8 @@ swift_uses_native_desktop_idiom() {
   grep -q 'let editMenu = NSMenu(title: "Edit")' generated/macos/Sources/App/App.swift
   grep -q 'let messageMenu = NSMenu(title: "Message")' generated/macos/Sources/App/App.swift
   grep -q 'private let generatedAppMenuTitle = "Owl"' generated/macos/Sources/App/App.swift
-  grep -q '.executable(name: "Owl", targets: \["App"\])' generated/macos/Package.swift
+  grep -q 'appMenuItem.title = generatedAppMenuTitle' generated/macos/Sources/App/App.swift
+  grep -q '.executable(name: "owl-native", targets: \["App"\])' generated/macos/Package.swift
   grep -q 'actionItem("Preferences...", action: "open_settings", key: ",", modifiers: \\[.command\\])' generated/macos/Sources/App/App.swift
   ! grep -q 'actionItem("Settings...", action: "open_settings"' generated/macos/Sources/App/App.swift
   grep -q 'settingsWindow.title = "Preferences"' generated/macos/Sources/App/App.swift

@@ -140,6 +140,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let mainMenu = NSMenu()
 
     let appMenuItem = NSMenuItem()
+    appMenuItem.title = generatedAppMenuTitle
     let appMenu = NSMenu(title: generatedAppMenuTitle)
     appMenu.addItem(NSMenuItem(title: "About \(generatedAppMenuTitle)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
     appMenu.addItem(.separator())

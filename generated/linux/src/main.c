@@ -7,7 +7,7 @@ static const char *wizardry_app_ir =
   "  \"format\": \"yaml-1.2-json-compatible\",\n"
   "  \"app\": {\n"
   "    \"id\": \"owl-native\",\n"
-  "    \"name\": \"Owl Native\",\n"
+  "    \"name\": \"Owl\",\n"
   "    \"targets\": [\n"
   "      \"macos\",\n"
   "      \"linux\"\n"

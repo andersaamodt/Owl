@@ -11,7 +11,7 @@ private let canonicalIR = #"""
   "format": "yaml-1.2-json-compatible",
   "app": {
     "id": "owl-native",
-    "name": "Owl Native",
+    "name": "Owl",
     "targets": [
       "macos",
       "linux"
@@ -353,7 +353,7 @@ private let canonicalIR = #"""
 }
 """#
 
-private let generatedAppName = "Owl Native"
+private let generatedAppName = "Owl"
 private let generatedAppMenuTitle = "Owl"
 private let generatedAppID = "owl-native"
 private let generatedAppVersion = "0.1.0"
@@ -484,6 +484,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
     let mainMenu = NSMenu()
 
     let appMenuItem = NSMenuItem()
+    appMenuItem.title = generatedAppMenuTitle
     let appMenu = NSMenu(title: generatedAppMenuTitle)
     appMenu.addItem(NSMenuItem(title: "About \(generatedAppMenuTitle)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
     appMenu.addItem(.separator())

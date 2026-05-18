@@ -3,7 +3,7 @@
   "format": "yaml-1.2-json-compatible",
   "app": {
     "id": "owl-native",
-    "name": "Owl Native",
+    "name": "Owl",
     "targets": ["macos", "linux"],
     "actions": [
       {"id": "focus_new", "title": "New Senders"},

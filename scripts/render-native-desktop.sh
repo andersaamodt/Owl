@@ -128,7 +128,7 @@ let package = Package(
     .macOS(.v13)
   ],
   products: [
-    .executable(name: "$app_menu_title", targets: ["App"])
+    .executable(name: "$app_id", targets: ["App"])
   ],
   targets: [
     .executableTarget(
