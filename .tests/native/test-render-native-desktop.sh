@@ -223,8 +223,8 @@ swift_new_and_inbox_use_card_stack_layout() {
   grep -Fq 'cardTextWeight > 720 ? 375 : (cardTextWeight > 260 ? 360 : 315)' generated/macos/Sources/App/App.swift
   grep -Fq 'var cardBodyLineLimit: Int' generated/macos/Sources/App/App.swift
   grep -Fq 'var inboxCardWidth: CGFloat' generated/macos/Sources/App/App.swift
-  grep -Fq 'cardTextWeight > 720 ? 360 : 300' generated/macos/Sources/App/App.swift
-  grep -Fq 'cardTextWeight > 720 ? 330 : (cardTextWeight > 260 ? 290 : 250)' generated/macos/Sources/App/App.swift
+  grep -Fq 'cardTextWeight > 720 ? 420 : (cardTextWeight > 260 ? 330 : 300)' generated/macos/Sources/App/App.swift
+  grep -Fq 'cardTextWeight > 720 ? 350 : (cardTextWeight > 260 ? 275 : 250)' generated/macos/Sources/App/App.swift
   grep -Fq 'var inboxCardBodyLineLimit: Int' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(width: width, alignment: .topLeading)' generated/macos/Sources/App/App.swift
   grep -Fq '.frame(minHeight: minHeight, alignment: .topLeading)' generated/macos/Sources/App/App.swift

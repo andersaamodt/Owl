@@ -1213,10 +1213,10 @@ private struct MessageItem: Identifiable, Decodable, Hashable, Sendable {
     cardTextWeight > 720 ? 12 : (cardTextWeight > 260 ? 8 : 5)
   }
   var inboxCardWidth: CGFloat {
-    cardTextWeight > 720 ? 360 : 300
+    cardTextWeight > 720 ? 420 : (cardTextWeight > 260 ? 330 : 300)
   }
   var inboxCardMinHeight: CGFloat {
-    cardTextWeight > 720 ? 330 : (cardTextWeight > 260 ? 290 : 250)
+    cardTextWeight > 720 ? 350 : (cardTextWeight > 260 ? 275 : 250)
   }
   var inboxCardBodyLineLimit: Int {
     cardTextWeight > 720 ? 9 : (cardTextWeight > 260 ? 6 : 4)
