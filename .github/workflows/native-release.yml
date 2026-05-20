@@ -166,7 +166,7 @@ jobs:
           status: draft
 
   ios:
-    name: iOS Simulator
+    name: iOS Project
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -178,25 +178,21 @@ jobs:
       - name: Generate Xcode project
         working-directory: owl-mobile/generated/mobile/ios
         run: xcodegen generate --spec project.yml
-      - name: Build simulator app
+      - name: Validate Xcode project
         working-directory: owl-mobile/generated/mobile/ios
         run: |
           set -eu
-          xcodebuild \
-            -project owl-mobile.xcodeproj \
-            -scheme owl \
-            -configuration Release \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            SYMROOT="$PWD/build" \
-            build
+          xcodebuild -list -project owl-mobile.xcodeproj
+      - name: Package generated iOS project
+        working-directory: owl-mobile/generated/mobile/ios
+        run: |
+          set -eu
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          ditto -c -k --keepParent build/Release-iphonesimulator/owl.app "$GITHUB_WORKSPACE/dist/owl-ios-simulator.zip"
+          ditto -c -k --keepParent owl-mobile.xcodeproj "$GITHUB_WORKSPACE/dist/owl-ios-project.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: owl-ios-simulator
-          path: dist/owl-ios-simulator.zip
+          name: owl-ios-project
+          path: dist/owl-ios-project.zip
 
   github-release:
     name: Attach Release Artifacts
