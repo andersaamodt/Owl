@@ -766,7 +766,9 @@ swift_remote_server_setup_walkthrough_exists() {
   grep -Fq 'OwlBackend.runJSON(action: "settings-remote-set-auth", root: root, args: self.remoteAuthArgs())' generated/macos/Sources/App/App.swift
   grep -Fq 'action: "settings-remote-deploy"' generated/macos/Sources/App/App.swift
   grep -Fq 'action: "settings-remote-send-test"' generated/macos/Sources/App/App.swift
-  grep -Fq 'action == "settings-setup-ssl" ? ["auto"] + remoteActionArgs : remoteActionArgs' generated/macos/Sources/App/App.swift
+  grep -Fq 'actionArgs: ["remote"] + remoteWorkflowArgs()' generated/macos/Sources/App/App.swift
+  grep -Fq 'private func remoteWorkflowArgs() -> [String]' generated/macos/Sources/App/App.swift
+  grep -Fq 'runBackendAction("settings-setup-ssl", args: ["auto"], status: "TLS setup finished")' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct TLSSetupWalkthroughView: View' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct RemoteServerWalkthroughView: View' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct RemoteSetupStep<Content: View>: View' generated/macos/Sources/App/App.swift
@@ -785,6 +787,11 @@ swift_remote_server_setup_walkthrough_exists() {
   grep -Fq 'Label("Check Remote Mail", systemImage: "arrow.triangle.2.circlepath")' generated/macos/Sources/App/App.swift
   grep -Fq 'Label("Send Test Email", systemImage: "paperplane")' generated/macos/Sources/App/App.swift
   grep -Fq 'Text(session.remoteStatusSummary)' generated/macos/Sources/App/App.swift
+  grep -Fq 'settings-remote-deploy)' scripts/owl-backend.sh
+  grep -Fq 'OWL_REMOTE_DEPLOY_TIMEOUT_SECONDS:-1800' scripts/owl-backend.sh
+  grep -Fq 'OWL_REMOTE_TLS_TIMEOUT_SECONDS:-900' scripts/owl-backend.sh
+  grep -Fq '../owl-nonnative/scripts/owl-desktop-backend.sh' scripts/owl-backend.sh
+  grep -Fq 'git/owl-nonnative/scripts/owl-desktop-backend.sh' scripts/owl-backend.sh
   ! grep -Fq 'Section("Remote") {' generated/macos/Sources/App/App.swift
 }
 

@@ -470,7 +470,9 @@ resolve_owl_backend_script() {
   fi
   for candidate in \
     "$repo_dir/vendor/owl/scripts/owl-desktop-backend.sh" \
+    "$repo_dir/../owl-nonnative/scripts/owl-desktop-backend.sh" \
     "$repo_dir/../owl/scripts/owl-desktop-backend.sh" \
+    "$home/git/owl-nonnative/scripts/owl-desktop-backend.sh" \
     "$home/git/owl/scripts/owl-desktop-backend.sh"
   do
     if [ -f "$candidate" ]; then
@@ -481,12 +483,32 @@ resolve_owl_backend_script() {
   return 1
 }
 
+owl_backend_timeout_seconds() {
+  case "$owl_action" in
+    settings-remote-deploy)
+      printf '%s\n' "${OWL_REMOTE_DEPLOY_TIMEOUT_SECONDS:-1800}"
+      ;;
+    settings-setup-ssl)
+      printf '%s\n' "${OWL_REMOTE_TLS_TIMEOUT_SECONDS:-900}"
+      ;;
+    settings-remote-verify|settings-remote-send-test|settings-remote-sync)
+      printf '%s\n' "${OWL_REMOTE_ACTION_TIMEOUT_SECONDS:-60}"
+      ;;
+    settings-llm-install-ollama|settings-llm-install-model|settings-llm-uninstall-model)
+      printf '%s\n' "${OWL_LLM_ACTION_TIMEOUT_SECONDS:-900}"
+      ;;
+    *)
+      printf '%s\n' "${OWL_OWL_TIMEOUT_SECONDS:-1}"
+      ;;
+  esac
+}
+
 owl_backend_json() {
   owl_action=$1
   shift || true
   script=$(resolve_owl_backend_script || true)
   [ -n "$script" ] || return 127
-  timeout_seconds=${OWL_OWL_TIMEOUT_SECONDS:-1}
+  timeout_seconds=$(owl_backend_timeout_seconds)
   case "$timeout_seconds" in ''|*[!0123456789]*) timeout_seconds=1 ;; esac
   if command -v python3 >/dev/null 2>&1; then
     python3 - "$timeout_seconds" "$script" "$owl_action" "$ROOT" "$@" <<'PY'

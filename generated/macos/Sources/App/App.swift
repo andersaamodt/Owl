@@ -3154,11 +3154,25 @@ private final class OwlSession: ObservableObject {
   }
 
   func setupTLSForCurrentServer() {
+    if !remoteDraftConfigured {
+      runBackendAction("settings-setup-ssl", args: ["auto"], status: "TLS setup finished")
+      return
+    }
     runRemoteWorkflowAction(
       title: "Setting up TLS",
       action: "settings-setup-ssl",
+      actionArgs: ["remote"] + remoteWorkflowArgs(),
       fallbackStatus: "TLS setup finished"
     )
+  }
+
+  private func remoteWorkflowArgs() -> [String] {
+    [
+      remoteHostDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+      remoteKeyPathDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+      remoteKeyHasPassword ? remoteKeyPasswordDraft : "",
+      normalizedRemotePortDraft()
+    ]
   }
 
   private func runRemoteWorkflowAction(
@@ -3177,13 +3191,7 @@ private final class OwlSession: ObservableObject {
         self.applyRemoteActionResult(targetData)
         let authData = try await OwlBackend.runJSON(action: "settings-remote-set-auth", root: root, args: self.remoteAuthArgs())
         self.applyRemoteActionResult(authData)
-        let remoteActionArgs = [
-          remoteHostDraft.trimmingCharacters(in: .whitespacesAndNewlines),
-          remoteKeyPathDraft.trimmingCharacters(in: .whitespacesAndNewlines),
-          remoteKeyHasPassword ? remoteKeyPasswordDraft : "",
-          normalizedRemotePortDraft()
-        ]
-        let args = actionArgs ?? (action == "settings-setup-ssl" ? ["auto"] + remoteActionArgs : remoteActionArgs)
+        let args = actionArgs ?? remoteWorkflowArgs()
         let data = try await OwlBackend.runJSON(action: action, root: root, args: args)
         self.applyRemoteActionResult(data)
         let result = try? JSONDecoder().decode(BackendActionResult.self, from: data)
