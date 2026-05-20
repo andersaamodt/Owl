@@ -1,6 +1,6 @@
 # Owl
 
-Owl is the native app implementation of Owl. It is not a Wizardry-hosted WebView app: the canonical desktop UI source is [ir/app.ir.yaml](ir/app.ir.yaml), with generated SwiftUI/AppKit and GTK4 targets under [generated](generated).
+Owl is a native desktop and mobile mail and messaging app. It is not a Wizardry-hosted WebView app: the canonical desktop UI source is [ir/app.ir.yaml](ir/app.ir.yaml), with generated SwiftUI/AppKit and GTK4 targets under [generated](generated).
 
 ## Current Shape
 
