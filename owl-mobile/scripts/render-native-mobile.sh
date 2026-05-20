@@ -152,10 +152,19 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public final class MainActivity extends Activity {
     private SharedPreferences prefs;
     private TextView remoteStatus;
+    private EditText remoteBridgeUrl;
     private EditText remoteHost;
     private EditText remoteKey;
     private EditText remotePort;
@@ -238,14 +247,21 @@ public final class MainActivity extends Activity {
 
     private void addRemoteSetup(LinearLayout root) {
         root.addView(sectionTitle("Remote Mail Server"));
-        root.addView(bodyText("Step through the same Owl remote setup flow: save SSH details, save authentication, deploy, verify, set up TLS, send a test email, then check remote mail."));
+        root.addView(bodyText("Step through the same Owl remote setup flow from mobile: connect to an Owl backend bridge, save SSH details, save authentication, deploy, verify, set up TLS, send a test email, then check remote mail."));
 
+        remoteBridgeUrl = field("https://owl.example.org/backend", "remote.bridgeUrl");
         remoteHost = field("user@203.0.113.8", "remote.host");
         remoteKey = field("~/.ssh/id_ed25519", "remote.key");
         remotePort = field("SSH port", "remote.port");
+        root.addView(remoteBridgeUrl, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(remoteHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(remoteKey, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(remotePort, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        Button saveBridge = new Button(this);
+        saveBridge.setText("Save Backend Bridge");
+        saveBridge.setOnClickListener(v -> saveRemoteBridge());
+        root.addView(saveBridge, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         Button saveTarget = new Button(this);
         saveTarget.setText("Save Remote Target");
@@ -271,22 +287,32 @@ public final class MainActivity extends Activity {
         saveAuth.setOnClickListener(v -> saveRemoteAuth());
         root.addView(saveAuth, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        addWorkflowButton(root, "Deploy Remote Server", "Deploy starts from the saved SSH target. Use desktop Owl for the actual SSH deploy until the mobile backend bridge is available.");
-        addWorkflowButton(root, "Verify Remote Setup", "Verification checks Owl binaries, daemon health, SMTP reachability, DNS, and mail folders on the saved target.");
-        addWorkflowButton(root, "Set Up Remote TLS", "Remote TLS setup uses Owl's remote certificate flow after DNS points at the mail server.");
-        addWorkflowButton(root, "Send Test Email", "The test email step confirms the public route reaches the remote Owl receiver.");
-        addWorkflowButton(root, "Check Remote Mail", "Remote sync pulls server mail folders back into local Owl without deleting remote mail.");
+        addWorkflowButton(root, "Deploy Remote Server", "settings-remote-deploy", "Deploy uses the saved SSH target to install Owl, configure the receiver, and enable startup.");
+        addWorkflowButton(root, "Verify Remote Setup", "settings-remote-verify", "Verification checks Owl binaries, daemon health, SMTP reachability, DNS, and mail folders on the saved target.");
+        addWorkflowButton(root, "Set Up Remote TLS", "settings-setup-ssl", "Remote TLS setup uses Owl's remote certificate flow after DNS points at the mail server.");
+        addWorkflowButton(root, "Send Test Email", "settings-remote-send-test", "The test email step confirms the public route reaches the remote Owl receiver.");
+        addWorkflowButton(root, "Check Remote Mail", "settings-remote-sync", "Remote sync pulls server mail folders back into local Owl without deleting remote mail.");
 
         remoteStatus = bodyText(remoteSummary());
         root.addView(remoteStatus, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
-    private void addWorkflowButton(LinearLayout root, String title, String detail) {
+    private void addWorkflowButton(LinearLayout root, String title, String action, String detail) {
         Button button = new Button(this);
         button.setText(title);
-        button.setOnClickListener(v -> setRemoteStatus(title + ": " + detail));
+        button.setOnClickListener(v -> runRemoteWorkflowAction(title, action, detail));
         root.addView(button, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(bodyText(detail));
+    }
+
+    private void saveRemoteBridge() {
+        String bridge = remoteBridgeUrl.getText().toString().trim();
+        if (!validBackendBridgeUrl(bridge)) {
+            setRemoteStatus("Enter an http or https Owl backend bridge URL.");
+            return;
+        }
+        prefs.edit().putString("remote.bridgeUrl", bridge).apply();
+        setRemoteStatus("Backend bridge saved. " + remoteSummary());
     }
 
     private void saveRemoteTarget() {
@@ -301,6 +327,7 @@ public final class MainActivity extends Activity {
             .putString("remote.port", port)
             .apply();
         setRemoteStatus("Remote target saved. " + remoteSummary());
+        runBackendAction("settings-remote-set-target", remoteTargetArgs(), "Remote target saved");
     }
 
     private void saveRemoteAuth() {
@@ -310,6 +337,148 @@ public final class MainActivity extends Activity {
             .putString("remote.password", remoteHasPassword.isChecked() ? remotePassword.getText().toString() : "")
             .apply();
         setRemoteStatus("Remote authentication saved. " + remoteSummary());
+        runBackendAction("settings-remote-set-auth", remoteAuthArgs(), "Remote authentication saved");
+    }
+
+    private void runRemoteWorkflowAction(String title, String action, String detail) {
+        if (!remoteReadyForActions()) {
+            setRemoteStatus("Save the backend bridge, SSH target, SSH key, and authentication before running " + title + ".");
+            return;
+        }
+        setRemoteStatus(title + ": starting...");
+        String bridge = remoteBridgeUrl.getText().toString().trim();
+        String[] targetArgs = remoteTargetArgs();
+        String[] authArgs = remoteAuthArgs();
+        String[] actionArgs = workflowArgs(action);
+        new Thread(() -> {
+            try {
+                postBackendAction(bridge, "settings-remote-set-target", targetArgs, "Remote target saved");
+                postBackendAction(bridge, "settings-remote-set-auth", authArgs, "Remote authentication saved");
+                String message = postBackendAction(bridge, action, actionArgs, title + ": " + detail);
+                runOnUiThread(() -> setRemoteStatus(message));
+            } catch (Exception ex) {
+                runOnUiThread(() -> setRemoteStatus(action + " failed: " + ex.getMessage()));
+            }
+        }).start();
+    }
+
+    private String[] remoteTargetArgs() {
+        return new String[] {
+            remoteHost.getText().toString().trim(),
+            remoteKey.getText().toString().trim(),
+            normalizedPort()
+        };
+    }
+
+    private String[] remoteAuthArgs() {
+        return new String[] {
+            remoteHasPassword.isChecked() ? "1" : "0",
+            remoteSavePassword.isChecked() ? "1" : "0",
+            remoteHasPassword.isChecked() ? remotePassword.getText().toString() : "",
+            remoteHost.getText().toString().trim(),
+            remoteKey.getText().toString().trim(),
+            normalizedPort()
+        };
+    }
+
+    private String[] workflowArgs(String action) {
+        String host = remoteHost.getText().toString().trim();
+        String key = remoteKey.getText().toString().trim();
+        String password = remoteHasPassword.isChecked() ? remotePassword.getText().toString() : "";
+        String port = normalizedPort();
+        if ("settings-setup-ssl".equals(action)) {
+            return new String[] {"remote", host, key, password, port};
+        }
+        return new String[] {host, key, password, port};
+    }
+
+    private boolean remoteReadyForActions() {
+        return validBackendBridgeUrl(remoteBridgeUrl.getText().toString().trim()) &&
+            remoteHost.getText().toString().trim().length() > 0 &&
+            remoteKey.getText().toString().trim().length() > 0 &&
+            validPort(normalizedPort()) &&
+            (!remoteHasPassword.isChecked() || remotePassword.getText().toString().length() > 0 || remoteSavePassword.isChecked());
+    }
+
+    private boolean validBackendBridgeUrl(String bridge) {
+        return bridge.startsWith("https://") || bridge.startsWith("http://");
+    }
+
+    private void runBackendAction(String action, String[] args, String fallbackStatus) {
+        String bridge = remoteBridgeUrl.getText().toString().trim();
+        if (!validBackendBridgeUrl(bridge)) {
+            setRemoteStatus("Enter an http or https Owl backend bridge URL.");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                String message = postBackendAction(bridge, action, args, fallbackStatus);
+                runOnUiThread(() -> setRemoteStatus(message));
+            } catch (Exception ex) {
+                runOnUiThread(() -> setRemoteStatus(action + " failed: " + ex.getMessage()));
+            }
+        }).start();
+    }
+
+    private String postBackendAction(String bridge, String action, String[] args, String fallbackStatus) throws Exception {
+        HttpURLConnection connection = null;
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("action", action);
+            payload.put("root", "");
+            JSONArray jsonArgs = new JSONArray();
+            for (String arg : args) {
+                jsonArgs.put(arg == null ? "" : arg);
+            }
+            payload.put("args", jsonArgs);
+
+            URL url = new URL(bridge);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(action.equals("settings-remote-deploy") ? 1800000 : 120000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            byte[] body = payload.toString().getBytes("UTF-8");
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(body);
+            }
+            int status = connection.getResponseCode();
+            InputStream responseStream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+            if (responseStream == null) {
+                throw new IllegalStateException("HTTP " + status);
+            }
+            BufferedReader reader = new BufferedReader(new InputStreamReader(responseStream, "UTF-8"));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            if (status < 200 || status >= 300) {
+                throw new IllegalStateException(response.length() == 0 ? "HTTP " + status : response.toString());
+            }
+            return backendMessage(response.toString(), fallbackStatus);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private String backendMessage(String response, String fallbackStatus) {
+        try {
+            JSONObject json = new JSONObject(response);
+            String message = json.optString("message", "");
+            if (message.length() > 0) {
+                return message;
+            }
+            String status = json.optString("status", "");
+            if (status.length() > 0) {
+                return fallbackStatus + " (" + status + ")";
+            }
+        } catch (Exception ignored) {
+        }
+        return fallbackStatus;
     }
 
     private String normalizedPort() {
@@ -336,10 +505,14 @@ public final class MainActivity extends Activity {
         String host = prefs.getString("remote.host", "");
         String key = prefs.getString("remote.key", "");
         String port = prefs.getString("remote.port", "");
-        if (host.length() == 0 || key.length() == 0) {
-            return "Set host and SSH key, then deploy.";
+        String bridge = prefs.getString("remote.bridgeUrl", "");
+        if (bridge.length() == 0) {
+            return "Set the Owl backend bridge, host, and SSH key, then deploy.";
         }
-        return "Target: " + host + (port.length() == 0 ? "" : " - SSH port: " + port);
+        if (host.length() == 0 || key.length() == 0) {
+            return "Set host and SSH key, then deploy from mobile.";
+        }
+        return "Bridge: " + bridge + " - Target: " + host + (port.length() == 0 ? "" : " - SSH port: " + port);
     }
 
     private void setRemoteStatus(String text) {
@@ -389,7 +562,9 @@ struct ContentView: View {
 $ios_items
     ]
     @State private var message = ""
-    @State private var remoteStatus = "Set host and SSH key, then deploy."
+    @State private var remoteStatus = "Set the Owl backend bridge, host, and SSH key, then deploy."
+    @State private var remoteBusyAction: String?
+    @AppStorage("remote.bridgeURL") private var remoteBridgeURL = ""
     @AppStorage("remote.host") private var remoteHost = ""
     @AppStorage("remote.keyPath") private var remoteKeyPath = ""
     @AppStorage("remote.port") private var remotePort = ""
@@ -420,6 +595,26 @@ $ios_items
             VStack(alignment: .leading, spacing: 10) {
                 RemoteSetupStepView(
                     number: 1,
+                    title: "Backend Bridge",
+                    detail: remoteBackendReady ? "The mobile app can invoke Owl backend actions." : "Enter the Owl backend bridge URL used by mobile.",
+                    complete: remoteBackendReady
+                ) {
+                    TextField("https://owl.example.org/backend", text: \$remoteBridgeURL)
+                        .owlRemoteTargetContentType()
+                        .autocorrectionDisabled(true)
+                    Button("Save Backend Bridge") {
+                        saveRemoteBridge()
+                    }
+                    .disabled(!remoteBackendURLValid)
+                    if !remoteBackendURLValid && !remoteBridgeURL.isEmpty {
+                        Text("Bridge URL must start with http:// or https://.")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                RemoteSetupStepView(
+                    number: 2,
                     title: "SSH Target",
                     detail: remoteTargetReady ? "Remote login and key are ready to save." : "Enter the server login and SSH key.",
                     complete: remoteTargetReady && remotePortValid
@@ -437,13 +632,13 @@ $ios_items
                             .foregroundStyle(.red)
                     }
                     Button("Save Remote Target") {
-                        saveRemoteTarget()
+                        Task { await saveRemoteTarget() }
                     }
                     .disabled(!remotePortValid)
                 }
 
                 RemoteSetupStepView(
-                    number: 2,
+                    number: 3,
                     title: "SSH Authentication",
                     detail: remoteAuthReady ? "SSH authentication is available for remote actions." : "Enter the SSH key password or use a passwordless key.",
                     complete: remoteAuthReady
@@ -454,43 +649,43 @@ $ios_items
                         Toggle("Save on this device", isOn: \$remoteSavePassword)
                     }
                     Button("Save Authentication") {
-                        saveRemoteAuth()
+                        Task { await saveRemoteAuth() }
                     }
                     .disabled(!remoteTargetReady || !remoteAuthReady)
                 }
 
                 RemoteSetupStepView(
-                    number: 3,
+                    number: 4,
                     title: "Deploy And Verify",
                     detail: "Deploy Owl to the saved server, then verify receiver health.",
                     complete: false
                 ) {
                     Button("Deploy Remote Server") {
-                        remoteStatus = "Deploy Remote Server: use the saved SSH target to install Owl, configure the receiver, and enable startup. Mobile stores the setup inputs; desktop Owl runs the SSH deploy bridge."
+                        Task { await runRemoteWorkflowAction(title: "Deploy Remote Server", action: "settings-remote-deploy", fallbackStatus: "Remote deploy finished") }
                     }
                     .disabled(!remoteReadyForActions)
                     Button("Verify Remote Setup") {
-                        remoteStatus = "Verify Remote Setup: checks Owl binaries, daemon health, SMTP reachability, DNS, and mail folders for \(remoteSummary)."
+                        Task { await runRemoteWorkflowAction(title: "Verify Remote Setup", action: "settings-remote-verify", fallbackStatus: "Remote verification finished") }
                     }
                     .disabled(!remoteReadyForActions)
                 }
 
                 RemoteSetupStepView(
-                    number: 4,
+                    number: 5,
                     title: "TLS, Test, Sync",
                     detail: "Set up remote TLS, send a test email, then check remote mail.",
                     complete: false
                 ) {
                     Button("Set Up Remote TLS") {
-                        remoteStatus = "Set Up Remote TLS: uses Owl's remote certificate flow after DNS points at \(remoteHost)."
+                        Task { await runRemoteWorkflowAction(title: "Set Up Remote TLS", action: "settings-setup-ssl", fallbackStatus: "TLS setup finished") }
                     }
                     .disabled(!remoteReadyForActions)
                     Button("Send Test Email") {
-                        remoteStatus = "Send Test Email: confirms public delivery reaches the remote Owl receiver."
+                        Task { await runRemoteWorkflowAction(title: "Send Test Email", action: "settings-remote-send-test", fallbackStatus: "Remote test email finished") }
                     }
                     .disabled(!remoteReadyForActions)
                     Button("Check Remote Mail") {
-                        remoteStatus = "Check Remote Mail: pulls remote mail folders into local Owl without deleting remote mail."
+                        Task { await runRemoteWorkflowAction(title: "Check Remote Mail", action: "settings-remote-sync", fallbackStatus: "Remote sync finished") }
                     }
                     .disabled(!remoteReadyForActions)
                 }
@@ -524,12 +719,20 @@ $ios_items
             !remoteKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var remoteBackendURLValid: Bool {
+        remoteBridgeURL.hasPrefix("https://") || remoteBridgeURL.hasPrefix("http://")
+    }
+
+    private var remoteBackendReady: Bool {
+        remoteBackendURLValid
+    }
+
     private var remoteAuthReady: Bool {
         !remoteKeyHasPassword || !remotePassword.isEmpty || remoteSavePassword
     }
 
     private var remoteReadyForActions: Bool {
-        remoteTargetReady && remotePortValid && remoteAuthReady
+        remoteBackendReady && remoteTargetReady && remotePortValid && remoteAuthReady && remoteBusyAction == nil
     }
 
     private var remoteSummary: String {
@@ -539,18 +742,133 @@ $ios_items
         return port.isEmpty ? host : "\(host) on SSH port \(port)"
     }
 
-    private func saveRemoteTarget() {
-        remotePort = normalizedRemotePort
-        remoteStatus = "Remote target saved. Target: \(remoteSummary)."
+    private func saveRemoteBridge() {
+        remoteBridgeURL = remoteBridgeURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard remoteBackendURLValid else {
+            remoteStatus = "Bridge URL must start with http:// or https://."
+            return
+        }
+        remoteStatus = "Backend bridge saved."
     }
 
-    private func saveRemoteAuth() {
+    private func saveRemoteTarget() async {
+        remotePort = normalizedRemotePort
+        remoteStatus = "Remote target saved. Target: \(remoteSummary)."
+        _ = await runBackendAction(action: "settings-remote-set-target", args: remoteTargetArgs(), fallbackStatus: "Remote target saved")
+    }
+
+    private func saveRemoteAuth() async {
         if !remoteKeyHasPassword {
             remotePassword = ""
             remoteSavePassword = false
         }
         remoteStatus = "Remote authentication saved."
+        _ = await runBackendAction(action: "settings-remote-set-auth", args: remoteAuthArgs(), fallbackStatus: "Remote authentication saved")
     }
+
+    private func remoteTargetArgs() -> [String] {
+        [
+            remoteHost.trimmingCharacters(in: .whitespacesAndNewlines),
+            remoteKeyPath.trimmingCharacters(in: .whitespacesAndNewlines),
+            normalizedRemotePort
+        ]
+    }
+
+    private func remoteAuthArgs() -> [String] {
+        [
+            remoteKeyHasPassword ? "1" : "0",
+            remoteSavePassword ? "1" : "0",
+            remoteKeyHasPassword ? remotePassword : "",
+            remoteHost.trimmingCharacters(in: .whitespacesAndNewlines),
+            remoteKeyPath.trimmingCharacters(in: .whitespacesAndNewlines),
+            normalizedRemotePort
+        ]
+    }
+
+    private func remoteWorkflowArgs(for action: String) -> [String] {
+        let args = [
+            remoteHost.trimmingCharacters(in: .whitespacesAndNewlines),
+            remoteKeyPath.trimmingCharacters(in: .whitespacesAndNewlines),
+            remoteKeyHasPassword ? remotePassword : "",
+            normalizedRemotePort
+        ]
+        if action == "settings-setup-ssl" {
+            return ["remote"] + args
+        }
+        return args
+    }
+
+    @MainActor
+    private func runRemoteWorkflowAction(title: String, action: String, fallbackStatus: String) async {
+        guard remoteReadyForActions else {
+            remoteStatus = "Save the backend bridge, SSH target, SSH key, and authentication before running \(title)."
+            return
+        }
+        remoteBusyAction = action
+        remoteStatus = "\(title): starting..."
+        guard await runBackendAction(action: "settings-remote-set-target", args: remoteTargetArgs(), fallbackStatus: "Remote target saved") else {
+            remoteBusyAction = nil
+            return
+        }
+        guard await runBackendAction(action: "settings-remote-set-auth", args: remoteAuthArgs(), fallbackStatus: "Remote authentication saved") else {
+            remoteBusyAction = nil
+            return
+        }
+        _ = await runBackendAction(action: action, args: remoteWorkflowArgs(for: action), fallbackStatus: fallbackStatus)
+        remoteBusyAction = nil
+    }
+
+    private func runBackendAction(action: String, args: [String], fallbackStatus: String) async -> Bool {
+        guard remoteBackendURLValid, let url = URL(string: remoteBridgeURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            await MainActor.run { remoteStatus = "Enter an http or https Owl backend bridge URL." }
+            return false
+        }
+        do {
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+            request.timeoutInterval = action == "settings-remote-deploy" ? 1_800 : 120
+            let payload = MobileBackendRequest(action: action, root: "", args: args)
+            request.httpBody = try JSONEncoder().encode(payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200..<300).contains(code) else {
+                let text = String(data: data, encoding: .utf8) ?? "HTTP \(code)"
+                await MainActor.run { remoteStatus = "\(action) failed: \(text)" }
+                return false
+            }
+            let message = backendMessage(from: data, fallbackStatus: fallbackStatus)
+            await MainActor.run { remoteStatus = message }
+            return true
+        } catch {
+            await MainActor.run { remoteStatus = "\(action) failed: \(error.localizedDescription)" }
+            return false
+        }
+    }
+
+    private func backendMessage(from data: Data, fallbackStatus: String) -> String {
+        if let result = try? JSONDecoder().decode(MobileBackendResult.self, from: data) {
+            if let message = result.message, !message.isEmpty {
+                return message
+            }
+            if let status = result.status, !status.isEmpty {
+                return "\(fallbackStatus) (\(status))"
+            }
+        }
+        return fallbackStatus
+    }
+}
+
+private struct MobileBackendRequest: Encodable {
+    let action: String
+    let root: String
+    let args: [String]
+}
+
+private struct MobileBackendResult: Decodable {
+    let ok: Bool?
+    let status: String?
+    let message: String?
 }
 
 private struct RemoteSetupStepView<Content: View>: View {
@@ -624,7 +942,7 @@ Generated from \`ir/mobile.ir.yaml\`.
 - Android output is a plain Gradle Android project with no Play Services dependency.
 - Android direct distribution is the primary release route; Play upload is optional.
 - iOS output is a SwiftUI project generated through XcodeGen.
-- Remote Setup is generated as native Android and SwiftUI controls so mobile users can save the SSH target/auth details and follow the same deploy, verify, TLS, test, and sync workflow.
+- Remote Setup is generated as native Android and SwiftUI controls with an Owl backend bridge client so mobile users can save the SSH target/auth details and run the same deploy, verify, TLS, test, and sync workflow.
 README
 
 printf 'status=ok\n'

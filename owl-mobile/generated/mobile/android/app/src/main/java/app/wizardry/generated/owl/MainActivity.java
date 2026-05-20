@@ -12,10 +12,19 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public final class MainActivity extends Activity {
     private SharedPreferences prefs;
     private TextView remoteStatus;
+    private EditText remoteBridgeUrl;
     private EditText remoteHost;
     private EditText remoteKey;
     private EditText remotePort;
@@ -98,14 +107,21 @@ public final class MainActivity extends Activity {
 
     private void addRemoteSetup(LinearLayout root) {
         root.addView(sectionTitle("Remote Mail Server"));
-        root.addView(bodyText("Step through the same Owl remote setup flow: save SSH details, save authentication, deploy, verify, set up TLS, send a test email, then check remote mail."));
+        root.addView(bodyText("Step through the same Owl remote setup flow from mobile: connect to an Owl backend bridge, save SSH details, save authentication, deploy, verify, set up TLS, send a test email, then check remote mail."));
 
+        remoteBridgeUrl = field("https://owl.example.org/backend", "remote.bridgeUrl");
         remoteHost = field("user@203.0.113.8", "remote.host");
         remoteKey = field("~/.ssh/id_ed25519", "remote.key");
         remotePort = field("SSH port", "remote.port");
+        root.addView(remoteBridgeUrl, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(remoteHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(remoteKey, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(remotePort, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        Button saveBridge = new Button(this);
+        saveBridge.setText("Save Backend Bridge");
+        saveBridge.setOnClickListener(v -> saveRemoteBridge());
+        root.addView(saveBridge, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         Button saveTarget = new Button(this);
         saveTarget.setText("Save Remote Target");
@@ -131,22 +147,32 @@ public final class MainActivity extends Activity {
         saveAuth.setOnClickListener(v -> saveRemoteAuth());
         root.addView(saveAuth, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        addWorkflowButton(root, "Deploy Remote Server", "Deploy starts from the saved SSH target. Use desktop Owl for the actual SSH deploy until the mobile backend bridge is available.");
-        addWorkflowButton(root, "Verify Remote Setup", "Verification checks Owl binaries, daemon health, SMTP reachability, DNS, and mail folders on the saved target.");
-        addWorkflowButton(root, "Set Up Remote TLS", "Remote TLS setup uses Owl's remote certificate flow after DNS points at the mail server.");
-        addWorkflowButton(root, "Send Test Email", "The test email step confirms the public route reaches the remote Owl receiver.");
-        addWorkflowButton(root, "Check Remote Mail", "Remote sync pulls server mail folders back into local Owl without deleting remote mail.");
+        addWorkflowButton(root, "Deploy Remote Server", "settings-remote-deploy", "Deploy uses the saved SSH target to install Owl, configure the receiver, and enable startup.");
+        addWorkflowButton(root, "Verify Remote Setup", "settings-remote-verify", "Verification checks Owl binaries, daemon health, SMTP reachability, DNS, and mail folders on the saved target.");
+        addWorkflowButton(root, "Set Up Remote TLS", "settings-setup-ssl", "Remote TLS setup uses Owl's remote certificate flow after DNS points at the mail server.");
+        addWorkflowButton(root, "Send Test Email", "settings-remote-send-test", "The test email step confirms the public route reaches the remote Owl receiver.");
+        addWorkflowButton(root, "Check Remote Mail", "settings-remote-sync", "Remote sync pulls server mail folders back into local Owl without deleting remote mail.");
 
         remoteStatus = bodyText(remoteSummary());
         root.addView(remoteStatus, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
-    private void addWorkflowButton(LinearLayout root, String title, String detail) {
+    private void addWorkflowButton(LinearLayout root, String title, String action, String detail) {
         Button button = new Button(this);
         button.setText(title);
-        button.setOnClickListener(v -> setRemoteStatus(title + ": " + detail));
+        button.setOnClickListener(v -> runRemoteWorkflowAction(title, action, detail));
         root.addView(button, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(bodyText(detail));
+    }
+
+    private void saveRemoteBridge() {
+        String bridge = remoteBridgeUrl.getText().toString().trim();
+        if (!validBackendBridgeUrl(bridge)) {
+            setRemoteStatus("Enter an http or https Owl backend bridge URL.");
+            return;
+        }
+        prefs.edit().putString("remote.bridgeUrl", bridge).apply();
+        setRemoteStatus("Backend bridge saved. " + remoteSummary());
     }
 
     private void saveRemoteTarget() {
@@ -161,6 +187,7 @@ public final class MainActivity extends Activity {
             .putString("remote.port", port)
             .apply();
         setRemoteStatus("Remote target saved. " + remoteSummary());
+        runBackendAction("settings-remote-set-target", remoteTargetArgs(), "Remote target saved");
     }
 
     private void saveRemoteAuth() {
@@ -170,6 +197,148 @@ public final class MainActivity extends Activity {
             .putString("remote.password", remoteHasPassword.isChecked() ? remotePassword.getText().toString() : "")
             .apply();
         setRemoteStatus("Remote authentication saved. " + remoteSummary());
+        runBackendAction("settings-remote-set-auth", remoteAuthArgs(), "Remote authentication saved");
+    }
+
+    private void runRemoteWorkflowAction(String title, String action, String detail) {
+        if (!remoteReadyForActions()) {
+            setRemoteStatus("Save the backend bridge, SSH target, SSH key, and authentication before running " + title + ".");
+            return;
+        }
+        setRemoteStatus(title + ": starting...");
+        String bridge = remoteBridgeUrl.getText().toString().trim();
+        String[] targetArgs = remoteTargetArgs();
+        String[] authArgs = remoteAuthArgs();
+        String[] actionArgs = workflowArgs(action);
+        new Thread(() -> {
+            try {
+                postBackendAction(bridge, "settings-remote-set-target", targetArgs, "Remote target saved");
+                postBackendAction(bridge, "settings-remote-set-auth", authArgs, "Remote authentication saved");
+                String message = postBackendAction(bridge, action, actionArgs, title + ": " + detail);
+                runOnUiThread(() -> setRemoteStatus(message));
+            } catch (Exception ex) {
+                runOnUiThread(() -> setRemoteStatus(action + " failed: " + ex.getMessage()));
+            }
+        }).start();
+    }
+
+    private String[] remoteTargetArgs() {
+        return new String[] {
+            remoteHost.getText().toString().trim(),
+            remoteKey.getText().toString().trim(),
+            normalizedPort()
+        };
+    }
+
+    private String[] remoteAuthArgs() {
+        return new String[] {
+            remoteHasPassword.isChecked() ? "1" : "0",
+            remoteSavePassword.isChecked() ? "1" : "0",
+            remoteHasPassword.isChecked() ? remotePassword.getText().toString() : "",
+            remoteHost.getText().toString().trim(),
+            remoteKey.getText().toString().trim(),
+            normalizedPort()
+        };
+    }
+
+    private String[] workflowArgs(String action) {
+        String host = remoteHost.getText().toString().trim();
+        String key = remoteKey.getText().toString().trim();
+        String password = remoteHasPassword.isChecked() ? remotePassword.getText().toString() : "";
+        String port = normalizedPort();
+        if ("settings-setup-ssl".equals(action)) {
+            return new String[] {"remote", host, key, password, port};
+        }
+        return new String[] {host, key, password, port};
+    }
+
+    private boolean remoteReadyForActions() {
+        return validBackendBridgeUrl(remoteBridgeUrl.getText().toString().trim()) &&
+            remoteHost.getText().toString().trim().length() > 0 &&
+            remoteKey.getText().toString().trim().length() > 0 &&
+            validPort(normalizedPort()) &&
+            (!remoteHasPassword.isChecked() || remotePassword.getText().toString().length() > 0 || remoteSavePassword.isChecked());
+    }
+
+    private boolean validBackendBridgeUrl(String bridge) {
+        return bridge.startsWith("https://") || bridge.startsWith("http://");
+    }
+
+    private void runBackendAction(String action, String[] args, String fallbackStatus) {
+        String bridge = remoteBridgeUrl.getText().toString().trim();
+        if (!validBackendBridgeUrl(bridge)) {
+            setRemoteStatus("Enter an http or https Owl backend bridge URL.");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                String message = postBackendAction(bridge, action, args, fallbackStatus);
+                runOnUiThread(() -> setRemoteStatus(message));
+            } catch (Exception ex) {
+                runOnUiThread(() -> setRemoteStatus(action + " failed: " + ex.getMessage()));
+            }
+        }).start();
+    }
+
+    private String postBackendAction(String bridge, String action, String[] args, String fallbackStatus) throws Exception {
+        HttpURLConnection connection = null;
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("action", action);
+            payload.put("root", "");
+            JSONArray jsonArgs = new JSONArray();
+            for (String arg : args) {
+                jsonArgs.put(arg == null ? "" : arg);
+            }
+            payload.put("args", jsonArgs);
+
+            URL url = new URL(bridge);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(action.equals("settings-remote-deploy") ? 1800000 : 120000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            byte[] body = payload.toString().getBytes("UTF-8");
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(body);
+            }
+            int status = connection.getResponseCode();
+            InputStream responseStream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+            if (responseStream == null) {
+                throw new IllegalStateException("HTTP " + status);
+            }
+            BufferedReader reader = new BufferedReader(new InputStreamReader(responseStream, "UTF-8"));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            if (status < 200 || status >= 300) {
+                throw new IllegalStateException(response.length() == 0 ? "HTTP " + status : response.toString());
+            }
+            return backendMessage(response.toString(), fallbackStatus);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private String backendMessage(String response, String fallbackStatus) {
+        try {
+            JSONObject json = new JSONObject(response);
+            String message = json.optString("message", "");
+            if (message.length() > 0) {
+                return message;
+            }
+            String status = json.optString("status", "");
+            if (status.length() > 0) {
+                return fallbackStatus + " (" + status + ")";
+            }
+        } catch (Exception ignored) {
+        }
+        return fallbackStatus;
     }
 
     private String normalizedPort() {
@@ -196,10 +365,14 @@ public final class MainActivity extends Activity {
         String host = prefs.getString("remote.host", "");
         String key = prefs.getString("remote.key", "");
         String port = prefs.getString("remote.port", "");
-        if (host.length() == 0 || key.length() == 0) {
-            return "Set host and SSH key, then deploy.";
+        String bridge = prefs.getString("remote.bridgeUrl", "");
+        if (bridge.length() == 0) {
+            return "Set the Owl backend bridge, host, and SSH key, then deploy.";
         }
-        return "Target: " + host + (port.length() == 0 ? "" : " - SSH port: " + port);
+        if (host.length() == 0 || key.length() == 0) {
+            return "Set host and SSH key, then deploy from mobile.";
+        }
+        return "Bridge: " + bridge + " - Target: " + host + (port.length() == 0 ? "" : " - SSH port: " + port);
     }
 
     private void setRemoteStatus(String text) {
