@@ -31,9 +31,22 @@ printf '%s\n' "$render_out" | grep -F "status=ok" >/dev/null
 grep -F "app.wizardry.owl" "$mobile_dir/generated/mobile/android/app/build.gradle" >/dev/null
 grep -F 'android:label="Owl"' "$mobile_dir/generated/mobile/android/app/src/main/AndroidManifest.xml" >/dev/null
 grep -F "Inbox" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "Remote Setup" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "Remote Mail Server" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "Save Remote Target" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "Deploy Remote Server" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "Set Up Remote TLS" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "validPort(String port)" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
 grep -F "name: owl-mobile" "$mobile_dir/generated/mobile/ios/project.yml" >/dev/null
 grep -F "PRODUCT_BUNDLE_IDENTIFIER: app.wizardry.owl" "$mobile_dir/generated/mobile/ios/project.yml" >/dev/null
 grep -F "Timeline" "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F "RemoteSetupStepView" "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F 'Section("Remote Mail Server")' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F 'Button("Deploy Remote Server")' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F 'Button("Set Up Remote TLS")' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F "remotePortValid" "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F '"deploy_remote_server"' "$mobile_dir/ir/mobile.ir.yaml" >/dev/null
+grep -F '"setup_remote_tls"' "$mobile_dir/ir/mobile.ir.yaml" >/dev/null
 
 if grep -R "com.google.android.gms\|play-services" "$mobile_dir/generated/mobile/android" >/dev/null 2>&1; then
   printf '%s\n' "Owl Mobile generated Android project must not depend on Play Services" >&2

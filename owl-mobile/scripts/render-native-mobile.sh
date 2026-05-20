@@ -141,25 +141,39 @@ cat >"$android_dir/app/src/main/java/app/wizardry/generated/$package_part/MainAc
 package $android_package;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.graphics.Color;
+import android.text.InputType;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.TextView;
-import java.util.ArrayList;
 
 public final class MainActivity extends Activity {
+    private SharedPreferences prefs;
+    private TextView remoteStatus;
+    private EditText remoteHost;
+    private EditText remoteKey;
+    private EditText remotePort;
+    private EditText remotePassword;
+    private CheckBox remoteHasPassword;
+    private CheckBox remoteSavePassword;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        prefs = getSharedPreferences("owl-mobile", MODE_PRIVATE);
+
+        ScrollView scroll = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(28, 28, 28, 28);
         root.setBackgroundColor(Color.rgb(247, 247, 242));
+        scroll.addView(root);
 
         TextView title = new TextView(this);
         title.setText("$primary_title");
@@ -167,11 +181,14 @@ public final class MainActivity extends Activity {
         title.setTextColor(Color.rgb(24, 33, 35));
         root.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        ArrayList<String> items = new ArrayList<>();
-$android_items
-        ListView list = new ListView(this);
-        list.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, items));
-        root.addView(list, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        TextView screenTitle = sectionTitle("Screens");
+        root.addView(screenTitle);
+        addScreenRow(root, "Inbox");
+        addScreenRow(root, "Timeline");
+        addScreenRow(root, "People");
+        addScreenRow(root, "Groups");
+        addScreenRow(root, "Settings");
+        addScreenRow(root, "Remote Setup");
 
         EditText composer = new EditText(this);
         composer.setHint("Message");
@@ -181,7 +198,154 @@ $android_items
         Button send = new Button(this);
         send.setText("Send");
         root.addView(send, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        setContentView(root);
+
+        addRemoteSetup(root);
+        setContentView(scroll);
+    }
+
+    private TextView sectionTitle(String label) {
+        TextView view = new TextView(this);
+        view.setText(label);
+        view.setTextSize(18);
+        view.setTextColor(Color.rgb(35, 54, 54));
+        view.setPadding(0, 28, 0, 8);
+        return view;
+    }
+
+    private TextView bodyText(String label) {
+        TextView view = new TextView(this);
+        view.setText(label);
+        view.setTextSize(14);
+        view.setTextColor(Color.rgb(78, 86, 83));
+        view.setPadding(0, 4, 0, 8);
+        return view;
+    }
+
+    private void addScreenRow(LinearLayout root, String label) {
+        TextView row = bodyText(label);
+        row.setTextSize(16);
+        root.addView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    private EditText field(String hint, String key) {
+        EditText edit = new EditText(this);
+        edit.setHint(hint);
+        edit.setSingleLine(true);
+        edit.setText(prefs.getString(key, ""));
+        edit.setPadding(0, 4, 0, 4);
+        return edit;
+    }
+
+    private void addRemoteSetup(LinearLayout root) {
+        root.addView(sectionTitle("Remote Mail Server"));
+        root.addView(bodyText("Step through the same Owl remote setup flow: save SSH details, save authentication, deploy, verify, set up TLS, send a test email, then check remote mail."));
+
+        remoteHost = field("user@203.0.113.8", "remote.host");
+        remoteKey = field("~/.ssh/id_ed25519", "remote.key");
+        remotePort = field("SSH port", "remote.port");
+        root.addView(remoteHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(remoteKey, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(remotePort, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        Button saveTarget = new Button(this);
+        saveTarget.setText("Save Remote Target");
+        saveTarget.setOnClickListener(v -> saveRemoteTarget());
+        root.addView(saveTarget, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        remoteHasPassword = new CheckBox(this);
+        remoteHasPassword.setText("SSH key has password");
+        remoteHasPassword.setChecked(prefs.getBoolean("remote.hasPassword", false));
+        root.addView(remoteHasPassword);
+
+        remotePassword = field("SSH key password", "remote.password");
+        remotePassword.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        root.addView(remotePassword, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        remoteSavePassword = new CheckBox(this);
+        remoteSavePassword.setText("Save password on this device");
+        remoteSavePassword.setChecked(prefs.getBoolean("remote.savePassword", false));
+        root.addView(remoteSavePassword);
+
+        Button saveAuth = new Button(this);
+        saveAuth.setText("Save Authentication");
+        saveAuth.setOnClickListener(v -> saveRemoteAuth());
+        root.addView(saveAuth, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        addWorkflowButton(root, "Deploy Remote Server", "Deploy starts from the saved SSH target. Use desktop Owl for the actual SSH deploy until the mobile backend bridge is available.");
+        addWorkflowButton(root, "Verify Remote Setup", "Verification checks Owl binaries, daemon health, SMTP reachability, DNS, and mail folders on the saved target.");
+        addWorkflowButton(root, "Set Up Remote TLS", "Remote TLS setup uses Owl's remote certificate flow after DNS points at the mail server.");
+        addWorkflowButton(root, "Send Test Email", "The test email step confirms the public route reaches the remote Owl receiver.");
+        addWorkflowButton(root, "Check Remote Mail", "Remote sync pulls server mail folders back into local Owl without deleting remote mail.");
+
+        remoteStatus = bodyText(remoteSummary());
+        root.addView(remoteStatus, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    private void addWorkflowButton(LinearLayout root, String title, String detail) {
+        Button button = new Button(this);
+        button.setText(title);
+        button.setOnClickListener(v -> setRemoteStatus(title + ": " + detail));
+        root.addView(button, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(bodyText(detail));
+    }
+
+    private void saveRemoteTarget() {
+        String port = normalizedPort();
+        if (!validPort(port)) {
+            setRemoteStatus("SSH port must be 1-65535.");
+            return;
+        }
+        prefs.edit()
+            .putString("remote.host", remoteHost.getText().toString().trim())
+            .putString("remote.key", remoteKey.getText().toString().trim())
+            .putString("remote.port", port)
+            .apply();
+        setRemoteStatus("Remote target saved. " + remoteSummary());
+    }
+
+    private void saveRemoteAuth() {
+        prefs.edit()
+            .putBoolean("remote.hasPassword", remoteHasPassword.isChecked())
+            .putBoolean("remote.savePassword", remoteSavePassword.isChecked())
+            .putString("remote.password", remoteHasPassword.isChecked() ? remotePassword.getText().toString() : "")
+            .apply();
+        setRemoteStatus("Remote authentication saved. " + remoteSummary());
+    }
+
+    private String normalizedPort() {
+        String port = remotePort.getText().toString().trim();
+        if (port.startsWith(":")) {
+            port = port.substring(1);
+        }
+        return port;
+    }
+
+    private boolean validPort(String port) {
+        if (port.length() == 0) {
+            return true;
+        }
+        try {
+            int parsed = Integer.parseInt(port);
+            return parsed >= 1 && parsed <= 65535;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
+    }
+
+    private String remoteSummary() {
+        String host = prefs.getString("remote.host", "");
+        String key = prefs.getString("remote.key", "");
+        String port = prefs.getString("remote.port", "");
+        if (host.length() == 0 || key.length() == 0) {
+            return "Set host and SSH key, then deploy.";
+        }
+        return "Target: " + host + (port.length() == 0 ? "" : " - SSH port: " + port);
+    }
+
+    private void setRemoteStatus(String text) {
+        if (remoteStatus != null) {
+            remoteStatus.setText(text);
+        }
     }
 }
 JAVA
@@ -225,6 +389,13 @@ struct ContentView: View {
 $ios_items
     ]
     @State private var message = ""
+    @State private var remoteStatus = "Set host and SSH key, then deploy."
+    @AppStorage("remote.host") private var remoteHost = ""
+    @AppStorage("remote.keyPath") private var remoteKeyPath = ""
+    @AppStorage("remote.port") private var remotePort = ""
+    @AppStorage("remote.keyHasPassword") private var remoteKeyHasPassword = false
+    @AppStorage("remote.savePassword") private var remoteSavePassword = false
+    @AppStorage("remote.password") private var remotePassword = ""
 
     var body: some View {
         NavigationStack {
@@ -238,9 +409,209 @@ $ios_items
                     TextField("Message", text: \$message, axis: .vertical)
                     Button("Send") { message = "" }
                 }
+                remoteSetupSection
             }
             .navigationTitle("$primary_title")
         }
+    }
+
+    private var remoteSetupSection: some View {
+        Section("Remote Mail Server") {
+            VStack(alignment: .leading, spacing: 10) {
+                RemoteSetupStepView(
+                    number: 1,
+                    title: "SSH Target",
+                    detail: remoteTargetReady ? "Remote login and key are ready to save." : "Enter the server login and SSH key.",
+                    complete: remoteTargetReady && remotePortValid
+                ) {
+                    TextField("user@203.0.113.8", text: \$remoteHost)
+                        .owlRemoteTargetContentType()
+                        .autocorrectionDisabled(true)
+                    TextField("~/.ssh/id_ed25519", text: \$remoteKeyPath)
+                        .autocorrectionDisabled(true)
+                    TextField("SSH port", text: \$remotePort)
+                        .owlNumberPadKeyboard()
+                    if !remotePortValid {
+                        Text("SSH port must be 1-65535.")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                    Button("Save Remote Target") {
+                        saveRemoteTarget()
+                    }
+                    .disabled(!remotePortValid)
+                }
+
+                RemoteSetupStepView(
+                    number: 2,
+                    title: "SSH Authentication",
+                    detail: remoteAuthReady ? "SSH authentication is available for remote actions." : "Enter the SSH key password or use a passwordless key.",
+                    complete: remoteAuthReady
+                ) {
+                    Toggle("SSH key has password", isOn: \$remoteKeyHasPassword)
+                    if remoteKeyHasPassword {
+                        SecureField("SSH key password", text: \$remotePassword)
+                        Toggle("Save on this device", isOn: \$remoteSavePassword)
+                    }
+                    Button("Save Authentication") {
+                        saveRemoteAuth()
+                    }
+                    .disabled(!remoteTargetReady || !remoteAuthReady)
+                }
+
+                RemoteSetupStepView(
+                    number: 3,
+                    title: "Deploy And Verify",
+                    detail: "Deploy Owl to the saved server, then verify receiver health.",
+                    complete: false
+                ) {
+                    Button("Deploy Remote Server") {
+                        remoteStatus = "Deploy Remote Server: use the saved SSH target to install Owl, configure the receiver, and enable startup. Mobile stores the setup inputs; desktop Owl runs the SSH deploy bridge."
+                    }
+                    .disabled(!remoteReadyForActions)
+                    Button("Verify Remote Setup") {
+                        remoteStatus = "Verify Remote Setup: checks Owl binaries, daemon health, SMTP reachability, DNS, and mail folders for \(remoteSummary)."
+                    }
+                    .disabled(!remoteReadyForActions)
+                }
+
+                RemoteSetupStepView(
+                    number: 4,
+                    title: "TLS, Test, Sync",
+                    detail: "Set up remote TLS, send a test email, then check remote mail.",
+                    complete: false
+                ) {
+                    Button("Set Up Remote TLS") {
+                        remoteStatus = "Set Up Remote TLS: uses Owl's remote certificate flow after DNS points at \(remoteHost)."
+                    }
+                    .disabled(!remoteReadyForActions)
+                    Button("Send Test Email") {
+                        remoteStatus = "Send Test Email: confirms public delivery reaches the remote Owl receiver."
+                    }
+                    .disabled(!remoteReadyForActions)
+                    Button("Check Remote Mail") {
+                        remoteStatus = "Check Remote Mail: pulls remote mail folders into local Owl without deleting remote mail."
+                    }
+                    .disabled(!remoteReadyForActions)
+                }
+
+                Text(remoteStatus)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private var normalizedRemotePort: String {
+        var trimmed = remotePort.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix(":") {
+            trimmed.removeFirst()
+        }
+        return trimmed
+    }
+
+    private var remotePortValid: Bool {
+        let port = normalizedRemotePort
+        guard !port.isEmpty else { return true }
+        guard let parsed = Int(port) else { return false }
+        return (1...65_535).contains(parsed)
+    }
+
+    private var remoteTargetReady: Bool {
+        !remoteHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !remoteKeyPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var remoteAuthReady: Bool {
+        !remoteKeyHasPassword || !remotePassword.isEmpty || remoteSavePassword
+    }
+
+    private var remoteReadyForActions: Bool {
+        remoteTargetReady && remotePortValid && remoteAuthReady
+    }
+
+    private var remoteSummary: String {
+        let host = remoteHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        let port = normalizedRemotePort
+        guard !host.isEmpty else { return "the saved remote target" }
+        return port.isEmpty ? host : "\(host) on SSH port \(port)"
+    }
+
+    private func saveRemoteTarget() {
+        remotePort = normalizedRemotePort
+        remoteStatus = "Remote target saved. Target: \(remoteSummary)."
+    }
+
+    private func saveRemoteAuth() {
+        if !remoteKeyHasPassword {
+            remotePassword = ""
+            remoteSavePassword = false
+        }
+        remoteStatus = "Remote authentication saved."
+    }
+}
+
+private struct RemoteSetupStepView<Content: View>: View {
+    let number: Int
+    let title: String
+    let detail: String
+    let complete: Bool
+    let content: Content
+
+    init(number: Int, title: String, detail: String, complete: Bool, @ViewBuilder content: () -> Content) {
+        self.number = number
+        self.title = title
+        self.detail = detail
+        self.complete = complete
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(number)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(complete ? .green : .accentColor)
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill((complete ? Color.green : Color.accentColor).opacity(0.12)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            content
+                .padding(.leading, 30)
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func owlRemoteTargetContentType() -> some View {
+#if os(iOS)
+        self.textContentType(.URL)
+#else
+        if #available(macOS 14.0, *) {
+            self.textContentType(.URL)
+        } else {
+            self
+        }
+#endif
+    }
+
+    @ViewBuilder
+    func owlNumberPadKeyboard() -> some View {
+#if os(iOS)
+        self.keyboardType(.numberPad)
+#else
+        self
+#endif
     }
 }
 SWIFT
@@ -253,6 +624,7 @@ Generated from \`ir/mobile.ir.yaml\`.
 - Android output is a plain Gradle Android project with no Play Services dependency.
 - Android direct distribution is the primary release route; Play upload is optional.
 - iOS output is a SwiftUI project generated through XcodeGen.
+- Remote Setup is generated as native Android and SwiftUI controls so mobile users can save the SSH target/auth details and follow the same deploy, verify, TLS, test, and sync workflow.
 README
 
 printf 'status=ok\n'
