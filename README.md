@@ -93,4 +93,5 @@ sh .tests/native/run.sh
 The suite covers the native backend contract, IR safety checks, renderer determinism, generated action coverage, argv-based backend spawning, and the key SimpleX/email UI invariants.
 
 - Development context: native-desktop
-- License: pending release decision before the first public push.
+- License: dual `OWL 3.0 OR AGPL-3.0-or-later`; AGPL use includes the
+  additional terms in [WIZARDRY_ADDENDUM.md](WIZARDRY_ADDENDUM.md).

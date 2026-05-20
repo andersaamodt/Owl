@@ -12,4 +12,5 @@ target/auth details and stepping through deploy, verify, remote TLS, test email,
 and remote mail sync.
 
 - Development context: native-mobile
-- License: pending release decision before the first public push.
+- License: dual `OWL 3.0 OR AGPL-3.0-or-later`; AGPL use includes the
+  additional terms in ../WIZARDRY_ADDENDUM.md.

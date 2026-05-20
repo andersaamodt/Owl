@@ -33,9 +33,5 @@ APK equivalent for ordinary iPhones.
 
 ## License
 
-The public release license is intentionally not finalized in this cleanup pass.
-Current candidates are:
-
-- OWL License
-- Wizardry Apps dual-license pattern
-- AGPL-3.0-or-later plus Wizardry addendum
+Owl is dual-licensed under `OWL 3.0 OR AGPL-3.0-or-later`. AGPL use includes
+the additional terms in `WIZARDRY_ADDENDUM.md`.

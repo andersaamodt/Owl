@@ -1,7 +1,8 @@
 Wizardry Addendum 1.0
 
-Additional terms under GNU AGPL version 3,
-section 7, apply to this project.
+When this project is used under the GNU AGPL
+version 3 or later option, additional terms
+under GNU AGPL version 3, section 7, apply.
 
 1. No permission is granted to use the names
 "Wizardry" or "Open Wizardry", or any project
