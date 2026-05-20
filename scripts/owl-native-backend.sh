@@ -547,13 +547,27 @@ PY
 }
 
 owl_backend_json_or_empty() {
-  owl_backend_json "$@" 2>/dev/null || jq -n '{ok:false,unavailable:true}'
+  out=$(owl_backend_json "$@" 2>/dev/null || true)
+  if [ -n "$out" ] && printf '%s\n' "$out" | jq -e . >/dev/null 2>&1; then
+    printf '%s\n' "$out"
+  else
+    jq -n '{ok:false,unavailable:true}'
+  fi
 }
 
 owl_backend_array_field_or_empty() {
   field=$1
   shift
-  owl_backend_json "$@" 2>/dev/null | jq -c --arg field "$field" '.[$field] // []' 2>/dev/null || printf '[]\n'
+  out=$(owl_backend_json "$@" 2>/dev/null || true)
+  array=
+  if [ -n "$out" ]; then
+    array=$(printf '%s\n' "$out" | jq -c --arg field "$field" '.[$field] // []' 2>/dev/null || true)
+  fi
+  if [ -n "$array" ]; then
+    printf '%s\n' "$array"
+  else
+    printf '[]\n'
+  fi
 }
 
 empty_owl_messages() {
