@@ -1,0 +1,89 @@
+{
+  "version": "native-mobile-ir/v1",
+  "format": "yaml-1.2-json-compatible",
+  "app": {
+    "id": "owl-mobile",
+    "name": "Owl Mobile",
+    "targets": ["android", "ios"],
+    "offlineFirst": true,
+    "storePolicy": "direct-first",
+    "permissions": ["network", "notifications", "files"],
+    "actions": [
+      {"id": "open_inbox", "title": "Inbox"},
+      {"id": "open_people", "title": "People"},
+      {"id": "open_groups", "title": "Groups"},
+      {"id": "open_settings", "title": "Settings"},
+      {"id": "compose_simplex", "title": "Use SimpleX"},
+      {"id": "compose_email", "title": "Use Email"},
+      {"id": "send_message", "title": "Send"},
+      {"id": "sync_now", "title": "Sync"}
+    ],
+    "screens": [
+      {
+        "id": "inbox",
+        "title": "Inbox",
+        "node": {
+          "id": "screen.inbox",
+          "type": "NavigationStack",
+          "children": [
+            {"id": "timeline.primary", "type": "Timeline", "title": "Recent"},
+            {"id": "composer.quick", "type": "Composer", "title": "Reply"},
+            {"id": "button.sync", "type": "Button", "title": "Sync", "action": "sync_now"}
+          ]
+        }
+      },
+      {
+        "id": "timeline",
+        "title": "Timeline",
+        "node": {
+          "id": "screen.timeline",
+          "type": "NavigationStack",
+          "children": [
+            {"id": "timeline.thread", "type": "Timeline", "title": "Conversation"},
+            {"id": "select.transport", "type": "Select", "title": "Transport", "action": "compose_simplex"},
+            {"id": "composer.thread", "type": "Composer", "title": "Message"},
+            {"id": "button.send", "type": "Button", "title": "Send", "action": "send_message"}
+          ]
+        }
+      },
+      {
+        "id": "people",
+        "title": "People",
+        "node": {
+          "id": "screen.people",
+          "type": "List",
+          "children": [
+            {"id": "people.favorites", "type": "Section", "title": "Favorites"},
+            {"id": "people.all", "type": "Section", "title": "All People"}
+          ]
+        }
+      },
+      {
+        "id": "groups",
+        "title": "Groups",
+        "node": {
+          "id": "screen.groups",
+          "type": "List",
+          "children": [
+            {"id": "groups.favorites", "type": "Section", "title": "Favorite Groups"},
+            {"id": "groups.all", "type": "Section", "title": "All Groups"}
+          ]
+        }
+      },
+      {
+        "id": "settings",
+        "title": "Settings",
+        "node": {
+          "id": "screen.settings",
+          "type": "Form",
+          "children": [
+            {"id": "settings.mailRoot", "type": "Label", "title": "Mail Root"},
+            {"id": "settings.simplex", "type": "Toggle", "title": "SimpleX Transport"},
+            {"id": "settings.email", "type": "Toggle", "title": "Email Transport"}
+          ]
+        }
+      }
+    ]
+  },
+  "extensions": []
+}

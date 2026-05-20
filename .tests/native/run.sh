@@ -14,4 +14,8 @@ if [ -f "$test_dir/test-render-native-desktop.sh" ]; then
   sh "$test_dir/test-render-native-desktop.sh"
 fi
 
+if [ -f "$test_dir/test-native-mobile.sh" ]; then
+  sh "$test_dir/test-native-mobile.sh"
+fi
+
 printf '%s\n' "native test suite passed"

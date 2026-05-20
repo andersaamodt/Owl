@@ -6,6 +6,8 @@ Owl Native is the native-desktop conversion of Owl. It is not a Wizardry-hosted 
 
 - Native macOS target generated as SwiftUI/AppKit.
 - Native Linux target generated as GTK4 C.
+- Owl Mobile lives in [owl-mobile](owl-mobile) as the same product's native-mobile
+  workspace, with a shared mobile IR generating Android and iOS projects.
 - Shared backend bridge at [scripts/owl-native-backend.sh](scripts/owl-native-backend.sh).
 - Email data is read through the existing Owl backend and the same Owl mail root, defaulting to `~/mail`.
 - SimpleX data is file-first under the same mail root:
@@ -42,6 +44,8 @@ Owl Native renders one contact or group timeline. Email and SimpleX messages are
 
 ## Regeneration
 
+Desktop:
+
 Run:
 
 ```sh
@@ -54,10 +58,23 @@ Validation is separate:
 sh scripts/validate-native-desktop-ir.sh
 ```
 
+Mobile:
+
+```sh
+cd owl-mobile
+sh scripts/render-native-mobile.sh
+sh scripts/validate-native-mobile-ir.sh
+```
+
 ## Build Notes
 
 - macOS: `swift build` from [generated/macos](generated/macos).
 - Linux: build [generated/linux](generated/linux) with Meson on a host with GTK4 development headers.
+- Android: build [owl-mobile/generated/mobile/android](owl-mobile/generated/mobile/android)
+  with Gradle. The generated app has no Play Services dependency; direct APK/AAB
+  distribution is the primary path, with Play upload optional in Forge.
+- iOS: generate/open [owl-mobile/generated/mobile/ios](owl-mobile/generated/mobile/ios)
+  with XcodeGen/Xcode.
 
 ## Tests
 
