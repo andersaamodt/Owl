@@ -717,6 +717,7 @@ private struct SettingsSnapshot: Decodable, Sendable {
   var folders_ready: Bool
   var daemon: DaemonSettings
   var remote: RemoteSettings
+  var remote_auth: RemoteAuthSettings
 
   init(
     ok: Bool = false,
@@ -726,7 +727,8 @@ private struct SettingsSnapshot: Decodable, Sendable {
     ssl_ready: Bool = false,
     folders_ready: Bool = false,
     daemon: DaemonSettings = DaemonSettings(),
-    remote: RemoteSettings = RemoteSettings()
+    remote: RemoteSettings = RemoteSettings(),
+    remote_auth: RemoteAuthSettings = RemoteAuthSettings()
   ) {
     self.ok = ok
     self.test_recipient = test_recipient
@@ -736,6 +738,26 @@ private struct SettingsSnapshot: Decodable, Sendable {
     self.folders_ready = folders_ready
     self.daemon = daemon
     self.remote = remote
+    self.remote_auth = remote_auth
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case ok, test_recipient, email_domain, domain, domain_configured, ssl_ready, folders_ready, daemon, remote, remote_auth
+  }
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    ok = try values.decodeIfPresent(Bool.self, forKey: .ok) ?? false
+    test_recipient = try values.decodeIfPresent(String.self, forKey: .test_recipient) ?? ""
+    email_domain = try values.decodeIfPresent(String.self, forKey: .email_domain)
+      ?? values.decodeIfPresent(String.self, forKey: .domain)
+      ?? ""
+    domain_configured = try values.decodeIfPresent(Bool.self, forKey: .domain_configured) ?? false
+    ssl_ready = try values.decodeIfPresent(Bool.self, forKey: .ssl_ready) ?? false
+    folders_ready = try values.decodeIfPresent(Bool.self, forKey: .folders_ready) ?? false
+    daemon = try values.decodeIfPresent(DaemonSettings.self, forKey: .daemon) ?? DaemonSettings()
+    remote = try values.decodeIfPresent(RemoteSettings.self, forKey: .remote) ?? RemoteSettings()
+    remote_auth = try values.decodeIfPresent(RemoteAuthSettings.self, forKey: .remote_auth) ?? RemoteAuthSettings()
   }
 }
 
@@ -751,10 +773,82 @@ private struct RemoteSettings: Decodable, Sendable {
   var host: String = ""
   var key_path: String = ""
   var port: String = ""
+  var ssh_key_has_password: String = "0"
+  var ssh_key_save_choice: String = "0"
+  var last_deploy_at: String = ""
   var last_deploy_status: String = ""
+  var last_deploy_message: String = ""
+  var last_verify_at: String = ""
   var last_verify_status: String = ""
+  var last_verify_message: String = ""
+  var last_test_at: String = ""
   var last_test_status: String = ""
+  var last_test_message: String = ""
+  var last_sync_at: String = ""
   var last_sync_status: String = ""
+  var last_sync_message: String = ""
+
+  var isConfigured: Bool {
+    !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+      !key_path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case host, key_path, port, ssh_key_has_password, ssh_key_save_choice
+    case last_deploy_at, last_deploy_status, last_deploy_message
+    case last_verify_at, last_verify_status, last_verify_message
+    case last_test_at, last_test_status, last_test_message
+    case last_sync_at, last_sync_status, last_sync_message
+  }
+
+  init() {}
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    host = try values.decodeIfPresent(String.self, forKey: .host) ?? ""
+    key_path = try values.decodeIfPresent(String.self, forKey: .key_path) ?? ""
+    port = try values.decodeIfPresent(String.self, forKey: .port) ?? ""
+    ssh_key_has_password = try values.decodeIfPresent(String.self, forKey: .ssh_key_has_password) ?? "0"
+    ssh_key_save_choice = try values.decodeIfPresent(String.self, forKey: .ssh_key_save_choice) ?? "0"
+    last_deploy_at = try values.decodeIfPresent(String.self, forKey: .last_deploy_at) ?? ""
+    last_deploy_status = try values.decodeIfPresent(String.self, forKey: .last_deploy_status) ?? "idle"
+    last_deploy_message = try values.decodeIfPresent(String.self, forKey: .last_deploy_message) ?? ""
+    last_verify_at = try values.decodeIfPresent(String.self, forKey: .last_verify_at) ?? ""
+    last_verify_status = try values.decodeIfPresent(String.self, forKey: .last_verify_status) ?? "idle"
+    last_verify_message = try values.decodeIfPresent(String.self, forKey: .last_verify_message) ?? ""
+    last_test_at = try values.decodeIfPresent(String.self, forKey: .last_test_at) ?? ""
+    last_test_status = try values.decodeIfPresent(String.self, forKey: .last_test_status) ?? "idle"
+    last_test_message = try values.decodeIfPresent(String.self, forKey: .last_test_message) ?? ""
+    last_sync_at = try values.decodeIfPresent(String.self, forKey: .last_sync_at) ?? ""
+    last_sync_status = try values.decodeIfPresent(String.self, forKey: .last_sync_status) ?? "idle"
+    last_sync_message = try values.decodeIfPresent(String.self, forKey: .last_sync_message) ?? ""
+  }
+}
+
+private struct RemoteAuthSettings: Decodable, Sendable {
+  var ssh_key_has_password: String = "0"
+  var ssh_key_save_choice: String = "0"
+  var ssh_key_password_saved: Bool = false
+  var secrets_supported: Bool = false
+  var secrets_device_label: String = "computer"
+
+  var keyHasPassword: Bool { ssh_key_has_password == "1" }
+  var savePassword: Bool { ssh_key_save_choice == "1" }
+
+  private enum CodingKeys: String, CodingKey {
+    case ssh_key_has_password, ssh_key_save_choice, ssh_key_password_saved, secrets_supported, secrets_device_label
+  }
+
+  init() {}
+
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    ssh_key_has_password = try values.decodeIfPresent(String.self, forKey: .ssh_key_has_password) ?? "0"
+    ssh_key_save_choice = try values.decodeIfPresent(String.self, forKey: .ssh_key_save_choice) ?? "0"
+    ssh_key_password_saved = try values.decodeIfPresent(Bool.self, forKey: .ssh_key_password_saved) ?? false
+    secrets_supported = try values.decodeIfPresent(Bool.self, forKey: .secrets_supported) ?? false
+    secrets_device_label = try values.decodeIfPresent(String.self, forKey: .secrets_device_label) ?? "computer"
+  }
 }
 
 private struct UIPrefs: Decodable, Sendable {
@@ -843,6 +937,14 @@ private struct SimpleXTickResponse: Decodable, Sendable {
   var changedLocalState: Bool {
     imported > 0 || outbox.sent > 0 || outbox.failed > 0
   }
+}
+
+private struct BackendActionResult: Decodable, Sendable {
+  var ok: Bool = false
+  var message: String = ""
+  var remote: RemoteSettings?
+  var remote_auth: RemoteAuthSettings?
+  var copied_files: Int = 0
 }
 
 private struct SystemTrashAction {
@@ -1524,6 +1626,10 @@ private final class OwlSession: ObservableObject {
   @Published var remoteHostDraft: String = ""
   @Published var remoteKeyPathDraft: String = ""
   @Published var remotePortDraft: String = ""
+  @Published var remoteKeyHasPassword: Bool = false
+  @Published var remoteKeySavePassword: Bool = false
+  @Published var remoteKeyPasswordDraft: String = ""
+  @Published var remotePasswordVisible: Bool = false
   @Published var bubbleSelfSimpleXColor: Color = BubbleColors.defaultSelfSimpleX
   @Published var bubbleSelfEmailColor: Color = BubbleColors.defaultSelfEmail
   @Published var bubbleOtherSimpleXColor: Color = BubbleColors.defaultOtherSimpleX
@@ -1684,6 +1790,75 @@ private final class OwlSession: ObservableObject {
 
   var canUndoLastTrashAction: Bool {
     lastSystemTrashAction != nil
+  }
+
+  var remoteDraftConfigured: Bool {
+    !remoteHostDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+      !remoteKeyPathDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  var remotePortDraftValid: Bool {
+    let trimmed = normalizedRemotePortDraft()
+    guard !trimmed.isEmpty else { return true }
+    guard let port = Int(trimmed) else { return false }
+    return (1...65_535).contains(port)
+  }
+
+  var remotePasswordAvailable: Bool {
+    if !remoteKeyHasPassword {
+      return true
+    }
+    if !remoteKeyPasswordDraft.isEmpty {
+      return true
+    }
+    return remoteKeySavePassword && snapshot.settings.remote_auth.ssh_key_password_saved
+  }
+
+  var remoteReadyForDeploy: Bool {
+    remoteDraftConfigured && remotePortDraftValid && remotePasswordAvailable
+  }
+
+  var remoteStatusSummary: String {
+    let remote = snapshot.settings.remote
+    let auth = snapshot.settings.remote_auth
+    var bits: [String] = []
+    if remote.isConfigured {
+      bits.append("Target: \(remote.host)")
+      if !remote.port.isEmpty {
+        bits.append("SSH port: \(remote.port)")
+      }
+    } else {
+      bits.append("Set host and SSH key, then deploy.")
+    }
+    if auth.keyHasPassword {
+      if auth.savePassword && auth.ssh_key_password_saved {
+        bits.append("SSH key password saved securely on this \(auth.secrets_device_label).")
+      } else if auth.savePassword {
+        bits.append("Enter SSH key password to finish secure save.")
+      } else {
+        bits.append("Enter SSH key password for deploy, verify, test, and sync.")
+      }
+    }
+    appendRemoteStatus("Deploy", status: remote.last_deploy_status, message: remote.last_deploy_message, at: remote.last_deploy_at, to: &bits)
+    appendRemoteStatus("Verify", status: remote.last_verify_status, message: remote.last_verify_message, at: remote.last_verify_at, to: &bits)
+    appendRemoteStatus("Test", status: remote.last_test_status, message: remote.last_test_message, at: remote.last_test_at, to: &bits)
+    appendRemoteStatus("Sync", status: remote.last_sync_status, message: remote.last_sync_message, at: remote.last_sync_at, to: &bits)
+    return bits.joined(separator: " • ")
+  }
+
+  private func appendRemoteStatus(_ label: String, status: String, message: String, at: String, to bits: inout [String]) {
+    guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    let prefix = status == "ok" ? label : "\(label) issue"
+    let suffix = at.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : " (\(friendlyTime(at)))"
+    bits.append("\(prefix): \(message)\(suffix)")
+  }
+
+  func normalizedRemotePortDraft() -> String {
+    var trimmed = remotePortDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.hasPrefix(":") {
+      trimmed.removeFirst()
+    }
+    return trimmed
   }
 
   func loadPreferencesThenRefresh() async {
@@ -1879,6 +2054,8 @@ private final class OwlSession: ObservableObject {
     remoteHostDraft = next.settings.remote.host
     remoteKeyPathDraft = next.settings.remote.key_path
     remotePortDraft = next.settings.remote.port
+    remoteKeyHasPassword = next.settings.remote_auth.keyHasPassword
+    remoteKeySavePassword = next.settings.remote_auth.savePassword
   }
 
   func openNewSenders() {
@@ -2889,20 +3066,138 @@ private final class OwlSession: ObservableObject {
     runBackendAction("settings-set-daemon-startup", args: [enabled ? "on" : "off"], status: enabled ? "Startup enabled" : "Startup disabled")
   }
 
-  func saveRemoteTarget() {
-    var args = [remoteHostDraft, remoteKeyPathDraft]
-    if !remotePortDraft.isEmpty {
-      args.append(remotePortDraft)
+  private func applyRemoteActionResult(_ data: Data) {
+    guard let result = try? JSONDecoder().decode(BackendActionResult.self, from: data) else { return }
+    if let remote = result.remote {
+      snapshot.settings.remote = remote
+      remoteHostDraft = remote.host
+      remoteKeyPathDraft = remote.key_path
+      remotePortDraft = remote.port
     }
-    runBackendAction("settings-remote-set-target", args: args, status: "Remote target saved")
+    if let auth = result.remote_auth {
+      snapshot.settings.remote_auth = auth
+      remoteKeyHasPassword = auth.keyHasPassword
+      remoteKeySavePassword = auth.savePassword
+      if !auth.keyHasPassword || auth.savePassword {
+        remoteKeyPasswordDraft = ""
+      }
+    }
+  }
+
+  private func remoteTargetArgs() -> [String] {
+    [remoteHostDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+     remoteKeyPathDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+     normalizedRemotePortDraft()]
+  }
+
+  private func remoteAuthArgs() -> [String] {
+    [
+      remoteKeyHasPassword ? "1" : "0",
+      remoteKeySavePassword ? "1" : "0",
+      remoteKeyHasPassword ? remoteKeyPasswordDraft : "",
+      remoteHostDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+      remoteKeyPathDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+      normalizedRemotePortDraft()
+    ]
+  }
+
+  func saveRemoteTarget() {
+    let root = mailRoot
+    runMessageAction(status: "Remote target saved", refreshAfter: false) {
+      let data = try await OwlBackend.runJSON(action: "settings-remote-set-target", root: root, args: self.remoteTargetArgs())
+      await MainActor.run { self.applyRemoteActionResult(data) }
+      return data
+    }
+  }
+
+  func saveRemoteAuth() {
+    let root = mailRoot
+    runMessageAction(status: "Remote SSH authentication saved", refreshAfter: false) {
+      let data = try await OwlBackend.runJSON(action: "settings-remote-set-auth", root: root, args: self.remoteAuthArgs())
+      await MainActor.run { self.applyRemoteActionResult(data) }
+      return data
+    }
+  }
+
+  func deployRemoteServer() {
+    runRemoteWorkflowAction(
+      title: "Deploying remote server",
+      action: "settings-remote-deploy",
+      fallbackStatus: "Remote deploy finished"
+    )
   }
 
   func verifyRemote() {
-    runBackendAction("settings-remote-verify", args: [], status: "Remote verification finished")
+    runRemoteWorkflowAction(
+      title: "Verifying remote setup",
+      action: "settings-remote-verify",
+      fallbackStatus: "Remote verification finished"
+    )
   }
 
   func syncRemote() {
-    runBackendAction("settings-remote-sync", args: [], status: "Remote sync finished")
+    runRemoteWorkflowAction(
+      title: "Checking remote mail",
+      action: "settings-remote-sync",
+      fallbackStatus: "Remote sync finished",
+      refreshAfter: true
+    )
+  }
+
+  func sendRemoteTestEmail() {
+    runRemoteWorkflowAction(
+      title: "Sending remote test email",
+      action: "settings-remote-send-test",
+      fallbackStatus: "Remote test email finished",
+      refreshAfter: true
+    )
+  }
+
+  func setupTLSForCurrentServer() {
+    runRemoteWorkflowAction(
+      title: "Setting up TLS",
+      action: "settings-setup-ssl",
+      fallbackStatus: "TLS setup finished"
+    )
+  }
+
+  private func runRemoteWorkflowAction(
+    title: String,
+    action: String,
+    actionArgs: [String]? = nil,
+    fallbackStatus: String,
+    refreshAfter: Bool = true
+  ) {
+    let root = mailRoot
+    isBusy = true
+    showStatus(title, busy: true)
+    Task {
+      do {
+        let targetData = try await OwlBackend.runJSON(action: "settings-remote-set-target", root: root, args: self.remoteTargetArgs())
+        self.applyRemoteActionResult(targetData)
+        let authData = try await OwlBackend.runJSON(action: "settings-remote-set-auth", root: root, args: self.remoteAuthArgs())
+        self.applyRemoteActionResult(authData)
+        let remoteActionArgs = [
+          remoteHostDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+          remoteKeyPathDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+          remoteKeyHasPassword ? remoteKeyPasswordDraft : "",
+          normalizedRemotePortDraft()
+        ]
+        let args = actionArgs ?? (action == "settings-setup-ssl" ? ["auto"] + remoteActionArgs : remoteActionArgs)
+        let data = try await OwlBackend.runJSON(action: action, root: root, args: args)
+        self.applyRemoteActionResult(data)
+        let result = try? JSONDecoder().decode(BackendActionResult.self, from: data)
+        self.isBusy = false
+        self.showStatus(result?.message.isEmpty == false ? result?.message ?? fallbackStatus : fallbackStatus)
+        if refreshAfter {
+          self.refresh()
+        }
+      } catch {
+        self.isBusy = false
+        self.showStatus(error.localizedDescription, isError: true)
+        self.refresh()
+      }
+    }
   }
 
   func classifySpam() {
@@ -6459,11 +6754,12 @@ private struct SettingsView: View {
           Button { session.runBackendAction("settings-setup-folders", status: "Mail folders checked") } label: {
             Label("Setup Folders", systemImage: "folder.badge.gearshape")
           }
-          Button { session.runBackendAction("settings-setup-ssl", args: ["auto"], status: "TLS setup finished") } label: {
+          Button { session.setupTLSForCurrentServer() } label: {
             Label("Setup TLS", systemImage: "lock.shield")
           }
         }
       }
+      TLSSetupWalkthroughView()
     }
     .formStyle(.grouped)
     .padding(.top, 8)
@@ -6506,29 +6802,8 @@ private struct SettingsView: View {
           .fixedSize()
         }
       }
-      Section("Remote") {
-        HStack {
-          TextField("Host", text: $session.remoteHostDraft)
-            .textFieldStyle(.roundedBorder)
-            .frame(width: 180)
-          TextField("SSH key", text: $session.remoteKeyPathDraft)
-            .textFieldStyle(.roundedBorder)
-            .frame(width: 220)
-          TextField("Port", text: $session.remotePortDraft)
-            .textFieldStyle(.roundedBorder)
-            .frame(width: 70)
-        }
-        HStack {
-          Button { session.saveRemoteTarget() } label: {
-            Label("Save", systemImage: "checkmark")
-          }
-          Button { session.verifyRemote() } label: {
-            Label("Verify", systemImage: "network")
-          }
-          Button { session.syncRemote() } label: {
-            Label("Sync", systemImage: "arrow.triangle.2.circlepath")
-          }
-        }
+      Section("Remote Mail Server") {
+        RemoteServerWalkthroughView()
       }
     }
     .formStyle(.grouped)
@@ -6585,6 +6860,338 @@ private struct SettingsView: View {
     }
     .formStyle(.grouped)
     .padding(.top, 8)
+  }
+}
+
+private enum SetupStepState: Equatable {
+  case locked
+  case active
+  case complete
+
+  var symbol: String {
+    switch self {
+    case .locked: return "lock"
+    case .active: return "circle"
+    case .complete: return "checkmark.circle.fill"
+    }
+  }
+
+  var tint: Color {
+    switch self {
+    case .locked: return .secondary
+    case .active: return .accentColor
+    case .complete: return .green
+    }
+  }
+}
+
+private struct RemoteSetupStep<Content: View>: View {
+  let number: Int
+  let title: String
+  let detail: String
+  let state: SetupStepState
+  let content: Content
+
+  init(number: Int, title: String, detail: String, state: SetupStepState, @ViewBuilder content: () -> Content) {
+    self.number = number
+    self.title = title
+    self.detail = detail
+    self.state = state
+    self.content = content()
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        ZStack {
+          Circle()
+            .fill(state.tint.opacity(state == .complete ? 0.18 : 0.10))
+            .frame(width: 24, height: 24)
+          Text("\(number)")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(state.tint)
+        }
+        VStack(alignment: .leading, spacing: 2) {
+          HStack(spacing: 6) {
+            Text(title)
+              .font(.callout.weight(.semibold))
+            Image(systemName: state.symbol)
+              .font(.caption.weight(.semibold))
+              .foregroundStyle(state.tint)
+          }
+          Text(detail)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+      content
+        .padding(.leading, 34)
+        .opacity(state == .locked ? 0.54 : 1)
+    }
+    .padding(.vertical, 8)
+  }
+}
+
+private struct RemoteStatusPill: View {
+  let label: String
+  let status: String
+  let message: String
+
+  private var normalizedStatus: String {
+    let trimmed = status.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? "idle" : trimmed
+  }
+
+  private var tint: Color {
+    switch normalizedStatus {
+    case "ok": return .green
+    case "bad", "error", "failed": return .red
+    case "idle": return .secondary
+    default: return .accentColor
+    }
+  }
+
+  var body: some View {
+    Text("\(label): \(normalizedStatus)")
+      .font(.caption.weight(.semibold))
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
+      .background(Capsule().fill(tint.opacity(0.12)))
+      .overlay(Capsule().stroke(tint.opacity(0.25), lineWidth: 1))
+      .foregroundStyle(tint)
+      .help(message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "\(label): \(normalizedStatus)" : message)
+      .fixedSize()
+  }
+}
+
+private struct TLSSetupWalkthroughView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  var body: some View {
+    Section("TLS Walkthrough") {
+      VStack(alignment: .leading, spacing: 2) {
+        RemoteSetupStep(
+          number: 1,
+          title: "Domain",
+          detail: session.settingsDomainDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Set the receiving domain." : "Domain set to \(session.settingsDomainDraft).",
+          state: session.snapshot.settings.domain_configured ? .complete : .active
+        ) {
+          HStack(spacing: 8) {
+            Button { session.saveEmailDomain() } label: {
+              Label("Set Domain", systemImage: "checkmark")
+            }
+            .fixedSize()
+            Button { session.verifyEmailDomain() } label: {
+              Label("Verify DNS", systemImage: "checkmark.seal")
+            }
+            .fixedSize()
+          }
+        }
+        RemoteSetupStep(
+          number: 2,
+          title: "Certificate",
+          detail: session.snapshot.settings.ssl_ready ? "TLS certificate is ready." : "Provision TLS after DNS points at the active mail server.",
+          state: session.snapshot.settings.ssl_ready ? .complete : (session.snapshot.settings.domain_configured ? .active : .locked)
+        ) {
+          HStack(spacing: 8) {
+            Button { session.setupTLSForCurrentServer() } label: {
+              Label("Set Up TLS", systemImage: "lock.shield")
+            }
+            .fixedSize()
+            .disabled(!session.snapshot.settings.domain_configured || session.isBusy)
+            Text(session.snapshot.settings.ssl_ready ? "Ready" : "Not ready")
+              .font(.caption)
+              .foregroundStyle(session.snapshot.settings.ssl_ready ? .green : .secondary)
+          }
+        }
+      }
+    }
+  }
+}
+
+private struct RemoteServerWalkthroughView: View {
+  @EnvironmentObject private var session: OwlSession
+
+  private var targetState: SetupStepState {
+    session.remoteDraftConfigured && session.remotePortDraftValid ? .complete : .active
+  }
+
+  private var authState: SetupStepState {
+    guard session.remoteDraftConfigured else { return .locked }
+    return session.remotePasswordAvailable ? .complete : .active
+  }
+
+  private var deployState: SetupStepState {
+    guard session.remoteReadyForDeploy else { return .locked }
+    return session.snapshot.settings.remote.last_deploy_status == "ok" ? .complete : .active
+  }
+
+  private var testState: SetupStepState {
+    guard session.remoteReadyForDeploy else { return .locked }
+    return session.snapshot.settings.remote.last_test_status == "ok" ? .complete : .active
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      RemoteSetupStep(
+        number: 1,
+        title: "SSH Target",
+        detail: session.remoteDraftConfigured ? "Remote login and key are ready to save." : "Enter the server login and SSH key.",
+        state: targetState
+      ) {
+        VStack(alignment: .leading, spacing: 8) {
+          HStack(alignment: .firstTextBaseline, spacing: 8) {
+            TextField("user@203.0.113.8", text: $session.remoteHostDraft)
+              .textFieldStyle(.roundedBorder)
+              .frame(width: 190)
+            TextField("~/.ssh/id_ed25519", text: $session.remoteKeyPathDraft)
+              .textFieldStyle(.roundedBorder)
+              .frame(width: 220)
+            TextField("Port", text: $session.remotePortDraft)
+              .textFieldStyle(.roundedBorder)
+              .frame(width: 70)
+          }
+          if !session.remotePortDraftValid {
+            Text("SSH port must be 1-65535.")
+              .font(.caption)
+              .foregroundStyle(.red)
+          }
+          Button { session.saveRemoteTarget() } label: {
+            Label("Save Target", systemImage: "checkmark")
+          }
+          .fixedSize()
+          .disabled(!session.remotePortDraftValid || session.isBusy)
+        }
+      }
+
+      RemoteSetupStep(
+        number: 2,
+        title: "SSH Authentication",
+        detail: authDetail,
+        state: authState
+      ) {
+        VStack(alignment: .leading, spacing: 8) {
+          Toggle("SSH key has password", isOn: Binding(
+            get: { session.remoteKeyHasPassword },
+            set: { next in
+              session.remoteKeyHasPassword = next
+              if !next {
+                session.remoteKeySavePassword = false
+                session.remoteKeyPasswordDraft = ""
+              }
+            }
+          ))
+          .fixedSize()
+          if session.remoteKeyHasPassword {
+            HStack(spacing: 6) {
+              Group {
+                if session.remotePasswordVisible {
+                  TextField("SSH key password", text: $session.remoteKeyPasswordDraft)
+                } else {
+                  SecureField("SSH key password", text: $session.remoteKeyPasswordDraft)
+                }
+              }
+              .textFieldStyle(.roundedBorder)
+              .frame(width: 260)
+              Button {
+                session.remotePasswordVisible.toggle()
+              } label: {
+                Image(systemName: session.remotePasswordVisible ? "eye.slash" : "eye")
+                  .frame(width: 18, height: 18)
+              }
+              .buttonStyle(.borderless)
+              .help(session.remotePasswordVisible ? "Hide SSH key password" : "Show SSH key password")
+            }
+            Toggle("Save securely on this \(session.snapshot.settings.remote_auth.secrets_device_label)", isOn: $session.remoteKeySavePassword)
+              .fixedSize()
+              .disabled(!session.snapshot.settings.remote_auth.secrets_supported)
+            if !session.snapshot.settings.remote_auth.secrets_supported {
+              Text("Secure credential save is unavailable on this system.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+          }
+          Button { session.saveRemoteAuth() } label: {
+            Label("Save Authentication", systemImage: "key")
+          }
+          .fixedSize()
+          .disabled(!session.remoteDraftConfigured || !session.remotePortDraftValid || !session.remotePasswordAvailable || session.isBusy)
+        }
+      }
+
+      RemoteSetupStep(
+        number: 3,
+        title: "Deploy And Verify",
+        detail: session.snapshot.settings.remote.last_deploy_message.isEmpty ? "Install Owl on the server, then verify receiver health." : session.snapshot.settings.remote.last_deploy_message,
+        state: deployState
+      ) {
+        VStack(alignment: .leading, spacing: 8) {
+          HStack(spacing: 8) {
+            Button { session.deployRemoteServer() } label: {
+              Label("Deploy Remote Server", systemImage: "shippingbox.and.arrow.backward")
+            }
+            .fixedSize()
+            .disabled(!session.remoteReadyForDeploy || session.isBusy)
+            Button { session.verifyRemote() } label: {
+              Label("Verify Remote Setup", systemImage: "network")
+            }
+            .fixedSize()
+            .disabled(!session.remoteReadyForDeploy || session.isBusy)
+          }
+          HStack(spacing: 6) {
+            RemoteStatusPill(label: "Deploy", status: session.snapshot.settings.remote.last_deploy_status, message: session.snapshot.settings.remote.last_deploy_message)
+            RemoteStatusPill(label: "Verify", status: session.snapshot.settings.remote.last_verify_status, message: session.snapshot.settings.remote.last_verify_message)
+          }
+        }
+      }
+
+      RemoteSetupStep(
+        number: 4,
+        title: "Test And Sync",
+        detail: session.snapshot.settings.remote.last_test_message.isEmpty ? "Send a test email and pull remote mail into local Owl." : session.snapshot.settings.remote.last_test_message,
+        state: testState
+      ) {
+        VStack(alignment: .leading, spacing: 8) {
+          HStack(spacing: 8) {
+            Button { session.sendRemoteTestEmail() } label: {
+              Label("Send Test Email", systemImage: "paperplane")
+            }
+            .fixedSize()
+            .disabled(!session.remoteReadyForDeploy || session.isBusy)
+            Button { session.syncRemote() } label: {
+              Label("Check Remote Mail", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .fixedSize()
+            .disabled(!session.remoteReadyForDeploy || session.isBusy)
+          }
+          HStack(spacing: 6) {
+            RemoteStatusPill(label: "Test", status: session.snapshot.settings.remote.last_test_status, message: session.snapshot.settings.remote.last_test_message)
+            RemoteStatusPill(label: "Sync", status: session.snapshot.settings.remote.last_sync_status, message: session.snapshot.settings.remote.last_sync_message)
+          }
+        }
+      }
+
+      Text(session.remoteStatusSummary)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .textSelection(.enabled)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.leading, 34)
+    }
+  }
+
+  private var authDetail: String {
+    if !session.remoteDraftConfigured {
+      return "Save the remote target first."
+    }
+    if !session.remoteKeyHasPassword {
+      return "Passwordless SSH key selected."
+    }
+    if session.remotePasswordAvailable {
+      return "SSH key password is available for remote actions."
+    }
+    return "Enter the SSH key password or enable secure save."
   }
 }
 

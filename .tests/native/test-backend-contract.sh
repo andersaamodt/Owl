@@ -258,6 +258,12 @@ owl_actions_are_hard_allowlisted_and_passthrough() {
   write_fake_owl_backend "$fake"
   output=$(backend_with_owl "$fake" settings-set-domain "$root" example.org)
   printf '%s\n' "$output" | jq -e '.ok == true and .domain == "example.org"' >/dev/null
+  output=$(backend_with_owl "$fake" settings-remote-set-auth "$root" 1 0 "secret" user@example.org "$tmpdir/id_ed25519" 2222)
+  printf '%s\n' "$output" | jq -e '.ok == true and .action == "settings-remote-set-auth" and .argc == 6' >/dev/null
+  output=$(backend_with_owl "$fake" settings-remote-deploy "$root" user@example.org "$tmpdir/id_ed25519" "secret" 2222)
+  printf '%s\n' "$output" | jq -e '.ok == true and .action == "settings-remote-deploy" and .argc == 4' >/dev/null
+  output=$(backend_with_owl "$fake" settings-remote-send-test "$root" user@example.org "$tmpdir/id_ed25519" "secret" 2222)
+  printf '%s\n' "$output" | jq -e '.ok == true and .action == "settings-remote-send-test" and .argc == 4' >/dev/null
   if backend_with_owl "$fake" arbitrary-shell "$root" >"$tmpdir/arbitrary.out" 2>"$tmpdir/arbitrary.err"; then
     return 1
   fi

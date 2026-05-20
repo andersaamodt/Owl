@@ -752,6 +752,42 @@ swift_refresh_is_quiet_and_incremental() {
   ' generated/macos/Sources/App/App.swift
 }
 
+swift_remote_server_setup_walkthrough_exists() {
+  cd "$repo_dir"
+  grep -Fq 'private struct RemoteAuthSettings: Decodable, Sendable' generated/macos/Sources/App/App.swift
+  grep -Fq 'var remote_auth: RemoteAuthSettings' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var remoteKeyHasPassword: Bool = false' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var remoteKeyPasswordDraft: String = ""' generated/macos/Sources/App/App.swift
+  grep -Fq 'var remotePasswordAvailable: Bool' generated/macos/Sources/App/App.swift
+  grep -Fq 'func saveRemoteAuth()' generated/macos/Sources/App/App.swift
+  grep -Fq 'func deployRemoteServer()' generated/macos/Sources/App/App.swift
+  grep -Fq 'func sendRemoteTestEmail()' generated/macos/Sources/App/App.swift
+  grep -Fq 'func setupTLSForCurrentServer()' generated/macos/Sources/App/App.swift
+  grep -Fq 'OwlBackend.runJSON(action: "settings-remote-set-auth", root: root, args: self.remoteAuthArgs())' generated/macos/Sources/App/App.swift
+  grep -Fq 'action: "settings-remote-deploy"' generated/macos/Sources/App/App.swift
+  grep -Fq 'action: "settings-remote-send-test"' generated/macos/Sources/App/App.swift
+  grep -Fq 'action == "settings-setup-ssl" ? ["auto"] + remoteActionArgs : remoteActionArgs' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TLSSetupWalkthroughView: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct RemoteServerWalkthroughView: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct RemoteSetupStep<Content: View>: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct RemoteStatusPill: View' generated/macos/Sources/App/App.swift
+  grep -Fq 'Section("Remote Mail Server")' generated/macos/Sources/App/App.swift
+  grep -Fq 'RemoteSetupStep(' generated/macos/Sources/App/App.swift
+  grep -Fq 'title: "SSH Target"' generated/macos/Sources/App/App.swift
+  grep -Fq 'title: "SSH Authentication"' generated/macos/Sources/App/App.swift
+  grep -Fq 'title: "Deploy And Verify"' generated/macos/Sources/App/App.swift
+  grep -Fq 'title: "Test And Sync"' generated/macos/Sources/App/App.swift
+  grep -Fq 'Toggle("SSH key has password"' generated/macos/Sources/App/App.swift
+  grep -Fq 'SecureField("SSH key password", text: $session.remoteKeyPasswordDraft)' generated/macos/Sources/App/App.swift
+  grep -Fq 'Save securely on this \(session.snapshot.settings.remote_auth.secrets_device_label)' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label("Deploy Remote Server", systemImage: "shippingbox.and.arrow.backward")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label("Verify Remote Setup", systemImage: "network")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label("Check Remote Mail", systemImage: "arrow.triangle.2.circlepath")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label("Send Test Email", systemImage: "paperplane")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text(session.remoteStatusSummary)' generated/macos/Sources/App/App.swift
+  ! grep -Fq 'Section("Remote") {' generated/macos/Sources/App/App.swift
+}
+
 linux_uses_native_gtk_and_argv_backend() {
   cd "$repo_dir"
   grep -q 'gtk_header_bar_new' generated/linux/src/main.c
@@ -798,6 +834,7 @@ run_case "Swift new sender actions skip full refresh" swift_new_sender_actions_s
 run_case "Native UI has no manual refresh controls" native_ui_has_no_manual_refresh_controls
 run_case "Swift uses toasts not status bar" swift_uses_toasts_not_status_bar
 run_case "Swift refresh is quiet and incremental" swift_refresh_is_quiet_and_incremental
+run_case "Swift remote server setup walkthrough exists" swift_remote_server_setup_walkthrough_exists
 run_case "Linux uses GTK native backend bridge" linux_uses_native_gtk_and_argv_backend
 run_case "Secure Chat hook has offline timeout" secure_chat_hook_has_offline_timeout
 
@@ -806,4 +843,4 @@ if [ "$failures" -ne 0 ]; then
   exit 1
 fi
 
-printf '%s\n' "22/22 native render tests passed"
+printf '%s\n' "23/23 native render tests passed"
