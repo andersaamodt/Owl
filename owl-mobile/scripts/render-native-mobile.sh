@@ -16,8 +16,14 @@ version_file="$project_dir/VERSION"
 app_name=$(jq -r '.app.name' "$ir_path")
 app_id=$(jq -r '.app.id' "$ir_path")
 package_part=$(printf '%s' "$app_id" | tr '-' '_')
-android_package="app.wizardry.generated.$package_part"
-ios_bundle="app.wizardry.generated.$package_part"
+android_package=$(jq -r '.app.android.applicationId // ""' "$ir_path")
+[ -n "$android_package" ] || android_package="app.wizardry.generated.$package_part"
+android_compile_sdk=$(jq -r '.app.android.compileSdk // 35' "$ir_path")
+android_min_sdk=$(jq -r '.app.android.minSdk // 23' "$ir_path")
+android_target_sdk=$(jq -r '.app.android.targetSdk // 35' "$ir_path")
+ios_bundle=$(jq -r '.app.ios.bundleId // ""' "$ir_path")
+[ -n "$ios_bundle" ] || ios_bundle="app.wizardry.generated.$package_part"
+ios_deployment_target=$(jq -r '.app.ios.deploymentTarget // "16.0"' "$ir_path")
 if [ -f "$version_file" ]; then
   app_version=$(tr -d ' \t\r\n' <"$version_file")
 else
@@ -43,7 +49,7 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-rootProject.name = "$app_id-native-mobile"
+rootProject.name = "$app_id-mobile"
 include ':app'
 GRADLE
 
@@ -58,14 +64,49 @@ plugins { id 'com.android.application' }
 
 android {
     namespace '$android_package'
-    compileSdk 35
+    compileSdk $android_compile_sdk
 
     defaultConfig {
         applicationId '$android_package'
-        minSdk 23
-        targetSdk 35
+        minSdk $android_min_sdk
+        targetSdk $android_target_sdk
         versionCode $version_code
         versionName '$app_version'
+    }
+
+    def signingStorePath = System.getenv('ANDROID_SIGNING_KEYSTORE')
+    def signingStoreBase64 = System.getenv('ANDROID_SIGNING_KEYSTORE_BASE64')
+    if (signingStoreBase64 != null && signingStoreBase64.trim()) {
+        def decodedStore = layout.buildDirectory.file('ci-release.keystore').get().asFile
+        decodedStore.parentFile.mkdirs()
+        decodedStore.bytes = signingStoreBase64.decodeBase64()
+        signingStorePath = decodedStore.absolutePath
+    }
+    def signingStorePassword = System.getenv('ANDROID_SIGNING_STORE_PASSWORD')
+    def signingKeyAlias = System.getenv('ANDROID_SIGNING_KEY_ALIAS')
+    def signingKeyPassword = System.getenv('ANDROID_SIGNING_KEY_PASSWORD')
+    def hasReleaseSigning = signingStorePath != null && signingStorePath.trim() &&
+        signingStorePassword != null && signingStorePassword.trim() &&
+        signingKeyAlias != null && signingKeyAlias.trim() &&
+        signingKeyPassword != null && signingKeyPassword.trim()
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(signingStorePath)
+                storePassword signingStorePassword
+                keyAlias signingKeyAlias
+                keyPassword signingKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
 }
 GRADLE
@@ -146,14 +187,14 @@ $android_items
 JAVA
 
 cat >"$ios_dir/project.yml" <<YAML
-name: $app_id-native-mobile
+name: $app_id-mobile
 options:
   bundleIdPrefix: app.wizardry.generated
 targets:
   $app_id:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "$ios_deployment_target"
     sources:
       - Host
     settings:
@@ -205,7 +246,7 @@ $ios_items
 SWIFT
 
 cat >"$generated_root/README.md" <<README
-# $app_name Native Mobile Build
+# $app_name Mobile Build
 
 Generated from \`ir/mobile.ir.yaml\`.
 

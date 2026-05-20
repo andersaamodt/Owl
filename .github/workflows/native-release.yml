@@ -1,0 +1,223 @@
+name: Native Release Builds
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      upload_play:
+        description: "Upload the signed Android release bundle to Google Play internal draft"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Native Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test tools
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Run native contract tests
+        run: sh .tests/native/run.sh
+
+  macos:
+    name: macOS App
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: brew install jq
+      - name: Generate desktop targets
+        run: sh scripts/render-native-desktop.sh
+      - name: Build release executable
+        working-directory: generated/macos
+        run: swift build -c release
+      - name: Package app bundle
+        run: |
+          set -eu
+          app_dir="dist/Owl.app"
+          mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources/scripts"
+          cp generated/macos/.build/release/owl "$app_dir/Contents/MacOS/Owl"
+          cp scripts/owl-backend.sh "$app_dir/Contents/Resources/scripts/"
+          cp scripts/owl-simplex-local-hook.sh "$app_dir/Contents/Resources/scripts/"
+          cp scripts/owl-secure-chat-hook.sh "$app_dir/Contents/Resources/scripts/"
+          chmod +x "$app_dir/Contents/MacOS/Owl" "$app_dir"/Contents/Resources/scripts/*.sh
+          cat >"$app_dir/Contents/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>Owl</string>
+            <key>CFBundleIdentifier</key>
+            <string>app.wizardry.owl</string>
+            <key>CFBundleName</key>
+            <string>Owl</string>
+            <key>CFBundleDisplayName</key>
+            <string>Owl</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>0.1.0</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>13.0</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+          codesign --force --deep --sign - "$app_dir"
+          ditto -c -k --sequesterRsrc --keepParent "$app_dir" dist/Owl-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Owl-macOS
+          path: dist/Owl-macOS.zip
+
+  linux:
+    name: Linux GTK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y jq build-essential pkg-config meson ninja-build libgtk-4-dev
+      - name: Generate desktop targets
+        run: sh scripts/render-native-desktop.sh
+      - name: Build Linux executable
+        run: |
+          set -eu
+          meson setup generated/linux/build generated/linux --buildtype=release
+          meson compile -C generated/linux/build
+      - name: Package Linux bundle
+        run: |
+          set -eu
+          bundle="dist/owl-linux-x86_64"
+          mkdir -p "$bundle/scripts"
+          cp generated/linux/build/owl "$bundle/owl"
+          cp scripts/owl-backend.sh "$bundle/scripts/"
+          cp scripts/owl-simplex-local-hook.sh "$bundle/scripts/"
+          cp scripts/owl-secure-chat-hook.sh "$bundle/scripts/"
+          chmod +x "$bundle/owl" "$bundle"/scripts/*.sh
+          tar -czf dist/owl-linux-x86_64.tar.gz -C dist owl-linux-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owl-linux-x86_64
+          path: dist/owl-linux-x86_64.tar.gz
+
+  android:
+    name: Android APK/AAB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Generate mobile targets
+        working-directory: owl-mobile
+        run: sh scripts/render-native-mobile.sh
+      - name: Build APK and release bundle
+        working-directory: owl-mobile/generated/mobile/android
+        env:
+          ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+        run: gradle --no-daemon assembleDebug bundleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owl-android-debug-apk
+          path: owl-mobile/generated/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owl-android-release-aab
+          path: owl-mobile/generated/mobile/android/app/build/outputs/bundle/release/app-release.aab
+
+  play-upload:
+    name: Google Play Draft Upload
+    runs-on: ubuntu-latest
+    needs: android
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_play
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: owl-android-release-aab
+          path: play
+      - uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: app.wizardry.owl
+          releaseFiles: play/app-release.aab
+          track: internal
+          status: draft
+
+  ios:
+    name: iOS Simulator
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: brew install jq xcodegen
+      - name: Generate mobile targets
+        working-directory: owl-mobile
+        run: sh scripts/render-native-mobile.sh
+      - name: Generate Xcode project
+        working-directory: owl-mobile/generated/mobile/ios
+        run: xcodegen generate --spec project.yml
+      - name: Build simulator app
+        working-directory: owl-mobile/generated/mobile/ios
+        run: |
+          set -eu
+          xcodebuild \
+            -project owl-mobile.xcodeproj \
+            -scheme owl \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            SYMROOT="$PWD/build" \
+            build
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          ditto -c -k --keepParent build/Release-iphonesimulator/owl.app "$GITHUB_WORKSPACE/dist/owl-ios-simulator.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owl-ios-simulator
+          path: dist/owl-ios-simulator.zip
+
+  github-release:
+    name: Attach Release Artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - macos
+      - linux
+      - android
+      - ios
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -eu
+          gh release view "$TAG_NAME" >/dev/null 2>&1 || gh release create "$TAG_NAME" --generate-notes --title "$TAG_NAME"
+          find release-artifacts -type f -print -exec gh release upload "$TAG_NAME" {} --clobber \;

@@ -10,7 +10,7 @@ private let canonicalIR = #"""
   "version": "native-desktop-ir/v1",
   "format": "yaml-1.2-json-compatible",
   "app": {
-    "id": "owl-native",
+    "id": "owl",
     "name": "Owl",
     "targets": [
       "macos",
@@ -115,7 +115,7 @@ private let canonicalIR = #"""
       "id": "window.main",
       "name": "mainWindow",
       "type": "Window",
-      "title": "Owl Native",
+      "title": "Owl",
       "width": 128,
       "minWidth": 96,
       "height": 82,
@@ -355,23 +355,23 @@ private let canonicalIR = #"""
 
 private let generatedAppName = "Owl"
 private let generatedAppMenuTitle = "Owl"
-private let generatedAppID = "owl-native"
+private let generatedAppID = "owl"
 private let generatedAppVersion = "0.1.0"
-private let messageDragPayloadPrefix = "owl-native-message:"
-private let senderDragPayloadPrefix = "owl-native-sender:"
+private let messageDragPayloadPrefix = "owl-message:"
+private let senderDragPayloadPrefix = "owl-sender:"
 
 private final class NonDraggableHostingView<Content: View>: NSHostingView<Content> {
   override var mouseDownCanMoveWindow: Bool { false }
 }
 
 @main
-private enum OwlNativeGeneratedApp {
-  @MainActor private static var appDelegate: OwlNativeAppDelegate?
+private enum OwlGeneratedApp {
+  @MainActor private static var appDelegate: OwlAppDelegate?
 
   @MainActor
   static func main() {
     let app = NSApplication.shared
-    let delegate = OwlNativeAppDelegate()
+    let delegate = OwlAppDelegate()
     appDelegate = delegate
     app.delegate = delegate
     app.setActivationPolicy(.regular)
@@ -380,7 +380,7 @@ private enum OwlNativeGeneratedApp {
 }
 
 @MainActor
-private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+private final class OwlAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   private let session = OwlSession()
   private var window: NSWindow?
   private var settingsWindow: NSWindow?
@@ -422,7 +422,7 @@ private final class OwlNativeAppDelegate: NSObject, NSApplicationDelegate, NSWin
       backing: .buffered,
       defer: false
     )
-    window.title = "Owl Native"
+    window.title = "Owl"
     window.titleVisibility = .hidden
     window.contentView = hostingView
     window.isReleasedWhenClosed = false
@@ -1255,7 +1255,7 @@ private struct AttachmentItem: Decodable, Hashable, Sendable {
     guard (isVideo || isAudio), let data else { return nil }
     let safeName = name.isEmpty ? "attachment.bin" : name.replacingOccurrences(of: "/", with: "-")
     let url = FileManager.default.temporaryDirectory
-      .appendingPathComponent("owl-native-secure-chat")
+      .appendingPathComponent("owl-secure-chat")
       .appendingPathComponent(safeName)
     do {
       try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -2713,7 +2713,7 @@ private final class OwlSession: ObservableObject {
         let response = try await OwlBackend.messageTrashFiles(root: root, messageID: message.id)
         let urls = response.paths.map { URL(fileURLWithPath: $0) }
         guard !urls.isEmpty else {
-          throw NSError(domain: "OwlNativeTrash", code: 1, userInfo: [NSLocalizedDescriptionKey: "Message files were not found for system Trash."])
+          throw NSError(domain: "OwlTrash", code: 1, userInfo: [NSLocalizedDescriptionKey: "Message files were not found for system Trash."])
         }
         let recycled = try await recycleInSystemTrash(urls)
         if response.delete_after_trash {
@@ -2747,7 +2747,7 @@ private final class OwlSession: ObservableObject {
         for mapping in action.originalToTrash.reversed() {
           try fileManager.createDirectory(at: mapping.original.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
           if fileManager.fileExists(atPath: mapping.original.path) {
-            throw NSError(domain: "OwlNativeTrash", code: 2, userInfo: [NSLocalizedDescriptionKey: "\(mapping.original.lastPathComponent) already exists at its original location."])
+            throw NSError(domain: "OwlTrash", code: 2, userInfo: [NSLocalizedDescriptionKey: "\(mapping.original.lastPathComponent) already exists at its original location."])
           }
           try fileManager.moveItem(at: mapping.trashed, to: mapping.original)
         }
@@ -3231,7 +3231,7 @@ private final class OwlSession: ObservableObject {
   func provisionSimpleX() {
     let root = mailRoot
     runMessageAction(status: "SimpleX profile provisioned") {
-      try await OwlBackend.runJSON(action: "provision-simplex-identity", root: root, args: ["default", "Owl", "Owl Native"])
+      try await OwlBackend.runJSON(action: "provision-simplex-identity", root: root, args: ["default", "Owl", "Owl"])
     }
   }
 
@@ -3329,7 +3329,7 @@ private final class OwlSession: ObservableObject {
           persistSelectedRoute()
         }
       case "open_settings":
-        (NSApp.delegate as? OwlNativeAppDelegate)?.showSettingsWindow(nil)
+        (NSApp.delegate as? OwlAppDelegate)?.showSettingsWindow(nil)
       case "choose_mail_root":
         chooseMailRoot()
       case "setup_folders":
@@ -3416,7 +3416,7 @@ private enum OwlBackend {
 
   private static func run(action: String, root: String, args: [String]) throws -> Data {
     guard let script = resolveBackendScript() else {
-      throw NSError(domain: "OwlNativeBackend", code: 1, userInfo: [NSLocalizedDescriptionKey: "Owl Native backend script could not be resolved."])
+      throw NSError(domain: "OwlBackend", code: 1, userInfo: [NSLocalizedDescriptionKey: "Owl backend script could not be resolved."])
     }
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -3424,8 +3424,8 @@ private enum OwlBackend {
 
     let fm = FileManager.default
     let temp = fm.temporaryDirectory
-    let stdoutURL = temp.appendingPathComponent("owl-native-stdout-\(UUID().uuidString).json")
-    let stderrURL = temp.appendingPathComponent("owl-native-stderr-\(UUID().uuidString).log")
+    let stdoutURL = temp.appendingPathComponent("owl-stdout-\(UUID().uuidString).json")
+    let stderrURL = temp.appendingPathComponent("owl-stderr-\(UUID().uuidString).log")
     fm.createFile(atPath: stdoutURL.path, contents: nil)
     fm.createFile(atPath: stderrURL.path, contents: nil)
     let stdoutHandle = try FileHandle(forWritingTo: stdoutURL)
@@ -3447,7 +3447,7 @@ private enum OwlBackend {
       let message = String(data: err, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
         ?? String(data: out, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
         ?? "Backend command failed."
-      throw NSError(domain: "OwlNativeBackend", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])
+      throw NSError(domain: "OwlBackend", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: message])
     }
     return out
   }
@@ -3455,17 +3455,17 @@ private enum OwlBackend {
   private static func resolveBackendScript() -> URL? {
     let fm = FileManager.default
     var candidates: [URL] = []
-    if let override = ProcessInfo.processInfo.environment["OWL_NATIVE_BACKEND"], !override.isEmpty {
+    if let override = ProcessInfo.processInfo.environment["OWL_BACKEND"], !override.isEmpty {
       candidates.append(URL(fileURLWithPath: override))
     }
     if let resourceURL = Bundle.main.resourceURL {
-      candidates.append(resourceURL.appendingPathComponent("scripts/owl-native-backend.sh"))
-      candidates.append(resourceURL.appendingPathComponent("owl-native/scripts/owl-native-backend.sh"))
+      candidates.append(resourceURL.appendingPathComponent("scripts/owl-backend.sh"))
+      candidates.append(resourceURL.appendingPathComponent("owl/scripts/owl-backend.sh"))
     }
     let cwd = URL(fileURLWithPath: fm.currentDirectoryPath)
-    candidates.append(cwd.appendingPathComponent("../../scripts/owl-native-backend.sh").standardizedFileURL)
-    candidates.append(cwd.appendingPathComponent("scripts/owl-native-backend.sh").standardizedFileURL)
-    candidates.append(fm.homeDirectoryForCurrentUser.appendingPathComponent("git/owl-native/scripts/owl-native-backend.sh"))
+    candidates.append(cwd.appendingPathComponent("../../scripts/owl-backend.sh").standardizedFileURL)
+    candidates.append(cwd.appendingPathComponent("scripts/owl-backend.sh").standardizedFileURL)
+    candidates.append(fm.homeDirectoryForCurrentUser.appendingPathComponent("git/owl/scripts/owl-backend.sh"))
     return candidates.first(where: { fm.isExecutableFile(atPath: $0.path) || fm.fileExists(atPath: $0.path) })
   }
 }

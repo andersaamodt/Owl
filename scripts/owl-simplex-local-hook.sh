@@ -5,10 +5,10 @@ set -eu
 usage() {
   cat <<'USAGE'
 Usage:
-  owl-native-simplex-local-hook.sh send IDENTITY ROOT OUTBOX_FILE
-  owl-native-simplex-local-hook.sh poll IDENTITY ROOT INCOMING_DIR
+  owl-simplex-local-hook.sh send IDENTITY ROOT OUTBOX_FILE
+  owl-simplex-local-hook.sh poll IDENTITY ROOT INCOMING_DIR
 
-Filesystem SimpleX adapter for Owl Native. It records outbound SimpleX
+Filesystem SimpleX adapter for Owl. It records outbound SimpleX
 messages under ROOT/.transport/simplex/IDENTITY/local-wire/sent and imports
 inbound adapter drops from ROOT/.transport/simplex/IDENTITY/local-wire/incoming.
 USAGE
@@ -27,12 +27,12 @@ root=${3-}
 arg4=${4-}
 
 [ -n "$action" ] || { usage >&2; exit 2; }
-[ -n "$identity" ] || { printf '%s\n' 'owl-native-simplex-local-hook: IDENTITY is required' >&2; exit 2; }
-[ -n "$root" ] || { printf '%s\n' 'owl-native-simplex-local-hook: ROOT is required' >&2; exit 2; }
+[ -n "$identity" ] || { printf '%s\n' 'owl-simplex-local-hook: IDENTITY is required' >&2; exit 2; }
+[ -n "$root" ] || { printf '%s\n' 'owl-simplex-local-hook: ROOT is required' >&2; exit 2; }
 
 require_jq() {
   command -v jq >/dev/null 2>&1 || {
-    printf '%s\n' 'owl-native-simplex-local-hook: jq is required' >&2
+    printf '%s\n' 'owl-simplex-local-hook: jq is required' >&2
     exit 1
   }
 }
@@ -56,23 +56,23 @@ message_id() {
 }
 
 identity=$(safe_slug "$identity")
-wire_root=${OWL_NATIVE_SIMPLEX_LOCAL_WIRE_ROOT:-"$root/.transport/simplex/$identity/local-wire"}
+wire_root=${OWL_SIMPLEX_LOCAL_WIRE_ROOT:-"$root/.transport/simplex/$identity/local-wire"}
 wire_incoming="$wire_root/incoming"
 wire_sent="$wire_root/sent"
 
 send_message() {
   outbox_file=$1
   [ -f "$outbox_file" ] || {
-    printf '%s\n' "owl-native-simplex-local-hook: outbox file not found: $outbox_file" >&2
+    printf '%s\n' "owl-simplex-local-hook: outbox file not found: $outbox_file" >&2
     return 1
   }
   mkdir -p "$wire_sent"
   remote_id=$(message_id)
   sent_file="$wire_sent/$remote_id.json"
   jq -c --arg sent_at "$(now_iso)" --arg remote_id "$remote_id" \
-    '. + {adapter:"owl-native-simplex-local", remote_id:$remote_id, sent_at:$sent_at}' \
+    '. + {adapter:"owl-simplex-local", remote_id:$remote_id, sent_at:$sent_at}' \
     "$outbox_file" >"$sent_file"
-  printf '%s\n' 'transport=owl-native-simplex-local'
+  printf '%s\n' 'transport=owl-simplex-local'
   printf '%s\n' "remote_id=$remote_id"
   printf '%s\n' "message=queued in local SimpleX filesystem adapter"
 }
@@ -90,7 +90,7 @@ poll_messages() {
     mv "$file" "$target"
     moved=$((moved + 1))
   done
-  printf '%s\n' 'transport=owl-native-simplex-local'
+  printf '%s\n' 'transport=owl-simplex-local'
   printf '%s\n' "imported=$moved"
 }
 
@@ -99,20 +99,20 @@ require_jq
 case "$action" in
 send)
   [ -n "$arg4" ] || {
-    printf '%s\n' 'owl-native-simplex-local-hook: OUTBOX_FILE is required for send' >&2
+    printf '%s\n' 'owl-simplex-local-hook: OUTBOX_FILE is required for send' >&2
     exit 2
   }
   send_message "$arg4"
   ;;
 poll)
   [ -n "$arg4" ] || {
-    printf '%s\n' 'owl-native-simplex-local-hook: INCOMING_DIR is required for poll' >&2
+    printf '%s\n' 'owl-simplex-local-hook: INCOMING_DIR is required for poll' >&2
     exit 2
   }
   poll_messages "$arg4"
   ;;
 *)
-  printf '%s\n' "owl-native-simplex-local-hook: unsupported action: $action" >&2
+  printf '%s\n' "owl-simplex-local-hook: unsupported action: $action" >&2
   exit 2
   ;;
 esac

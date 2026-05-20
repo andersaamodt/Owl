@@ -1,15 +1,15 @@
-name: owl-mobile-native-mobile
+name: owl-mobile
 options:
   bundleIdPrefix: app.wizardry.generated
 targets:
-  owl-mobile:
+  owl:
     type: application
     platform: iOS
     deploymentTarget: "16.0"
     sources:
       - Host
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: app.wizardry.generated.owl_mobile
-      INFOPLIST_KEY_CFBundleDisplayName: "Owl Mobile"
+      PRODUCT_BUNDLE_IDENTIFIER: app.wizardry.owl
+      INFOPLIST_KEY_CFBundleDisplayName: "Owl"
       CURRENT_PROJECT_VERSION: "104521296"
       MARKETING_VERSION: "0.1.0"

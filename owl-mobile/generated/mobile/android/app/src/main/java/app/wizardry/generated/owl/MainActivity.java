@@ -1,4 +1,4 @@
-package app.wizardry.generated.owl_mobile;
+package app.wizardry.owl;
 
 import android.app.Activity;
 import android.os.Bundle;

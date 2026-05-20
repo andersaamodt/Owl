@@ -1,4 +1,4 @@
-# Owl Mobile Native Mobile Build
+# Owl Mobile Build
 
 Generated from `ir/mobile.ir.yaml`.
 

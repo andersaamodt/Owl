@@ -4,7 +4,7 @@ set -eu
 
 test_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd -P)
 repo_dir=$(CDPATH= cd -- "$test_dir/../.." && pwd -P)
-tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/owl-native-backend-test.XXXXXX")
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/owl-backend-test.XXXXXX")
 trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
 
 failures=0
@@ -24,7 +24,7 @@ backend() {
   HOME="$tmpdir/home" \
   XDG_STATE_HOME="$tmpdir/state" \
   XDG_CONFIG_HOME="$tmpdir/config" \
-  sh "$repo_dir/scripts/owl-native-backend.sh" "$@"
+  sh "$repo_dir/scripts/owl-backend.sh" "$@"
 }
 
 backend_with_owl() {
@@ -34,7 +34,7 @@ backend_with_owl() {
   XDG_STATE_HOME="$tmpdir/state" \
   XDG_CONFIG_HOME="$tmpdir/config" \
   OWL_DESKTOP_BACKEND="$owl_backend" \
-  sh "$repo_dir/scripts/owl-native-backend.sh" "$@"
+  sh "$repo_dir/scripts/owl-backend.sh" "$@"
 }
 
 b64() {
@@ -117,9 +117,9 @@ prepare_creates_shared_roots() {
   backend prepare "$root" >/dev/null
   [ -d "$root/accepted" ] &&
     [ -d "$root/archive" ] &&
-    [ -d "$root/.owl-native/simplex/threads" ] &&
-    [ -d "$root/.owl-native/simplex/incoming" ] &&
-    [ -d "$root/.owl-native/simplex/outbox" ]
+    [ -d "$root/.owl/simplex/threads" ] &&
+    [ -d "$root/.owl/simplex/incoming" ] &&
+    [ -d "$root/.owl/simplex/outbox" ]
 }
 
 simplex_messages_share_one_timeline_and_inbox() {
@@ -280,7 +280,7 @@ ui_prefs_are_plaintext_xdg_state() {
   backend set-ui-pref "$root" selected_route "thread:alice" >/dev/null
   output=$(backend get-ui-prefs "$root")
   printf '%s\n' "$output" | jq -e --arg root "$next_root" '.mail_root == $root and .selected_route == "thread:alice"' >/dev/null
-  grep -q "mail_root=$next_root" "$tmpdir/config/wizardry-apps/owl-native/prefs.conf"
+  grep -q "mail_root=$next_root" "$tmpdir/config/wizardry-apps/owl/prefs.conf"
 }
 
 message_detail_returns_simplex_and_email_messages() {
@@ -415,7 +415,7 @@ bundled_simplex_local_transport_is_end_to_end() {
   mkdir -p "$tmpdir/home"
   backend prepare "$root" >/dev/null
   backend bind-contact "$root" dana "Dana Local" person dana@example.org simplex://dana yes >/dev/null
-  backend configure-simplex-local-transport "$root" default | jq -e '.hook_ready == true and (.hook_path | endswith("owl-native-simplex-local-hook.sh"))' >/dev/null
+  backend configure-simplex-local-transport "$root" default | jq -e '.hook_ready == true and (.hook_path | endswith("owl-simplex-local-hook.sh"))' >/dev/null
   backend bootstrap-status "$root" default | jq -e '.hook_ready == true and (.hook_path | length > 0)' >/dev/null
   backend send-message "$root" dana simplex "Local outbound" "$(b64 'local outbound body')" >/dev/null
   mkdir -p "$wire_in"
@@ -423,7 +423,7 @@ bundled_simplex_local_transport_is_end_to_end() {
   tick=$(backend tick-simplex "$root" default)
   printf '%s\n' "$tick" | jq -e '.ok == true and .imported == 1 and .outbox.sent == 1 and .outbox.waiting == 0 and .outbox.failed == 0' >/dev/null
   [ -n "$(find "$root/.transport/simplex/default/local-wire/sent" -type f -name '*.json' -print -quit 2>/dev/null)" ] || return 1
-  [ -z "$(find "$root/.owl-native/simplex/outbox" -type f -name '*.json' -print -quit 2>/dev/null)" ] || return 1
+  [ -z "$(find "$root/.owl/simplex/outbox" -type f -name '*.json' -print -quit 2>/dev/null)" ] || return 1
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
     ([.threads[] | select(.id == "dana")][0].messages | map(select(.body == "local outbound body" and .status == "sent")) | length) == 1 and
@@ -528,7 +528,7 @@ SH
     HOME="$tmpdir/home" \
     XDG_STATE_HOME="$tmpdir/state" \
     XDG_CONFIG_HOME="$tmpdir/config" \
-    sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default
+    sh "$repo_dir/scripts/owl-backend.sh" tick-simplex "$root" default
   )
   printf '%s\n' "$tick" | jq -e '.ok == true and .imported == 1 and .outbox.failed == 0' >/dev/null
   snapshot=$(backend snapshot "$root")
@@ -545,7 +545,7 @@ SH
     HOME="$tmpdir/home" \
     XDG_STATE_HOME="$tmpdir/state" \
     XDG_CONFIG_HOME="$tmpdir/config" \
-    sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
+    sh "$repo_dir/scripts/owl-backend.sh" tick-simplex "$root" default >/dev/null
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
     ([.threads[] | select(.id == "npub1visitor")] | length) == 1 and
@@ -560,7 +560,7 @@ SH
     HOME="$tmpdir/home" \
     XDG_STATE_HOME="$tmpdir/state" \
     XDG_CONFIG_HOME="$tmpdir/config" \
-    sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
+    sh "$repo_dir/scripts/owl-backend.sh" tick-simplex "$root" default >/dev/null
   grep -q '/remote/blog-secure-chat-owl-send	secure-chat:27' "$ssh_log"
   grep -q 'simplex:' "$ssh_log"
   grep -q 'reply body 😀' "$ssh_log.decoded"
@@ -572,7 +572,7 @@ SH
     HOME="$tmpdir/home" \
     XDG_STATE_HOME="$tmpdir/state" \
     XDG_CONFIG_HOME="$tmpdir/config" \
-  sh "$repo_dir/scripts/owl-native-backend.sh" tick-simplex "$root" default >/dev/null
+  sh "$repo_dir/scripts/owl-backend.sh" tick-simplex "$root" default >/dev/null
   grep -q 'attachment reply 😀' "$ssh_log.decoded"
   snapshot=$(backend snapshot "$root")
   printf '%s\n' "$snapshot" | jq -e '
@@ -610,8 +610,8 @@ SH
     HOME="$tmpdir/home" \
     XDG_STATE_HOME="$tmpdir/state" \
     XDG_CONFIG_HOME="$tmpdir/config" \
-    OWL_NATIVE_SIMPLEX_INSTALLER="$installer" \
-    sh "$repo_dir/scripts/owl-native-backend.sh" install-simplex-cli "$root"
+    OWL_SIMPLEX_INSTALLER="$installer" \
+    sh "$repo_dir/scripts/owl-backend.sh" install-simplex-cli "$root"
   )
   printf '%s\n' "$output" | jq -e \
     --arg binary "$tmpdir/state/wizardry/simplex/current/simplex-chat" \

@@ -24,11 +24,15 @@ printf '%s\n' "$render_out" | grep -F "status=ok" >/dev/null
 
 [ -f "$mobile_dir/generated/mobile/android/settings.gradle" ]
 [ -f "$mobile_dir/generated/mobile/android/app/src/main/AndroidManifest.xml" ]
-[ -f "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl_mobile/MainActivity.java" ]
+[ -f "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" ]
 [ -f "$mobile_dir/generated/mobile/ios/project.yml" ]
 [ -f "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" ]
 
-grep -F "Inbox" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl_mobile/MainActivity.java" >/dev/null
+grep -F "app.wizardry.owl" "$mobile_dir/generated/mobile/android/app/build.gradle" >/dev/null
+grep -F 'android:label="Owl"' "$mobile_dir/generated/mobile/android/app/src/main/AndroidManifest.xml" >/dev/null
+grep -F "Inbox" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "name: owl-mobile" "$mobile_dir/generated/mobile/ios/project.yml" >/dev/null
+grep -F "PRODUCT_BUNDLE_IDENTIFIER: app.wizardry.owl" "$mobile_dir/generated/mobile/ios/project.yml" >/dev/null
 grep -F "Timeline" "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 
 if grep -R "com.google.android.gms\|play-services" "$mobile_dir/generated/mobile/android" >/dev/null 2>&1; then

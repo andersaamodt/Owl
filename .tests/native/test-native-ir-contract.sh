@@ -4,7 +4,7 @@ set -eu
 
 test_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd -P)
 repo_dir=$(CDPATH= cd -- "$test_dir/../.." && pwd -P)
-tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/owl-native-ir-test.XXXXXX")
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/owl-ir-test.XXXXXX")
 trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
 
 failures=0
@@ -27,7 +27,7 @@ validate_canonical_ir() {
 
 rejects_unsafe_app_id() {
   unsafe_ir="$tmpdir/unsafe-id.json"
-  jq '.app.id = "Owl Native"' "$repo_dir/ir/app.ir.yaml" >"$unsafe_ir"
+  jq '.app.id = "bad id"' "$repo_dir/ir/app.ir.yaml" >"$unsafe_ir"
   if sh "$repo_dir/scripts/validate-native-desktop-ir.sh" "$unsafe_ir" "$repo_dir/schemas/native-desktop-ir-v1.json" >"$tmpdir/unsafe-id.out" 2>"$tmpdir/unsafe-id.err"; then
     return 1
   fi

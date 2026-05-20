@@ -2,7 +2,7 @@
   "version": "native-desktop-ir/v1",
   "format": "yaml-1.2-json-compatible",
   "app": {
-    "id": "owl-native",
+    "id": "owl",
     "name": "Owl",
     "targets": ["macos", "linux"],
     "actions": [
@@ -38,7 +38,7 @@
       "id": "window.main",
       "name": "mainWindow",
       "type": "Window",
-      "title": "Owl Native",
+      "title": "Owl",
       "width": 128,
       "minWidth": 96,
       "height": 82,

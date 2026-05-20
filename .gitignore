@@ -1,4 +1,4 @@
-.log
+*.log
 dist/
 build/
 .build/
@@ -9,3 +9,13 @@ DerivedData/
 *.deb
 *.rpm
 *.AppImage
+*.apk
+*.aab
+*.ipa
+*.xcarchive
+*.keystore
+*.jks
+owl-mobile/generated/mobile/android/.gradle/
+owl-mobile/generated/mobile/android/app/build/
+owl-mobile/generated/mobile/ios/*.xcodeproj/
+owl-mobile/generated/mobile/ios/build/

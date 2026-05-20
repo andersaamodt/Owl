@@ -5,15 +5,15 @@ set -eu
 usage() {
   cat <<'USAGE'
 Usage:
-  owl-native-secure-chat-hook.sh send IDENTITY ROOT OUTBOX_FILE
-  owl-native-secure-chat-hook.sh poll IDENTITY ROOT INCOMING_DIR
+  owl-secure-chat-hook.sh send IDENTITY ROOT OUTBOX_FILE
+  owl-secure-chat-hook.sh poll IDENTITY ROOT INCOMING_DIR
 
-SSH-backed transport hook that syncs Owl Native with a nostr-blog Secure Chat
+SSH-backed transport hook that syncs Owl with a nostr-blog Secure Chat
 daemon. Configuration lives in ROOT/.transport/simplex/IDENTITY/profile.conf:
 
-  secure_chat_ssh_host=andersaamodt.com
-  secure_chat_export_command=/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-export
-  secure_chat_send_command=/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-send
+  secure_chat_ssh_host=example.org
+  secure_chat_export_command=/srv/example/site/cgi/blog-secure-chat-owl-export
+  secure_chat_send_command=/srv/example/site/cgi/blog-secure-chat-owl-send
 USAGE
 }
 
@@ -30,12 +30,12 @@ root=${3-}
 arg4=${4-}
 
 [ -n "$action" ] || { usage >&2; exit 2; }
-[ -n "$identity" ] || { printf '%s\n' 'owl-native-secure-chat-hook: IDENTITY is required' >&2; exit 2; }
-[ -n "$root" ] || { printf '%s\n' 'owl-native-secure-chat-hook: ROOT is required' >&2; exit 2; }
+[ -n "$identity" ] || { printf '%s\n' 'owl-secure-chat-hook: IDENTITY is required' >&2; exit 2; }
+[ -n "$root" ] || { printf '%s\n' 'owl-secure-chat-hook: ROOT is required' >&2; exit 2; }
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
-    printf '%s\n' "owl-native-secure-chat-hook: required tool not found: $1" >&2
+    printf '%s\n' "owl-secure-chat-hook: required tool not found: $1" >&2
     exit 1
   }
 }
@@ -73,14 +73,14 @@ validate_remote_path() {
   path_value=${1-}
   case "$path_value" in
     /*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./@+-]*|''|*..*|*' '*)
-      printf '%s\n' "owl-native-secure-chat-hook: unsafe remote command path: $path_value" >&2
+      printf '%s\n' "owl-secure-chat-hook: unsafe remote command path: $path_value" >&2
       exit 2
       ;;
     /*)
       printf '%s\n' "$path_value"
       ;;
     *)
-      printf '%s\n' "owl-native-secure-chat-hook: remote command must be absolute: $path_value" >&2
+      printf '%s\n' "owl-secure-chat-hook: remote command must be absolute: $path_value" >&2
       exit 2
       ;;
   esac
@@ -94,7 +94,7 @@ ssh_host=$(config_get "$profile_conf" secure_chat_ssh_host 2>/dev/null || printf
 export_command=$(config_get "$profile_conf" secure_chat_export_command 2>/dev/null || printf '')
 send_command=$(config_get "$profile_conf" secure_chat_send_command 2>/dev/null || printf '')
 
-[ -n "$ssh_host" ] || { printf '%s\n' 'owl-native-secure-chat-hook: secure_chat_ssh_host is not configured' >&2; exit 2; }
+[ -n "$ssh_host" ] || { printf '%s\n' 'owl-secure-chat-hook: secure_chat_ssh_host is not configured' >&2; exit 2; }
 export_command=$(validate_remote_path "$export_command")
 send_command=$(validate_remote_path "$send_command")
 
@@ -102,15 +102,15 @@ require_cmd jq
 require_cmd ssh
 
 ssh_transport() {
-  timeout_seconds=${OWL_NATIVE_TRANSPORT_TIMEOUT:-4}
+  timeout_seconds=${OWL_TRANSPORT_TIMEOUT:-4}
   case "$timeout_seconds" in ''|*[!0123456789]*) timeout_seconds=4 ;; esac
-  control_persist=${OWL_NATIVE_SSH_CONTROL_PERSIST:-60}
+  control_persist=${OWL_SSH_CONTROL_PERSIST:-60}
   case "$control_persist" in ''|*[!0123456789]*) control_persist=60 ;; esac
   # OpenSSH's Unix-domain ControlPath has a hard length limit on macOS.
   # TMPDIR often expands to /var/folders/... and can make the socket path too
   # long, so keep the default short while still allowing tests/operators to
   # override it explicitly.
-  control_dir=${OWL_NATIVE_SSH_CONTROL_DIR:-"/tmp/owl-ssh-${UID:-$(id -u 2>/dev/null || printf 0)}"}
+  control_dir=${OWL_SSH_CONTROL_DIR:-"/tmp/owl-ssh-${UID:-$(id -u 2>/dev/null || printf 0)}"}
   mkdir -p "$control_dir" 2>/dev/null || true
   chmod 700 "$control_dir" 2>/dev/null || true
   ssh \
@@ -134,7 +134,7 @@ poll_messages() {
   printf '%s\n' "$response" | jq -e '.success == true' >/dev/null
 
   imported=0
-  tmp_rows=$(mktemp "${TMPDIR:-/tmp}/owl-native-secure-chat-rows.XXXXXX")
+  tmp_rows=$(mktemp "${TMPDIR:-/tmp}/owl-secure-chat-rows.XXXXXX")
   printf '%s\n' "$response" | jq -c '
     .messages[]?
     | select((.body // "") != "")
@@ -177,20 +177,20 @@ poll_messages() {
 send_message() {
   outbox_file=$1
   [ -f "$outbox_file" ] || {
-    printf '%s\n' "owl-native-secure-chat-hook: outbox file not found: $outbox_file" >&2
+    printf '%s\n' "owl-secure-chat-hook: outbox file not found: $outbox_file" >&2
     exit 1
   }
   target=$(jq -r '.simplex_address // .thread_id // .contact_key // ""' "$outbox_file" | head -n 1)
   case "$target" in
     npub1*|secure-chat:[0-9]*|secure-chat-contact-[0-9]*) ;;
-    *) printf '%s\n' "owl-native-secure-chat-hook: outbox thread is not a Secure Chat target: $target" >&2; exit 2 ;;
+    *) printf '%s\n' "owl-secure-chat-hook: outbox thread is not a Secure Chat target: $target" >&2; exit 2 ;;
   esac
   client_message_id=$(jq -r '.id // ""' "$outbox_file" | head -n 1)
   body_b64=$(jq -rj '.body // ""' "$outbox_file" | base64_one_line)
   attachment_path=$(jq -r '.attachment_path // ""' "$outbox_file" | head -n 1)
   if [ -n "$attachment_path" ]; then
     [ -f "$attachment_path" ] || {
-      printf '%s\n' "owl-native-secure-chat-hook: attachment file not found: $attachment_path" >&2
+      printf '%s\n' "owl-secure-chat-hook: attachment file not found: $attachment_path" >&2
       exit 1
     }
     attachment_name=$(jq -r '.attachment.name // ""' "$outbox_file" | head -n 1)
@@ -213,15 +213,15 @@ send_message() {
 
 case "$action" in
 poll)
-  [ -n "$arg4" ] || { printf '%s\n' 'owl-native-secure-chat-hook: INCOMING_DIR is required for poll' >&2; exit 2; }
+  [ -n "$arg4" ] || { printf '%s\n' 'owl-secure-chat-hook: INCOMING_DIR is required for poll' >&2; exit 2; }
   poll_messages "$arg4"
   ;;
 send)
-  [ -n "$arg4" ] || { printf '%s\n' 'owl-native-secure-chat-hook: OUTBOX_FILE is required for send' >&2; exit 2; }
+  [ -n "$arg4" ] || { printf '%s\n' 'owl-secure-chat-hook: OUTBOX_FILE is required for send' >&2; exit 2; }
   send_message "$arg4"
   ;;
 *)
-  printf '%s\n' "owl-native-secure-chat-hook: unsupported action: $action" >&2
+  printf '%s\n' "owl-secure-chat-hook: unsupported action: $action" >&2
   exit 2
   ;;
 esac

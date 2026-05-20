@@ -2,9 +2,19 @@
   "version": "native-mobile-ir/v1",
   "format": "yaml-1.2-json-compatible",
   "app": {
-    "id": "owl-mobile",
-    "name": "Owl Mobile",
+    "id": "owl",
+    "name": "Owl",
     "targets": ["android", "ios"],
+    "android": {
+      "applicationId": "app.wizardry.owl",
+      "compileSdk": 35,
+      "minSdk": 23,
+      "targetSdk": 35
+    },
+    "ios": {
+      "bundleId": "app.wizardry.owl",
+      "deploymentTarget": "16.0"
+    },
     "offlineFirst": true,
     "storePolicy": "direct-first",
     "permissions": ["network", "notifications", "files"],

@@ -3,7 +3,7 @@
 case "${1-}" in
 --help|--usage|-h|help)
   cat <<'USAGE'
-Usage: owl-native-backend.sh ACTION [ROOT] [ARGS...]
+Usage: owl-backend.sh ACTION [ROOT] [ARGS...]
 
 Actions:
   doctor [ROOT]
@@ -79,7 +79,7 @@ Actions:
   simplex-transport-status ROOT [IDENTITY]
   tick-simplex ROOT
 
-Owl Native shares Owl's mail root. ROOT defaults to ~/mail.
+Owl uses the shared mail root. ROOT defaults to ~/mail.
 USAGE
   exit 0
   ;;
@@ -99,12 +99,12 @@ nl='
 cr=$(printf '\r')
 
 fail() {
-  printf '%s\n' "owl-native-backend: $*" >&2
+  printf '%s\n' "owl-backend: $*" >&2
   exit 1
 }
 
 usage_error() {
-  printf '%s\n' "owl-native-backend: $*" >&2
+  printf '%s\n' "owl-backend: $*" >&2
   exit 2
 }
 
@@ -208,11 +208,11 @@ ROOT=$(normalize_path "$root_arg")
 safe_output_value "$ROOT"
 
 metadata_root() {
-  printf '%s\n' "$ROOT/.owl-native"
+  printf '%s\n' "$ROOT/.owl"
 }
 
 ui_config_dir() {
-  printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/wizardry-apps/owl-native"
+  printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/wizardry-apps/owl"
 }
 
 ui_prefs_file() {
@@ -268,8 +268,8 @@ simplex_current_binary() {
 }
 
 wizardry_simplex_root() {
-  if [ -n "${OWL_NATIVE_WIZARDRY_SIMPLEX_ROOT-}" ]; then
-    printf '%s\n' "$OWL_NATIVE_WIZARDRY_SIMPLEX_ROOT"
+  if [ -n "${OWL_WIZARDRY_SIMPLEX_ROOT-}" ]; then
+    printf '%s\n' "$OWL_WIZARDRY_SIMPLEX_ROOT"
     return 0
   fi
   if [ -n "${WIZARDRY_SIMPLEX_ROOT-}" ]; then
@@ -309,11 +309,11 @@ simplex_profile_conf() {
 }
 
 default_simplex_transport_hook() {
-  printf '%s\n' "$script_dir/owl-native-simplex-local-hook.sh"
+  printf '%s\n' "$script_dir/owl-simplex-local-hook.sh"
 }
 
 secure_chat_transport_hook() {
-  printf '%s\n' "$script_dir/owl-native-secure-chat-hook.sh"
+  printf '%s\n' "$script_dir/owl-secure-chat-hook.sh"
 }
 
 ensure_roots() {
@@ -371,7 +371,7 @@ config_set() {
       ;;
   esac
   mkdir -p "$(dirname "$file")"
-  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-conf.XXXXXX")
+  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-conf.XXXXXX")
   if [ -f "$file" ]; then
     awk -F= -v wanted="$key" '$1 != wanted' "$file" >"$tmp"
   fi
@@ -486,7 +486,7 @@ owl_backend_json() {
   shift || true
   script=$(resolve_owl_backend_script || true)
   [ -n "$script" ] || return 127
-  timeout_seconds=${OWL_NATIVE_OWL_TIMEOUT_SECONDS:-1}
+  timeout_seconds=${OWL_OWL_TIMEOUT_SECONDS:-1}
   case "$timeout_seconds" in ''|*[!0123456789]*) timeout_seconds=1 ;; esac
   if command -v python3 >/dev/null 2>&1; then
     python3 - "$timeout_seconds" "$script" "$owl_action" "$ROOT" "$@" <<'PY'
@@ -524,8 +524,8 @@ PY
     timeout "$timeout_seconds" sh "$script" "$owl_action" "$ROOT" "$@"
     return $?
   fi
-  tmp_out=$(mktemp "${TMPDIR:-/tmp}/owl-native-owl-out.XXXXXX")
-  tmp_err=$(mktemp "${TMPDIR:-/tmp}/owl-native-owl-err.XXXXXX")
+  tmp_out=$(mktemp "${TMPDIR:-/tmp}/owl-owl-out.XXXXXX")
+  tmp_err=$(mktemp "${TMPDIR:-/tmp}/owl-owl-err.XXXXXX")
   sh "$script" "$owl_action" "$ROOT" "$@" >"$tmp_out" 2>"$tmp_err" &
   backend_pid=$!
   (
@@ -624,7 +624,7 @@ contact_conf_to_json() {
 }
 
 contacts_json_array() {
-  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-contacts.XXXXXX")
+  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-contacts.XXXXXX")
   dir=$(native_contacts_dir)
   if [ -d "$dir" ]; then
     for file in "$dir"/*.conf; do
@@ -719,7 +719,7 @@ migrate_simplex_thread_messages() {
   [ -f "$from_file" ] || return 0
   to_file=$(simplex_thread_file "$to_thread")
   mkdir -p "$(dirname "$to_file")"
-  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex-merge.XXXXXX")
+  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-simplex-merge.XXXXXX")
   {
     [ -f "$to_file" ] && cat "$to_file"
     jq -c --arg thread_id "$to_thread" '.thread_id = $thread_id' "$from_file"
@@ -809,7 +809,7 @@ rewrite_simplex_message_field() {
   for file in "$dir"/*.jsonl; do
     [ -f "$file" ] || continue
     if jq -e --arg id "$message_id_value" 'select(.id == $id)' "$file" >/dev/null 2>&1; then
-      tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex.XXXXXX")
+      tmp=$(mktemp "${TMPDIR:-/tmp}/owl-simplex.XXXXXX")
       case "$field" in
         in_inbox|read)
           jq -c --arg id "$message_id_value" --arg field "$field" --argjson value "$value" \
@@ -838,7 +838,7 @@ collect_email_messages_jsonl() {
 }
 
 collect_email_lists_json() {
-  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-email-lists.XXXXXX")
+  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-email-lists.XXXXXX")
   for list in accepted quarantine spam banned archive sent outbox trash spam-review; do
     owl_messages_for_list "$list" | jq -c --arg id "$list" '{id:$id,messages:(.messages // [])}' >>"$tmp"
   done
@@ -882,8 +882,8 @@ snapshot_action() {
   events_json=$(owl_backend_array_field_or_empty events event-feed 80)
   settings_json=$(owl_backend_json_or_empty settings-controls)
   prefs_json=$(ui_prefs_action)
-  tmp_email=$(mktemp "${TMPDIR:-/tmp}/owl-native-email.XXXXXX")
-  tmp_simplex=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex.XXXXXX")
+  tmp_email=$(mktemp "${TMPDIR:-/tmp}/owl-email.XXXXXX")
+  tmp_simplex=$(mktemp "${TMPDIR:-/tmp}/owl-simplex.XXXXXX")
   printf '%s\n' "$email_lists_json" | collect_email_messages_from_lists_jsonl >"$tmp_email"
   collect_simplex_messages_jsonl >"$tmp_simplex"
   jq -n \
@@ -1034,8 +1034,8 @@ snapshot_action() {
         simplex: {
           install_state: $simplex_install_state,
           system_root: ($root + "/.system/simplex"),
-          incoming_dir: ($root + "/.owl-native/simplex/incoming"),
-          outbox_dir: ($root + "/.owl-native/simplex/outbox")
+          incoming_dir: ($root + "/.owl/simplex/incoming"),
+          outbox_dir: ($root + "/.owl/simplex/outbox")
         },
         inbox: ($messages | map(select(.in_inbox)) | sort_by(.received_at) | reverse),
         favorites: ($threads | map(select(.favorite)) | sort_by(.name)),
@@ -1070,7 +1070,7 @@ send_message_action() {
     simplex|email) ;;
     *) usage_error "send-message transport must be simplex or email" ;;
   esac
-  body_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-body.XXXXXX")
+  body_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-body.XXXXXX")
   decode_b64_to_file "$body_b64" "$body_tmp" || {
     rm -f "$body_tmp"
     usage_error "invalid base64 body payload"
@@ -1270,7 +1270,7 @@ message_trash_files_action() {
       eml_path="$(dirname "$sidecar")/$eml"
       html_path=$(sidecar_sibling_path "$sidecar" "$(yaml_scalar_light "$sidecar" html)")
       plain_path=$(sidecar_sibling_path "$sidecar" "$(yaml_scalar_light "$sidecar" plain)")
-      paths_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-trash-paths.XXXXXX")
+      paths_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-trash-paths.XXXXXX")
       for path in "$eml_path" "$html_path" "$plain_path" "$sidecar"; do
         [ -n "$path" ] && [ -e "$path" ] && printf '%s\n' "$path" >>"$paths_tmp"
       done
@@ -1354,7 +1354,7 @@ mark_read_action() {
 
 mark_seen_action() {
   [ "$#" -gt 0 ] || usage_error "mark-seen requires at least one MESSAGE_ID"
-  ids_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-mark-seen.XXXXXX")
+  ids_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-mark-seen.XXXXXX")
   for id in "$@"; do
     mark_read_action "$id" true >/dev/null
     archive_message_action "$id" >/dev/null
@@ -1407,20 +1407,20 @@ toggle_star_action() {
 }
 
 simplex_release_api_url() {
-  printf '%s\n' "${OWL_NATIVE_SIMPLEX_RELEASE_API_URL:-https://api.github.com/repos/simplex-chat/simplex-chat/releases/latest}"
+  printf '%s\n' "${OWL_SIMPLEX_RELEASE_API_URL:-https://api.github.com/repos/simplex-chat/simplex-chat/releases/latest}"
 }
 
 simplex_platform_os() {
-  printf '%s\n' "${OWL_NATIVE_SIMPLEX_PLATFORM_OS:-$(uname -s 2>/dev/null || printf unknown)}"
+  printf '%s\n' "${OWL_SIMPLEX_PLATFORM_OS:-$(uname -s 2>/dev/null || printf unknown)}"
 }
 
 simplex_platform_arch() {
-  printf '%s\n' "${OWL_NATIVE_SIMPLEX_PLATFORM_ARCH:-$(uname -m 2>/dev/null || printf unknown)}"
+  printf '%s\n' "${OWL_SIMPLEX_PLATFORM_ARCH:-$(uname -m 2>/dev/null || printf unknown)}"
 }
 
 simplex_asset_name() {
-  if [ -n "${OWL_NATIVE_SIMPLEX_ASSET_NAME-}" ]; then
-    printf '%s\n' "$OWL_NATIVE_SIMPLEX_ASSET_NAME"
+  if [ -n "${OWL_SIMPLEX_ASSET_NAME-}" ]; then
+    printf '%s\n' "$OWL_SIMPLEX_ASSET_NAME"
     return 0
   fi
   case "$(simplex_platform_os):$(simplex_platform_arch)" in
@@ -1536,7 +1536,7 @@ simplex_install_file_for_binary() {
 simplex_validate_binary() {
   binary=$1
   install_conf=$(simplex_install_file)
-  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex-validate.XXXXXX")
+  tmp=$(mktemp "${TMPDIR:-/tmp}/owl-simplex-validate.XXXXXX")
   if "$binary" -h >"$tmp" 2>&1; then
     config_set "$install_conf" validation_state ready
     config_set "$install_conf" last_error ''
@@ -1579,7 +1579,7 @@ simplex_install_source() {
     return 0
   fi
   if [ "$install_file" = "$(simplex_install_file)" ]; then
-    printf '%s\n' owl-native
+    printf '%s\n' owl
     return 0
   fi
   if [ "$install_file" = "$(wizardry_simplex_install_file)" ]; then
@@ -1624,8 +1624,8 @@ wizardry_command_path() {
 }
 
 wizardry_simplex_installer() {
-  if [ -n "${OWL_NATIVE_SIMPLEX_INSTALLER-}" ] && [ -f "$OWL_NATIVE_SIMPLEX_INSTALLER" ]; then
-    printf '%s\n' "$OWL_NATIVE_SIMPLEX_INSTALLER"
+  if [ -n "${OWL_SIMPLEX_INSTALLER-}" ] && [ -f "$OWL_SIMPLEX_INSTALLER" ]; then
+    printf '%s\n' "$OWL_SIMPLEX_INSTALLER"
     return 0
   fi
   installer=$(command -v install-simplex-chat 2>/dev/null || printf '')
@@ -1702,7 +1702,7 @@ install_simplex_cli_action() {
   require_cmd jq
   wizardry_installer=$(wizardry_simplex_installer 2>/dev/null || printf '')
   if [ -n "$wizardry_installer" ]; then
-    install_log=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex-wizardry-install.XXXXXX")
+    install_log=$(mktemp "${TMPDIR:-/tmp}/owl-simplex-wizardry-install.XXXXXX")
     if PATH=$(wizardry_command_path) sh "$wizardry_installer" >"$install_log" 2>&1; then
       binary=$(simplex_binary_resolved 2>/dev/null || printf '')
       [ -n "$binary" ] || {
@@ -1727,7 +1727,7 @@ install_simplex_cli_action() {
 
   asset=$(simplex_asset_name 2>/dev/null || true)
   [ -n "$asset" ] || usage_error "unsupported platform for SimpleX CLI: $(simplex_platform_os)/$(simplex_platform_arch)"
-  tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/owl-native-simplex-install.XXXXXX")
+  tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/owl-simplex-install.XXXXXX")
   release_json="$tmp_dir/release.json"
   fetch_url_to_file "$(simplex_release_api_url)" "$release_json"
   tag=$(jq -r '.tag_name // ""' "$release_json")
@@ -1778,16 +1778,16 @@ install_simplex_cli_action() {
   config_set "$install_conf" last_error ''
   simplex_validate_binary "$current" || true
   rm -rf "$tmp_dir"
-  jq -n --arg version "$tag" --arg asset_name "$asset" --arg binary_path "$current" '{ok:true,action:"install-simplex-cli",install_source:"owl-native",version:$version,asset_name:$asset_name,binary_path:$binary_path}'
+  jq -n --arg version "$tag" --arg asset_name "$asset" --arg binary_path "$current" '{ok:true,action:"install-simplex-cli",install_source:"owl",version:$version,asset_name:$asset_name,binary_path:$binary_path}'
 }
 
 simplex_initialize_profile() {
   binary=$1
   prefix=$2
   display_name=${3:-Owl}
-  full_name=${4:-Owl Native}
+  full_name=${4:-Owl}
   log_file=$5
-  tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/owl-native-simplex-init.XXXXXX")
+  tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/owl-simplex-init.XXXXXX")
   input="$tmp_dir/input.txt"
   display_name=$(printf '%s' "$display_name" | tr '\r' '\n' | head -n 1)
   full_name=$(printf '%s' "$full_name" | tr '\r' '\n' | head -n 1)
@@ -1817,7 +1817,7 @@ simplex_initialize_profile() {
 provision_simplex_identity_action() {
   ident=$(safe_slug "${1:-default}")
   display_name=${2:-Owl}
-  full_name=${3:-Owl Native}
+  full_name=${3:-Owl}
   binary=$(simplex_binary_resolved 2>/dev/null || true)
   [ -n "$binary" ] || usage_error "SimpleX CLI is not installed"
   simplex_validate_binary "$binary" || true
@@ -1838,8 +1838,8 @@ provision_simplex_identity_action() {
 
 simplex_transport_hook_path() {
   ident=$(safe_slug "${1:-default}")
-  if [ -n "${OWL_NATIVE_SIMPLEX_TRANSPORT_HOOK-}" ]; then
-    printf '%s\n' "$OWL_NATIVE_SIMPLEX_TRANSPORT_HOOK"
+  if [ -n "${OWL_SIMPLEX_TRANSPORT_HOOK-}" ]; then
+    printf '%s\n' "$OWL_SIMPLEX_TRANSPORT_HOOK"
     return 0
   fi
   config_get "$(simplex_profile_conf "$ident")" transport_hook 2>/dev/null || return 1
@@ -1868,9 +1868,12 @@ configure_simplex_local_transport_action() {
 
 configure_secure_chat_transport_action() {
   ident=$(safe_slug "${1:-default}")
-  ssh_host=${2:-andersaamodt.com}
-  export_command=${3:-/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-export}
-  send_command=${4:-/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-send}
+  ssh_host=${2-}
+  export_command=${3-}
+  send_command=${4-}
+  [ -n "$ssh_host" ] || usage_error "Secure Chat SSH host is required"
+  [ -n "$export_command" ] || usage_error "Secure Chat export command is required"
+  [ -n "$send_command" ] || usage_error "Secure Chat send command is required"
   case "$ssh_host$export_command$send_command" in
     *"$nl"*|*"$cr"*) usage_error "Secure Chat transport settings must be single-line values" ;;
   esac
@@ -2083,7 +2086,7 @@ case "$action" in
     from_self=${3-false}
     in_inbox=${4-true}
     subject=${5-}
-    body_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-simplex-body.XXXXXX")
+    body_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-simplex-body.XXXXXX")
     decode_b64_to_file "$body_b64" "$body_tmp" || {
       rm -f "$body_tmp"
       usage_error "invalid base64 body payload"
@@ -2137,7 +2140,7 @@ case "$action" in
     body_b64=${4-}
     attachment_path=${5-}
     [ "$transport" = "simplex" ] || usage_error "send-attachment currently supports simplex"
-    body_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-native-attachment-body.XXXXXX")
+    body_tmp=$(mktemp "${TMPDIR:-/tmp}/owl-attachment-body.XXXXXX")
     decode_b64_to_file "$body_b64" "$body_tmp" || {
       rm -f "$body_tmp"
       usage_error "invalid base64 body payload"
@@ -2188,7 +2191,7 @@ Attachment: ${attachment_path##*/}"
     ;;
   provision-simplex-identity)
     ensure_roots
-    provision_simplex_identity_action "${1:-default}" "${2:-Owl}" "${3:-Owl Native}"
+    provision_simplex_identity_action "${1:-default}" "${2:-Owl}" "${3:-Owl}"
     ;;
   configure-simplex-local-transport)
     ensure_roots
@@ -2196,7 +2199,7 @@ Attachment: ${attachment_path##*/}"
     ;;
   configure-secure-chat-transport)
     ensure_roots
-    configure_secure_chat_transport_action "${1:-default}" "${2:-andersaamodt.com}" "${3:-/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-export}" "${4:-/home/new_andersaamodt_com/site/cgi/blog-secure-chat-owl-send}"
+    configure_secure_chat_transport_action "${1:-default}" "${2-}" "${3-}" "${4-}"
     ;;
   set-simplex-transport-hook)
     ensure_roots

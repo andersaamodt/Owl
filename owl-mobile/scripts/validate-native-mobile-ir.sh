@@ -35,6 +35,15 @@ jq -e '.app.id and .app.name and (.app.targets | length > 0) and (.app.screens |
   exit 1
 }
 
+jq -e '
+  (.app.id | test("^[a-z][a-z0-9-]*$")) and
+  ((.app.android.applicationId // "app.wizardry.generated.placeholder") | test("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$")) and
+  ((.app.ios.bundleId // "app.wizardry.generated.placeholder") | test("^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"))
+' "$ir_path" >/dev/null || {
+  printf '%s\n' "native-mobile-ir: app ids and platform bundle ids must be stable reverse-DNS-safe values." >&2
+  exit 1
+}
+
 jq -e '(.app.targets | all(. == "android" or . == "ios"))' "$ir_path" >/dev/null || {
   printf '%s\n' "native-mobile-ir: app.targets must contain android, ios, or both." >&2
   exit 1

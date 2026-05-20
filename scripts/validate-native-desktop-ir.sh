@@ -63,7 +63,7 @@ if ! jq -e '
 fi
 
 if ! jq -e '
-  (.app.id | test("^[A-Za-z][A-Za-z0-9-]*$")) and
+  (.app.id | test("^[a-z][a-z0-9-]*$")) and
   (.app.name | test("^[A-Za-z0-9 .,_()\\-]+$")) and
   ((.app.window.title // .app.name) | test("^[A-Za-z0-9 .,_()\\-]+$"))
 ' "$ir_path" >/dev/null 2>&1; then

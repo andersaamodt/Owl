@@ -4,7 +4,7 @@ set -eu
 
 test_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd -P)
 repo_dir=$(CDPATH= cd -- "$test_dir/../.." && pwd -P)
-tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/owl-native-render-test.XXXXXX")
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/owl-render-test.XXXXXX")
 trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
 
 failures=0
@@ -110,7 +110,7 @@ swift_uses_native_desktop_idiom() {
   grep -q 'let messageMenu = NSMenu(title: "Message")' generated/macos/Sources/App/App.swift
   grep -q 'private let generatedAppMenuTitle = "Owl"' generated/macos/Sources/App/App.swift
   grep -q 'appMenuItem.title = generatedAppMenuTitle' generated/macos/Sources/App/App.swift
-  grep -q '.executable(name: "owl-native", targets: \["App"\])' generated/macos/Package.swift
+  grep -q '.executable(name: "owl", targets: \["App"\])' generated/macos/Package.swift
   grep -q 'actionItem("Preferences...", action: "open_settings", key: ",", modifiers: \\[.command\\])' generated/macos/Sources/App/App.swift
   ! grep -q 'actionItem("Settings...", action: "open_settings"' generated/macos/Sources/App/App.swift
   grep -q 'settingsWindow.title = "Preferences"' generated/macos/Sources/App/App.swift
@@ -373,7 +373,7 @@ swift_cards_have_horizontal_flick_actions() {
     END { exit found ? 0 : 1 }
   ' generated/macos/Sources/App/App.swift
   grep -Fq 'func handleSenderDrop(threadID: String, action: SenderDropAction)' generated/macos/Sources/App/App.swift
-  grep -Fq 'private let senderDragPayloadPrefix = "owl-native-sender:"' generated/macos/Sources/App/App.swift
+  grep -Fq 'private let senderDragPayloadPrefix = "owl-sender:"' generated/macos/Sources/App/App.swift
   grep -Fq 'return NSItemProvider(object: "\(senderDragPayloadPrefix)\(thread.id)" as NSString)' generated/macos/Sources/App/App.swift
   grep -Fq 'return NSItemProvider(object: "\(senderDragPayloadPrefix)\(threadID)" as NSString)' generated/macos/Sources/App/App.swift
   grep -Fq '@State private var expandedSenderID: String?' generated/macos/Sources/App/App.swift
@@ -410,8 +410,8 @@ swift_message_cards_are_drag_droppable() {
   grep -q 'Label("Undo Last Trash", systemImage: "arrow.uturn.backward")' generated/macos/Sources/App/App.swift
   grep -q 'Label("Open System Trash", systemImage: "trash")' generated/macos/Sources/App/App.swift
   grep -q 'static func messageTrashFiles(root: String, messageID: String) async throws -> TrashFilesResponse' generated/macos/Sources/App/App.swift
-  grep -q 'message-trash-files' generated/macos/Sources/App/App.swift scripts/owl-native-backend.sh
-  grep -q 'delete_after_trash' generated/macos/Sources/App/App.swift scripts/owl-native-backend.sh
+  grep -q 'message-trash-files' generated/macos/Sources/App/App.swift scripts/owl-backend.sh
+  grep -q 'delete_after_trash' generated/macos/Sources/App/App.swift scripts/owl-backend.sh
   grep -Fq '.zIndex(session.draggingMessageID == nil ? 10 : 0)' generated/macos/Sources/App/App.swift
   grep -Fq 'private var showsMessageDropDock: Bool' generated/macos/Sources/App/App.swift
   grep -Fq 'session.selectedRoute == "inbox-message"' generated/macos/Sources/App/App.swift
@@ -504,10 +504,10 @@ swift_mail_timelines_restore_scroll_position() {
   grep -Fq 'action: "mark-seen"' generated/macos/Sources/App/App.swift
   grep -Fq 'func applySeen(messageID: String)' generated/macos/Sources/App/App.swift
   grep -Fq 'session.noteApplicationFocused()' generated/macos/Sources/App/App.swift
-  grep -Fq 'mark-seen ROOT MESSAGE_ID...' scripts/owl-native-backend.sh
-  grep -Fq 'mark_seen_action()' scripts/owl-native-backend.sh
-  grep -Fq 'mark_read_action "$id" true >/dev/null' scripts/owl-native-backend.sh
-  grep -Fq 'archive_message_action "$id" >/dev/null' scripts/owl-native-backend.sh
+  grep -Fq 'mark-seen ROOT MESSAGE_ID...' scripts/owl-backend.sh
+  grep -Fq 'mark_seen_action()' scripts/owl-backend.sh
+  grep -Fq 'mark_read_action "$id" true >/dev/null' scripts/owl-backend.sh
+  grep -Fq 'archive_message_action "$id" >/dev/null' scripts/owl-backend.sh
   grep -Fq 'private func scrollToTimelineTarget(_ proxy: ScrollViewProxy, animated: Bool = true)' generated/macos/Sources/App/App.swift
   grep -Fq 'target == session.timelineEndID(for: session.selectedThread)' generated/macos/Sources/App/App.swift
   grep -Fq 'session.timelineShouldFollowEnd(for: session.selectedThread)' generated/macos/Sources/App/App.swift
@@ -631,25 +631,25 @@ swift_chat_bubble_colors_are_preferences() {
   grep -Fq 'ColorPicker(title, selection: $color, supportsOpacity: false)' generated/macos/Sources/App/App.swift
   grep -Fq 'set: { session.bubbleSelfSimpleXColor = $0; session.persistBubbleColors() }' generated/macos/Sources/App/App.swift
   grep -Fq 'session.bubbleFill(for: message)' generated/macos/Sources/App/App.swift
-  grep -Fq 'llm_spam_category: (($m.llm_spam_category // "") | tostring)' scripts/owl-native-backend.sh
-  grep -Fq 'llm_spam_source: (($m.llm_spam_source // "") | tostring)' scripts/owl-native-backend.sh
-  grep -Fq 'bubble_self_simplex)' scripts/owl-native-backend.sh
-  grep -Fq 'bubble_self_simplex:$bubble_self_simplex' scripts/owl-native-backend.sh
-  grep -Fq 'mark_read_when_seen)' scripts/owl-native-backend.sh
-  grep -Fq 'mark_earlier_seen)' scripts/owl-native-backend.sh
-  grep -Fq 'mark_read_when_seen:$mark_read_when_seen' scripts/owl-native-backend.sh
-  grep -Fq 'mark_earlier_seen:$mark_earlier_seen' scripts/owl-native-backend.sh
-  grep -Fq 'mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email|mark_read_when_seen|mark_earlier_seen|show_temporal_distance|detect_temporal_distance)' scripts/owl-native-backend.sh
+  grep -Fq 'llm_spam_category: (($m.llm_spam_category // "") | tostring)' scripts/owl-backend.sh
+  grep -Fq 'llm_spam_source: (($m.llm_spam_source // "") | tostring)' scripts/owl-backend.sh
+  grep -Fq 'bubble_self_simplex)' scripts/owl-backend.sh
+  grep -Fq 'bubble_self_simplex:$bubble_self_simplex' scripts/owl-backend.sh
+  grep -Fq 'mark_read_when_seen)' scripts/owl-backend.sh
+  grep -Fq 'mark_earlier_seen)' scripts/owl-backend.sh
+  grep -Fq 'mark_read_when_seen:$mark_read_when_seen' scripts/owl-backend.sh
+  grep -Fq 'mark_earlier_seen:$mark_earlier_seen' scripts/owl-backend.sh
+  grep -Fq 'mail_root|selected_route|bubble_self_simplex|bubble_self_email|bubble_other_simplex|bubble_other_email|mark_read_when_seen|mark_earlier_seen|show_temporal_distance|detect_temporal_distance)' scripts/owl-backend.sh
   grep -Fq '@Published var markMessagesReadWhenSeen: Bool = true' generated/macos/Sources/App/App.swift
   grep -Fq '@Published var markEarlierMessagesSeen: Bool = true' generated/macos/Sources/App/App.swift
   grep -Fq 'Toggle("Mark messages read when seen"' generated/macos/Sources/App/App.swift
   grep -Fq 'Toggle("Mark all earlier messages seen"' generated/macos/Sources/App/App.swift
   grep -Fq '.disabled(!session.markMessagesReadWhenSeen)' generated/macos/Sources/App/App.swift
   grep -Fq 'func persistSeenPreferences()' generated/macos/Sources/App/App.swift
-  grep -Fq 'show_temporal_distance)' scripts/owl-native-backend.sh
-  grep -Fq 'detect_temporal_distance)' scripts/owl-native-backend.sh
-  grep -Fq 'show_temporal_distance:$show_temporal_distance' scripts/owl-native-backend.sh
-  grep -Fq 'detect_temporal_distance:$detect_temporal_distance' scripts/owl-native-backend.sh
+  grep -Fq 'show_temporal_distance)' scripts/owl-backend.sh
+  grep -Fq 'detect_temporal_distance)' scripts/owl-backend.sh
+  grep -Fq 'show_temporal_distance:$show_temporal_distance' scripts/owl-backend.sh
+  grep -Fq 'detect_temporal_distance:$detect_temporal_distance' scripts/owl-backend.sh
   grep -Fq '@Published var showTemporalDistance: Bool = true' generated/macos/Sources/App/App.swift
   grep -Fq '@Published var detectTemporalDistanceAutomatically: Bool = true' generated/macos/Sources/App/App.swift
   grep -Fq 'Toggle("Show temporal distance"' generated/macos/Sources/App/App.swift
@@ -659,11 +659,11 @@ swift_chat_bubble_colors_are_preferences() {
 
 swift_temporal_distance_ui_exists() {
   cd "$repo_dir"
-  grep -Fq 'set-temporal-distance ROOT THREAD_ID SECONDS|auto' scripts/owl-native-backend.sh
-  grep -Fq 'set_temporal_distance_action()' scripts/owl-native-backend.sh
-  grep -Fq 'temporal_distance_seconds:(if $temporal_distance_seconds == "" then null else ($temporal_distance_seconds | tonumber? // null) end)' scripts/owl-native-backend.sh
-  grep -Fq 'temporal_distance_seconds: ($contact.temporal_distance_seconds // null)' scripts/owl-native-backend.sh
-  grep -Fq 'temporal_distance_seconds: (.temporal_distance_seconds // null)' scripts/owl-native-backend.sh
+  grep -Fq 'set-temporal-distance ROOT THREAD_ID SECONDS|auto' scripts/owl-backend.sh
+  grep -Fq 'set_temporal_distance_action()' scripts/owl-backend.sh
+  grep -Fq 'temporal_distance_seconds:(if $temporal_distance_seconds == "" then null else ($temporal_distance_seconds | tonumber? // null) end)' scripts/owl-backend.sh
+  grep -Fq 'temporal_distance_seconds: ($contact.temporal_distance_seconds // null)' scripts/owl-backend.sh
+  grep -Fq 'temporal_distance_seconds: (.temporal_distance_seconds // null)' scripts/owl-backend.sh
   grep -Fq 'private enum TemporalDistance' generated/macos/Sources/App/App.swift
   grep -Fq 'func automaticTemporalDistance(for thread: ThreadItem) -> Int?' generated/macos/Sources/App/App.swift
   grep -Fq 'thread.temporal_distance_seconds ?? automaticTemporalDistance(for: thread)' generated/macos/Sources/App/App.swift
@@ -805,12 +805,12 @@ linux_uses_native_gtk_and_argv_backend() {
 
 secure_chat_hook_has_offline_timeout() {
   cd "$repo_dir"
-  grep -Fq 'ssh_transport()' scripts/owl-native-secure-chat-hook.sh
-  grep -Fq 'timeout_seconds=${OWL_NATIVE_TRANSPORT_TIMEOUT:-4}' scripts/owl-native-secure-chat-hook.sh
-  grep -Fq -- '-o BatchMode=yes' scripts/owl-native-secure-chat-hook.sh
-  grep -Fq -- '-o ConnectTimeout="$timeout_seconds"' scripts/owl-native-secure-chat-hook.sh
-  grep -Fq -- '-o ServerAliveCountMax=1' scripts/owl-native-secure-chat-hook.sh
-  ! grep -Fq 'response=$(ssh "$ssh_host"' scripts/owl-native-secure-chat-hook.sh
+  grep -Fq 'ssh_transport()' scripts/owl-secure-chat-hook.sh
+  grep -Fq 'timeout_seconds=${OWL_TRANSPORT_TIMEOUT:-4}' scripts/owl-secure-chat-hook.sh
+  grep -Fq -- '-o BatchMode=yes' scripts/owl-secure-chat-hook.sh
+  grep -Fq -- '-o ConnectTimeout="$timeout_seconds"' scripts/owl-secure-chat-hook.sh
+  grep -Fq -- '-o ServerAliveCountMax=1' scripts/owl-secure-chat-hook.sh
+  ! grep -Fq 'response=$(ssh "$ssh_host"' scripts/owl-secure-chat-hook.sh
 }
 
 run_case "render is deterministic" render_is_deterministic

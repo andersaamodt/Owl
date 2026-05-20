@@ -1,0 +1,41 @@
+# Owl Release Notes
+
+Owl builds desktop and mobile native targets from repository-owned IR:
+
+- Desktop IR: `ir/app.ir.yaml`
+- Mobile IR: `owl-mobile/ir/mobile.ir.yaml`
+
+GitHub Actions builds all release targets in `.github/workflows/native-release.yml`.
+
+## Android
+
+The Android app is direct-distribution first. The workflow always uploads
+`owl-android-debug-apk`, which contains `app-debug.apk`; that APK can be
+downloaded from a GitHub Actions run and sideloaded on Android after enabling
+installation from the browser or file manager used to open it.
+
+The generated Android project has no Play Services dependency. Google Play
+upload is manual and optional through the workflow dispatch input
+`upload_play=true`. That path expects:
+
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
+- `ANDROID_SIGNING_KEYSTORE_BASE64`
+- `ANDROID_SIGNING_STORE_PASSWORD`
+- `ANDROID_SIGNING_KEY_ALIAS`
+- `ANDROID_SIGNING_KEY_PASSWORD`
+
+## iOS
+
+The workflow builds an unsigned iOS simulator app. A directly installable iPhone
+build requires Apple signing material and an Apple distribution path such as
+TestFlight, ad hoc, or enterprise signing; there is no Android-style unsigned
+APK equivalent for ordinary iPhones.
+
+## License
+
+The public release license is intentionally not finalized in this cleanup pass.
+Current candidates are:
+
+- OWL License
+- Wizardry Apps dual-license pattern
+- AGPL-3.0-or-later plus Wizardry addendum

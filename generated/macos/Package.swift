@@ -3,12 +3,12 @@
 import PackageDescription
 
 let package = Package(
-  name: "owl-native",
+  name: "owl",
   platforms: [
     .macOS(.v13)
   ],
   products: [
-    .executable(name: "owl-native", targets: ["App"])
+    .executable(name: "owl", targets: ["App"])
   ],
   targets: [
     .executableTarget(
