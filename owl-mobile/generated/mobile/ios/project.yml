@@ -11,5 +11,5 @@ targets:
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: app.wizardry.owl
       INFOPLIST_KEY_CFBundleDisplayName: "Owl"
-      CURRENT_PROJECT_VERSION: "104521296"
-      MARKETING_VERSION: "0.1.0"
+      CURRENT_PROJECT_VERSION: "1001"
+      MARKETING_VERSION: "0.1.1"

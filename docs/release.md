@@ -26,11 +26,11 @@ upload is manual and optional through the workflow dispatch input
 
 ## iOS
 
-The workflow generates and validates the iOS Xcode project, then uploads it as
-`owl-ios-project`. A directly installable iPhone build requires Apple signing
-material and an Apple distribution path such as TestFlight, ad hoc, or
-enterprise signing; there is no Android-style unsigned APK equivalent for
-ordinary iPhones.
+The workflow generates the iOS Xcode project, builds an unsigned simulator app,
+and uploads both `owl-ios-project` and `owl-ios-simulator-app`. A directly
+installable iPhone build still requires Apple signing material and an Apple
+distribution path such as TestFlight, ad hoc, or enterprise signing; there is no
+Android-style unsigned APK equivalent for ordinary iPhones.
 
 ## License
 

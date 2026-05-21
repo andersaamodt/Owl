@@ -166,7 +166,7 @@ jobs:
           status: draft
 
   ios:
-    name: iOS Project
+    name: iOS Simulator Build
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -183,16 +183,35 @@ jobs:
         run: |
           set -eu
           xcodebuild -list -project owl-mobile.xcodeproj
+      - name: Build unsigned simulator app
+        working-directory: owl-mobile/generated/mobile/ios
+        run: |
+          set -eu
+          xcodebuild \
+            -project owl-mobile.xcodeproj \
+            -scheme owl \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
       - name: Package generated iOS project
         working-directory: owl-mobile/generated/mobile/ios
         run: |
           set -eu
           mkdir -p "$GITHUB_WORKSPACE/dist"
           ditto -c -k --keepParent owl-mobile.xcodeproj "$GITHUB_WORKSPACE/dist/owl-ios-project.zip"
+          app_path=$(find build/DerivedData/Build/Products/Release-iphonesimulator -maxdepth 1 -type d -name '*.app' | head -n 1)
+          [ -n "$app_path" ]
+          ditto -c -k --keepParent "$app_path" "$GITHUB_WORKSPACE/dist/owl-ios-simulator-app.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: owl-ios-project
           path: dist/owl-ios-project.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owl-ios-simulator-app
+          path: dist/owl-ios-simulator-app.zip
 
   github-release:
     name: Attach Release Artifacts

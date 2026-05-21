@@ -82,7 +82,8 @@ sh scripts/validate-native-mobile-ir.sh
   with Gradle. The generated app has no Play Services dependency; direct APK
   distribution is the primary path.
 - iOS: generate/open [owl-mobile/generated/mobile/ios](owl-mobile/generated/mobile/ios)
-  with XcodeGen/Xcode. Device installation still requires Apple signing.
+  with XcodeGen/Xcode. CI also builds an unsigned simulator app; device
+  installation still requires Apple signing.
 
 ## Tests
 

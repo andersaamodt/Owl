@@ -8,8 +8,8 @@ android {
         applicationId 'app.wizardry.owl'
         minSdk 23
         targetSdk 35
-        versionCode 104521296
-        versionName '0.1.0'
+        versionCode 1001
+        versionName '0.1.1'
     }
 
     def signingStorePath = System.getenv('ANDROID_SIGNING_KEYSTORE')

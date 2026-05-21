@@ -7,6 +7,7 @@ repo_dir=$(CDPATH= cd -- "$test_dir/../.." && pwd -P)
 mobile_dir="$repo_dir/owl-mobile"
 tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/owl-mobile-test.XXXXXX")
 trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
+expected_version=$(tr -d ' \t\r\n' <"$mobile_dir/VERSION")
 
 [ -f "$mobile_dir/wizardry.workspace.conf" ] || {
   printf '%s\n' "Owl Mobile workspace profile missing" >&2
@@ -31,6 +32,10 @@ printf '%s\n' "$render_out" | grep -F "status=ok" >/dev/null
 [ -f "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" ]
 
 grep -F "app.wizardry.owl" "$mobile_dir/generated/mobile/android/app/build.gradle" >/dev/null
+grep -F "versionName '$expected_version'" "$mobile_dir/generated/mobile/android/app/build.gradle" >/dev/null
+grep -F "MARKETING_VERSION: \"$expected_version\"" "$mobile_dir/generated/mobile/ios/project.yml" >/dev/null
+version_code=$(awk '/versionCode/ {print $2; exit}' "$mobile_dir/generated/mobile/android/app/build.gradle")
+[ "$version_code" -gt 0 ] && [ "$version_code" -le 2100000000 ]
 grep -F 'android:label="Owl"' "$mobile_dir/generated/mobile/android/app/src/main/AndroidManifest.xml" >/dev/null
 grep -F "Inbox" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
 grep -F "Remote Setup" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null

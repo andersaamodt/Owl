@@ -29,7 +29,16 @@ if [ -f "$version_file" ]; then
 else
   app_version=0.1.0
 fi
-version_code=$(printf '%s' "$app_version" | cksum | awk '{ print $1 }')
+version_code=$(printf '%s\n' "$app_version" | awk -F. '
+  NF >= 3 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ {
+    print ($1 * 1000000) + ($2 * 1000) + $3
+    found = 1
+  }
+  END { exit found ? 0 : 1 }
+' 2>/dev/null || true)
+if [ -z "$version_code" ]; then
+  version_code=$(printf '%s' "$app_version" | cksum | awk '{ print ($1 % 2000000000) + 1 }')
+fi
 [ -n "$version_code" ] || version_code=1
 
 mkdir -p "$android_dir/app/src/main/java/app/wizardry/generated/$package_part" "$ios_dir/Host"
