@@ -120,14 +120,26 @@ struct ContentView: View {
 
                 RemoteSetupStepView(
                     number: 5,
-                    title: "TLS, Test, Sync",
-                    detail: "Set up remote TLS, send a test email, then check remote mail.",
+                    title: "Remote TLS",
+                    detail: "Add A/AAAA or CNAME for the mail host, add MX @ priority 10 to the mail host hostname, then run TLS setup. Certbot installs during setup when needed.",
                     complete: false
                 ) {
                     Button("Set Up Remote TLS") {
                         Task { await runRemoteWorkflowAction(title: "Set Up Remote TLS", action: "settings-setup-ssl", fallbackStatus: "TLS setup finished") }
                     }
                     .disabled(!remoteReadyForActions)
+                    Text("For dynamic IP, keep DDNS updating the mail host. MX targets must be hostnames, not IP addresses.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
+                RemoteSetupStepView(
+                    number: 6,
+                    title: "Test And Sync",
+                    detail: "Send a test email, then check remote mail.",
+                    complete: false
+                ) {
                     Button("Send Test Email") {
                         Task { await runRemoteWorkflowAction(title: "Send Test Email", action: "settings-remote-send-test", fallbackStatus: "Remote test email finished") }
                     }

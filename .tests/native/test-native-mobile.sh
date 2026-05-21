@@ -44,6 +44,8 @@ grep -F "Save Backend Bridge" "$mobile_dir/generated/mobile/android/app/src/main
 grep -F "Save Remote Target" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
 grep -F "Deploy Remote Server" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
 grep -F "Set Up Remote TLS" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "TLS DNS checklist" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
+grep -F "Target/Value set to the mail host hostname, not an IP" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
 grep -F "HttpURLConnection" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
 grep -F "settings-remote-deploy" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
 grep -F "settings-remote-set-target" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
@@ -55,6 +57,9 @@ grep -F "RemoteSetupStepView" "$mobile_dir/generated/mobile/ios/Host/ContentView
 grep -F 'Section("Remote Mail Server")' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F 'Button("Save Backend Bridge")' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F 'Button("Deploy Remote Server")' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F 'title: "Remote TLS"' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F 'MX targets must be hostnames, not IP addresses.' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
+grep -F 'title: "Test And Sync"' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F 'Button("Set Up Remote TLS")' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F "URLSession.shared.data" "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F 'action: "settings-remote-deploy"' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null

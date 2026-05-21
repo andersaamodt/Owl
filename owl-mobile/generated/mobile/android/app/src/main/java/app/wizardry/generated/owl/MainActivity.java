@@ -107,7 +107,7 @@ public final class MainActivity extends Activity {
 
     private void addRemoteSetup(LinearLayout root) {
         root.addView(sectionTitle("Remote Mail Server"));
-        root.addView(bodyText("Step through the same Owl remote setup flow from mobile: connect to an Owl backend bridge, save SSH details, save authentication, deploy, verify, set up TLS, send a test email, then check remote mail."));
+        root.addView(bodyText("Step through the same Owl remote setup flow from mobile: connect to an Owl backend bridge, save SSH details, save authentication, deploy, verify, set up TLS with DNS records checked first, send a test email, then check remote mail."));
 
         remoteBridgeUrl = field("https://owl.example.org/backend", "remote.bridgeUrl");
         remoteHost = field("user@203.0.113.8", "remote.host");
@@ -149,7 +149,8 @@ public final class MainActivity extends Activity {
 
         addWorkflowButton(root, "Deploy Remote Server", "settings-remote-deploy", "Deploy uses the saved SSH target to install Owl, configure the receiver, and enable startup.");
         addWorkflowButton(root, "Verify Remote Setup", "settings-remote-verify", "Verification checks Owl binaries, daemon health, SMTP reachability, DNS, and mail folders on the saved target.");
-        addWorkflowButton(root, "Set Up Remote TLS", "settings-setup-ssl", "Remote TLS setup uses Owl's remote certificate flow after DNS points at the mail server.");
+        root.addView(bodyText("TLS DNS checklist: add the mail host record first (A/AAAA for a stable IP, or CNAME/A for DDNS), then add MX with Host/Name @, Priority 10, and Target/Value set to the mail host hostname, not an IP. Certbot and supporting tools are installed during setup when needed."));
+        addWorkflowButton(root, "Set Up Remote TLS", "settings-setup-ssl", "Remote TLS setup uses Owl's SSL wizard flow after DNS points at the active remote mail server.");
         addWorkflowButton(root, "Send Test Email", "settings-remote-send-test", "The test email step confirms the public route reaches the remote Owl receiver.");
         addWorkflowButton(root, "Check Remote Mail", "settings-remote-sync", "Remote sync pulls server mail folders back into local Owl without deleting remote mail.");
 
