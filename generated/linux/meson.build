@@ -1,4 +1,4 @@
-# Generated from ir/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh.
+# Generated from app-blueprint/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh.
 project('owl', 'c', version: '0.1.0')
 
 gtk_dep = dependency('gtk4')

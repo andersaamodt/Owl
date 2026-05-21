@@ -1,4 +1,4 @@
-/* Generated from ir/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh. */
+/* Generated from app-blueprint/app.ir.yaml. Regenerate with scripts/render-native-desktop.sh. */
 #include <gtk/gtk.h>
 
 static const char *wizardry_app_ir =

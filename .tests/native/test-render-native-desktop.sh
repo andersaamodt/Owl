@@ -33,7 +33,7 @@ generated_sources_have_no_template_tokens() {
 
 swift_actions_cover_ir() {
   cd "$repo_dir"
-  jq -r '.app.actions[].id' ir/app.ir.yaml | sort >"$tmpdir/ir-actions"
+  jq -r '.app.actions[].id' app-blueprint/app.ir.yaml | sort >"$tmpdir/ir-actions"
   sed -n 's/^[[:space:]]*case "\([^"]*\)":.*/\1/p' generated/macos/Sources/App/App.swift | sort -u >"$tmpdir/swift-actions"
   missing=$(comm -23 "$tmpdir/ir-actions" "$tmpdir/swift-actions")
   [ -z "$missing" ] || {
@@ -44,7 +44,7 @@ swift_actions_cover_ir() {
 
 linux_actions_cover_ir() {
   cd "$repo_dir"
-  jq -r '.app.actions[].id | gsub("_"; "-")' ir/app.ir.yaml | sort >"$tmpdir/ir-actions-linux"
+  jq -r '.app.actions[].id | gsub("_"; "-")' app-blueprint/app.ir.yaml | sort >"$tmpdir/ir-actions-linux"
   sed -n 's/.*add_app_action(app, context, "\([^"]*\)").*/\1/p' generated/linux/src/main.c | sort -u >"$tmpdir/linux-actions"
   sed -n 's/.*g_strcmp0(action_name, "\([^"]*\)").*/\1/p' generated/linux/src/main.c | sort -u >"$tmpdir/linux-handlers"
   missing_registered=$(comm -23 "$tmpdir/ir-actions-linux" "$tmpdir/linux-actions")
@@ -705,9 +705,9 @@ native_ui_has_no_manual_refresh_controls() {
   grep -Fq 'session.refreshIfStale(force: true)' generated/macos/Sources/App/App.swift
   grep -Fq 'func windowDidBecomeKey' generated/macos/Sources/App/App.swift
   grep -Fq 'func refreshIfStale(force: Bool = false)' generated/macos/Sources/App/App.swift
-  ! grep -Fq 'refresh_snapshot' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
-  ! grep -Fq 'toolbar.refresh' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
-  ! grep -Fq 'menuitem.refresh' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
+  ! grep -Fq 'refresh_snapshot' generated/macos/Sources/App/App.swift generated/linux/src/main.c app-blueprint/app.ir.yaml
+  ! grep -Fq 'toolbar.refresh' generated/macos/Sources/App/App.swift generated/linux/src/main.c app-blueprint/app.ir.yaml
+  ! grep -Fq 'menuitem.refresh' generated/macos/Sources/App/App.swift generated/linux/src/main.c app-blueprint/app.ir.yaml
   ! grep -Fq 'Label("Refresh"' generated/macos/Sources/App/App.swift
   ! grep -Fq 'view-refresh-symbolic' generated/linux/src/main.c
 }
@@ -724,7 +724,7 @@ swift_uses_toasts_not_status_bar() {
   ! grep -Fq 'private struct StatusStrip' generated/macos/Sources/App/App.swift
   ! grep -Fq 'StatusStrip()' generated/macos/Sources/App/App.swift
   ! grep -Fq 'v\\(generatedAppVersion)' generated/macos/Sources/App/App.swift
-  ! grep -Fq '"type": "StatusBar"' generated/macos/Sources/App/App.swift generated/linux/src/main.c ir/app.ir.yaml
+  ! grep -Fq '"type": "StatusBar"' generated/macos/Sources/App/App.swift generated/linux/src/main.c app-blueprint/app.ir.yaml
 }
 
 swift_refresh_is_quiet_and_incremental() {

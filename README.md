@@ -53,8 +53,8 @@ explicitly and are not baked into the repository.
 ## For Developers
 
 Owl is not a WebView app. The desktop UI is generated from
-`ir/app.ir.yaml`; the mobile workspace is in `owl-mobile` and is generated from
-`owl-mobile/ir/mobile.ir.yaml`.
+`app-blueprint/app.ir.yaml`; the mobile workspace is in `owl-mobile` and is generated from
+`owl-mobile/app-blueprint/mobile.ir.yaml`.
 
 Generate and validate desktop targets:
 

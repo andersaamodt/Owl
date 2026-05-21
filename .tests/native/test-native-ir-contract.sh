@@ -27,7 +27,7 @@ validate_canonical_ir() {
 
 rejects_unsafe_app_id() {
   unsafe_ir="$tmpdir/unsafe-id.json"
-  jq '.app.id = "bad id"' "$repo_dir/ir/app.ir.yaml" >"$unsafe_ir"
+  jq '.app.id = "bad id"' "$repo_dir/app-blueprint/app.ir.yaml" >"$unsafe_ir"
   if sh "$repo_dir/scripts/validate-native-desktop-ir.sh" "$unsafe_ir" "$repo_dir/schemas/native-desktop-ir-v1.json" >"$tmpdir/unsafe-id.out" 2>"$tmpdir/unsafe-id.err"; then
     return 1
   fi
@@ -36,7 +36,7 @@ rejects_unsafe_app_id() {
 
 rejects_control_characters() {
   unsafe_ir="$tmpdir/control-char.json"
-  jq '.app.mock.messages[0].body = "forged\nbody"' "$repo_dir/ir/app.ir.yaml" >"$unsafe_ir"
+  jq '.app.mock.messages[0].body = "forged\nbody"' "$repo_dir/app-blueprint/app.ir.yaml" >"$unsafe_ir"
   if sh "$repo_dir/scripts/validate-native-desktop-ir.sh" "$unsafe_ir" "$repo_dir/schemas/native-desktop-ir-v1.json" >"$tmpdir/control-char.out" 2>"$tmpdir/control-char.err"; then
     return 1
   fi
@@ -45,7 +45,7 @@ rejects_control_characters() {
 
 rejects_stale_node_action() {
   unsafe_ir="$tmpdir/stale-action.json"
-  jq '.app.window.toolbar.children[0].action = "missing_action"' "$repo_dir/ir/app.ir.yaml" >"$unsafe_ir"
+  jq '.app.window.toolbar.children[0].action = "missing_action"' "$repo_dir/app-blueprint/app.ir.yaml" >"$unsafe_ir"
   if sh "$repo_dir/scripts/validate-native-desktop-ir.sh" "$unsafe_ir" "$repo_dir/schemas/native-desktop-ir-v1.json" >"$tmpdir/stale-action.out" 2>"$tmpdir/stale-action.err"; then
     return 1
   fi
@@ -54,7 +54,7 @@ rejects_stale_node_action() {
 
 rejects_bad_action_id() {
   unsafe_ir="$tmpdir/bad-action.json"
-  jq '.app.actions[0].id = "Refresh Snapshot"' "$repo_dir/ir/app.ir.yaml" >"$unsafe_ir"
+  jq '.app.actions[0].id = "Refresh Snapshot"' "$repo_dir/app-blueprint/app.ir.yaml" >"$unsafe_ir"
   if sh "$repo_dir/scripts/validate-native-desktop-ir.sh" "$unsafe_ir" "$repo_dir/schemas/native-desktop-ir-v1.json" >"$tmpdir/bad-action.out" 2>"$tmpdir/bad-action.err"; then
     return 1
   fi

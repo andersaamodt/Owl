@@ -2,8 +2,8 @@
 
 Owl builds desktop and mobile native targets from repository-owned IR:
 
-- Desktop IR: `ir/app.ir.yaml`
-- Mobile IR: `owl-mobile/ir/mobile.ir.yaml`
+- Desktop IR: `app-blueprint/app.ir.yaml`
+- Mobile IR: `owl-mobile/app-blueprint/mobile.ir.yaml`
 
 GitHub Actions builds all release targets in `.github/workflows/native-release.yml`.
 

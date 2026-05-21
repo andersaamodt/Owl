@@ -1,7 +1,7 @@
 # Owl Mobile
 
 Owl Mobile is the Android/iOS native-mobile workspace for Owl. The
-canonical mobile UI is [ir/mobile.ir.yaml](ir/mobile.ir.yaml), which generates
+canonical mobile UI is [app-blueprint/mobile.ir.yaml](app-blueprint/mobile.ir.yaml), which generates
 plain Android and SwiftUI iOS projects under [generated/mobile](generated/mobile).
 
 Android is direct-distribution first. Play upload is optional and is not required

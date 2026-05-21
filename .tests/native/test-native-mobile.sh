@@ -16,10 +16,10 @@ expected_version=$(tr -d ' \t\r\n' <"$mobile_dir/VERSION")
 
 grep -F "project_type=native-mobile" "$mobile_dir/wizardry.workspace.conf" >/dev/null
 grep -F "targets=android,ios" "$mobile_dir/wizardry.workspace.conf" >/dev/null
-grep -F "mobile_ir_path=ir/mobile.ir.yaml" "$mobile_dir/wizardry.workspace.conf" >/dev/null
+grep -F "mobile_ir_path=app-blueprint/mobile.ir.yaml" "$mobile_dir/wizardry.workspace.conf" >/dev/null
 
 sh "$mobile_dir/scripts/validate-native-mobile-ir.sh" \
-  "$mobile_dir/ir/mobile.ir.yaml" \
+  "$mobile_dir/app-blueprint/mobile.ir.yaml" \
   "$mobile_dir/schemas/native-mobile-ir-v1.json" >/dev/null
 
 render_out=$(cd "$mobile_dir" && sh scripts/render-native-mobile.sh)
@@ -66,9 +66,9 @@ grep -F "URLSession.shared.data" "$mobile_dir/generated/mobile/ios/Host/ContentV
 grep -F 'action: "settings-remote-deploy"' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F 'action: "settings-remote-set-target"' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F "remotePortValid" "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
-grep -F '"save_remote_bridge"' "$mobile_dir/ir/mobile.ir.yaml" >/dev/null
-grep -F '"deploy_remote_server"' "$mobile_dir/ir/mobile.ir.yaml" >/dev/null
-grep -F '"setup_remote_tls"' "$mobile_dir/ir/mobile.ir.yaml" >/dev/null
+grep -F '"save_remote_bridge"' "$mobile_dir/app-blueprint/mobile.ir.yaml" >/dev/null
+grep -F '"deploy_remote_server"' "$mobile_dir/app-blueprint/mobile.ir.yaml" >/dev/null
+grep -F '"setup_remote_tls"' "$mobile_dir/app-blueprint/mobile.ir.yaml" >/dev/null
 
 [ -x "$repo_dir/scripts/owl-mobile-backend-bridge.sh" ]
 grep -F "settings-remote-deploy" "$repo_dir/scripts/owl-mobile-backend-bridge.sh" >/dev/null
