@@ -52,6 +52,7 @@ grep -F "settings-remote-set-target" "$mobile_dir/generated/mobile/android/app/s
 grep -F "validPort(String port)" "$mobile_dir/generated/mobile/android/app/src/main/java/app/wizardry/generated/owl/MainActivity.java" >/dev/null
 grep -F "name: owl-mobile" "$mobile_dir/generated/mobile/ios/project.yml" >/dev/null
 grep -F "PRODUCT_BUNDLE_IDENTIFIER: app.wizardry.owl" "$mobile_dir/generated/mobile/ios/project.yml" >/dev/null
+grep -F "GENERATE_INFOPLIST_FILE: YES" "$mobile_dir/generated/mobile/ios/project.yml" >/dev/null
 grep -F "Timeline" "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F "RemoteSetupStepView" "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
 grep -F 'Section("Remote Mail Server")' "$mobile_dir/generated/mobile/ios/Host/ContentView.swift" >/dev/null
