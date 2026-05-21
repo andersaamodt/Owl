@@ -1550,7 +1550,21 @@ private final class OwlSession: ObservableObject {
     do {
       let next = try await OwlBackend.snapshot(root: root)
       self.apply(snapshot: next)
-      self.statusText = "Loaded \(next.threads.count) conversations from \(next.root)"
+      var loaded = next
+      startupMessage = "Checking incoming messages..."
+      var transportWarning: String?
+      do {
+        lastTransportTickAt = Date()
+        let transportResponse = try await OwlBackend.tickSimpleX(root: root)
+        if transportResponse.changedLocalState {
+          startupMessage = "Loading new messages..."
+          loaded = try await OwlBackend.snapshot(root: root)
+          self.apply(snapshot: loaded)
+        }
+      } catch {
+        transportWarning = "SimpleX transport check failed: \(error.localizedDescription)"
+      }
+      self.statusText = transportWarning ?? "Loaded \(loaded.threads.count) conversations from \(loaded.root)"
       self.hasLoadedInitialSnapshot = true
       self.startupErrorMessage = nil
       self.isRefreshingSnapshot = false

@@ -70,6 +70,11 @@ swift_uses_native_desktop_idiom() {
   grep -Fq 'Image(nsImage: NSApp.applicationIconImage)' generated/macos/Sources/App/App.swift
   grep -Fq 'func retryInitialLoad()' generated/macos/Sources/App/App.swift
   grep -Fq 'private func loadInitialSnapshot() async' generated/macos/Sources/App/App.swift
+  grep -Fq 'startupMessage = "Checking incoming messages..."' generated/macos/Sources/App/App.swift
+  grep -Fq 'let transportResponse = try await OwlBackend.tickSimpleX(root: root)' generated/macos/Sources/App/App.swift
+  grep -Fq 'startupMessage = "Loading new messages..."' generated/macos/Sources/App/App.swift
+  grep -Fq 'loaded = try await OwlBackend.snapshot(root: root)' generated/macos/Sources/App/App.swift
+  grep -Fq 'self.statusText = transportWarning ?? "Loaded \\(loaded.threads.count) conversations from \\(loaded.root)"' generated/macos/Sources/App/App.swift
   grep -Fq 'self.hasLoadedInitialSnapshot = true' generated/macos/Sources/App/App.swift
   grep -Fq 'Task { await loadInitialSnapshot() }' generated/macos/Sources/App/App.swift
   ! grep -Fq 'snapshot = SeedData.snapshot' generated/macos/Sources/App/App.swift
