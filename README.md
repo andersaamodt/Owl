@@ -1,69 +1,69 @@
 # Owl
 
-Owl is a native desktop and mobile mail and messaging app. It is not a Wizardry-hosted WebView app: the canonical desktop UI source is [ir/app.ir.yaml](ir/app.ir.yaml), with generated SwiftUI/AppKit and GTK4 targets under [generated](generated).
+Owl is a native mail and messaging app for people who want email and secure
+chat in one calm timeline. It keeps your conversations arranged by person or
+group, shows which transport each message used, and makes email an explicit
+choice instead of an invisible fallback.
 
-## Current Shape
+Owl is early software. The repository currently builds native macOS, Linux,
+Android, and iOS targets, with Android direct distribution as the simplest
+mobile path.
 
-- Native macOS target generated as SwiftUI/AppKit.
-- Native Linux target generated as GTK4 C.
-- Owl Mobile lives in [owl-mobile](owl-mobile) as the same product's native-mobile
-  workspace, with a shared mobile IR generating Android and iOS projects.
-- Shared backend bridge at [scripts/owl-backend.sh](scripts/owl-backend.sh).
-- Email data is read through the existing Owl backend and the same Owl mail root, defaulting to `~/mail`.
-- SimpleX data is file-first under the same mail root:
-  - `~/mail/.owl/simplex/threads`
-  - `~/mail/.owl/simplex/incoming`
-  - `~/mail/.owl/simplex/outbox`
-  - `~/mail/.system/simplex`
-  - `~/mail/.transport/simplex`
-- Owl ships a filesystem SimpleX transport hook at
-  `scripts/owl-simplex-local-hook.sh`. It provides a concrete local
-  adapter path for end-to-end queue/send/poll/import testing while preserving
-  the same hook contract for a real SimpleX network adapter.
-- Owl can use `scripts/owl-secure-chat-hook.sh` to sync with a remote
-  nostr-blog Secure Chat daemon over SSH. Hostnames and remote command paths
-  are explicit configuration, not repository defaults:
+## What Owl Does
 
-```sh
-sh scripts/owl-backend.sh configure-secure-chat-transport ~/mail default \
-  example.org \
-  /srv/example/site/cgi/blog-secure-chat-owl-export \
-  /srv/example/site/cgi/blog-secure-chat-owl-send
+- Shows email and SimpleX-style secure messages in the same contact timeline.
+- Keeps Inbox, People, Groups, Favorites, Archive, and New Senders as first-class
+  views.
+- Prefers secure SimpleX sending when a contact has a SimpleX path.
+- Marks email as an open-lock transport and requires explicitly choosing it.
+- Stores mail and messaging data under a local mail root, defaulting to
+  `~/mail`.
+- Includes remote mail server setup flows for provisioning, verifying, syncing,
+  and sending a test message against an SSH target.
+
+## Getting Owl
+
+Release builds are produced by GitHub Actions and attached to tagged
+[GitHub releases](https://github.com/andersaamodt/owl/releases):
+
+- macOS: `Owl-macOS`
+- Linux: `owl-linux-x86_64`
+- Android: `owl-android-debug-apk` for sideloading, plus a release AAB
+- iOS: generated Xcode project and unsigned simulator app
+
+Android is direct-distribution first and does not require Google Play Services.
+iPhone installation still requires normal Apple signing through TestFlight, ad
+hoc, enterprise, or another signed distribution path.
+
+## Data and Transports
+
+Owl defaults to `~/mail` and keeps SimpleX-related files under:
+
+```text
+~/mail/.owl/simplex/
+~/mail/.system/simplex/
+~/mail/.transport/simplex/
 ```
 
-- Remote web server setup is exposed through the native Settings walkthroughs
-  and backend `settings-remote-*` actions so Owl can provision, verify, sync,
-  and send a test message against an SSH target.
+The local SimpleX hook is `scripts/owl-simplex-local-hook.sh`. Owl can also sync
+with a remote Secure Chat daemon over SSH through
+`scripts/owl-secure-chat-hook.sh`; hosts and remote commands must be configured
+explicitly and are not baked into the repository.
 
-## Unified Messenger Model
+## For Developers
 
-Owl renders one contact or group timeline. Email and SimpleX messages are interleaved chronologically and carry transport as a message attribute.
+Owl is not a WebView app. The desktop UI is generated from
+`ir/app.ir.yaml`; the mobile workspace is in `owl-mobile` and is generated from
+`owl-mobile/ir/mobile.ir.yaml`.
 
-- SimpleX is shown as the preferred closed-lock transport.
-- Email is shown as an explicit open-lock transport.
-- Inbox cards remain separate while the same messages remain visible in their contact or group timeline.
-- Timeline messages that are also in Inbox are decolored and show an `Inbox` pill.
-- The composer defaults to SimpleX when a selected contact or group has a SimpleX path.
-- Selecting email is explicit and changes the send treatment to the open-lock warning style.
-- The backend rejects SimpleX sends when no SimpleX path is bound instead of falling back to email.
-
-## Regeneration
-
-Desktop:
-
-Run:
+Generate and validate desktop targets:
 
 ```sh
 sh scripts/render-native-desktop.sh
-```
-
-Validation is separate:
-
-```sh
 sh scripts/validate-native-desktop-ir.sh
 ```
 
-Mobile:
+Generate and validate mobile targets:
 
 ```sh
 cd owl-mobile
@@ -71,28 +71,17 @@ sh scripts/render-native-mobile.sh
 sh scripts/validate-native-mobile-ir.sh
 ```
 
-## Build Notes
-
-- GitHub Actions: `.github/workflows/native-release.yml` builds macOS, Linux,
-  Android, and iOS artifacts. Android uploads a sideloadable debug APK and a
-  release AAB; Play upload is manual and optional.
-- macOS: `swift build` from [generated/macos](generated/macos).
-- Linux: build [generated/linux](generated/linux) with Meson on a host with GTK4 development headers.
-- Android: build [owl-mobile/generated/mobile/android](owl-mobile/generated/mobile/android)
-  with Gradle. The generated app has no Play Services dependency; direct APK
-  distribution is the primary path.
-- iOS: generate/open [owl-mobile/generated/mobile/ios](owl-mobile/generated/mobile/ios)
-  with XcodeGen/Xcode. CI also builds an unsigned simulator app; device
-  installation still requires Apple signing.
-
-## Tests
+Run the native contract tests:
 
 ```sh
 sh .tests/native/run.sh
 ```
 
-The suite covers the native backend contract, IR safety checks, renderer determinism, generated action coverage, argv-based backend spawning, and the key SimpleX/email UI invariants.
+GitHub Actions builds macOS, Linux, Android, and iOS artifacts in
+`.github/workflows/native-release.yml`. See `docs/release.md` for release
+details.
 
-- Development context: native-desktop
-- License: dual `OWL 3.0 OR AGPL-3.0-or-later`; AGPL use includes the
-  additional terms in [WIZARDRY_ADDENDUM.md](WIZARDRY_ADDENDUM.md).
+## License
+
+Owl is dual-licensed under `OWL 3.0 OR AGPL-3.0-or-later`. AGPL use includes
+the additional terms in `WIZARDRY_ADDENDUM.md`.
