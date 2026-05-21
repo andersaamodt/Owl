@@ -775,8 +775,20 @@ swift_remote_server_setup_walkthrough_exists() {
   grep -Fq 'action: "settings-remote-send-test"' generated/macos/Sources/App/App.swift
   grep -Fq 'actionArgs: ["remote"] + remoteWorkflowArgs()' generated/macos/Sources/App/App.swift
   grep -Fq 'private func remoteWorkflowArgs() -> [String]' generated/macos/Sources/App/App.swift
-  grep -Fq 'runBackendAction("settings-setup-ssl", args: ["auto"], status: "TLS setup finished")' generated/macos/Sources/App/App.swift
+  grep -Fq 'OwlBackend.runJSON(action: "settings-ssl-wizard-status", root: root, args: [mode, remoteHint])' generated/macos/Sources/App/App.swift
+  grep -Fq 'runBackendAction("settings-setup-ssl", args: ["local"], status: "TLS setup finished")' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TLSWizardStatus: Decodable, Sendable' generated/macos/Sources/App/App.swift
+  grep -Fq 'private struct TLSDNSRecord: Decodable, Identifiable, Sendable' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct TLSSetupWalkthroughView: View' generated/macos/Sources/App/App.swift
+  grep -Fq '@Published var tlsWizardIPMode: String = "stable"' generated/macos/Sources/App/App.swift
+  grep -Fq 'var tlsWizardDNSReady: Bool' generated/macos/Sources/App/App.swift
+  grep -Fq 'func refreshTLSWizardStatus()' generated/macos/Sources/App/App.swift
+  grep -Fq 'title: "Configure DNS Records"' generated/macos/Sources/App/App.swift
+  grep -Fq 'Text("Dynamic IP (DDNS)").tag("dynamic")' generated/macos/Sources/App/App.swift
+  grep -Fq 'Label(session.isRefreshingTLSWizard ? "Checking DNS" : "Refresh Checks", systemImage: "arrow.clockwise")' generated/macos/Sources/App/App.swift
+  grep -Fq 'title: "Prepare TLS Tooling"' generated/macos/Sources/App/App.swift
+  grep -Fq 'title: "Run TLS Setup"' generated/macos/Sources/App/App.swift
+  grep -Fq 'MX target must be a hostname' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct RemoteServerWalkthroughView: View' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct RemoteSetupStep<Content: View>: View' generated/macos/Sources/App/App.swift
   grep -Fq 'private struct RemoteStatusPill: View' generated/macos/Sources/App/App.swift

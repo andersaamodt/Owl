@@ -603,6 +603,37 @@ private struct BackendActionResult: Decodable, Sendable {
   var copied_files: Int = 0
 }
 
+private struct TLSWizardChecks: Decodable, Sendable {
+  var certbot_installed: Bool = false
+  var root_a_ok: Bool = false
+  var smtp_a_ok: Bool = false
+  var smtp_cname_ok: Bool = false
+  var mx_ok: Bool = false
+}
+
+private struct TLSDNSRecord: Decodable, Identifiable, Sendable {
+  var type: String = ""
+  var name: String = ""
+  var value: String = ""
+  var priority: Int?
+
+  var id: String {
+    "\(type)|\(name)|\(value)|\(priority.map(String.init) ?? "")"
+  }
+}
+
+private struct TLSWizardStatus: Decodable, Sendable {
+  var ok: Bool = false
+  var domain: String = ""
+  var mode: String = "local"
+  var remote_target: String = ""
+  var smtp_host: String = ""
+  var public_ip: String = ""
+  var expected_ip: String = ""
+  var checks: TLSWizardChecks = TLSWizardChecks()
+  var suggested_records: [TLSDNSRecord] = []
+}
+
 private struct SystemTrashAction {
   var messageID: String
   var originalToTrash: [(original: URL, trashed: URL)]
@@ -1286,6 +1317,10 @@ private final class OwlSession: ObservableObject {
   @Published var remoteKeySavePassword: Bool = false
   @Published var remoteKeyPasswordDraft: String = ""
   @Published var remotePasswordVisible: Bool = false
+  @Published var tlsWizardIPMode: String = "stable"
+  @Published var tlsWizardStatus: TLSWizardStatus?
+  @Published var tlsWizardError: String = ""
+  @Published var isRefreshingTLSWizard: Bool = false
   @Published var bubbleSelfSimpleXColor: Color = BubbleColors.defaultSelfSimpleX
   @Published var bubbleSelfEmailColor: Color = BubbleColors.defaultSelfEmail
   @Published var bubbleOtherSimpleXColor: Color = BubbleColors.defaultOtherSimpleX
@@ -1472,6 +1507,19 @@ private final class OwlSession: ObservableObject {
 
   var remoteReadyForDeploy: Bool {
     remoteDraftConfigured && remotePortDraftValid && remotePasswordAvailable
+  }
+
+  var tlsWizardUsesDynamicIP: Bool {
+    tlsWizardIPMode == "dynamic"
+  }
+
+  var tlsWizardDNSReady: Bool {
+    guard let status = tlsWizardStatus else { return false }
+    return status.checks.smtp_a_ok && status.checks.mx_ok && (tlsWizardUsesDynamicIP || status.checks.root_a_ok)
+  }
+
+  var tlsWizardServerMode: String {
+    remoteDraftConfigured ? "remote" : "local"
   }
 
   var remoteStatusSummary: String {
@@ -2824,8 +2872,9 @@ private final class OwlSession: ObservableObject {
   }
 
   func setupTLSForCurrentServer() {
-    if !remoteDraftConfigured {
-      runBackendAction("settings-setup-ssl", args: ["auto"], status: "TLS setup finished")
+    let mode = tlsWizardServerMode
+    if mode != "remote" {
+      runBackendAction("settings-setup-ssl", args: ["local"], status: "TLS setup finished")
       return
     }
     runRemoteWorkflowAction(
@@ -2834,6 +2883,30 @@ private final class OwlSession: ObservableObject {
       actionArgs: ["remote"] + remoteWorkflowArgs(),
       fallbackStatus: "TLS setup finished"
     )
+  }
+
+  func refreshTLSWizardStatus() {
+    guard snapshot.settings.domain_configured else {
+      tlsWizardStatus = nil
+      tlsWizardError = "Set the receiving domain first."
+      return
+    }
+    let root = mailRoot
+    let mode = tlsWizardServerMode
+    let remoteHint = mode == "remote" ? remoteHostDraft.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+    isRefreshingTLSWizard = true
+    tlsWizardError = ""
+    Task {
+      do {
+        let data = try await OwlBackend.runJSON(action: "settings-ssl-wizard-status", root: root, args: [mode, remoteHint])
+        let status = try JSONDecoder().decode(TLSWizardStatus.self, from: data)
+        self.tlsWizardStatus = status
+        self.isRefreshingTLSWizard = false
+      } catch {
+        self.tlsWizardError = error.localizedDescription
+        self.isRefreshingTLSWizard = false
+      }
+    }
   }
 
   private func remoteWorkflowArgs() -> [String] {
@@ -6603,14 +6676,63 @@ private struct RemoteStatusPill: View {
 private struct TLSSetupWalkthroughView: View {
   @EnvironmentObject private var session: OwlSession
 
+  private var domainText: String {
+    let draft = session.settingsDomainDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !draft.isEmpty { return draft }
+    return session.snapshot.settings.email_domain.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private var smtpHost: String {
+    if let status = session.tlsWizardStatus, !status.smtp_host.isEmpty {
+      return status.smtp_host
+    }
+    return domainText.isEmpty ? "smtp.domain" : "smtp.\(domainText)"
+  }
+
+  private var missingDNS: [String] {
+    guard let status = session.tlsWizardStatus else {
+      return session.snapshot.settings.domain_configured ? ["refresh DNS checks"] : ["set the receiving domain"]
+    }
+    var missing: [String] = []
+    if !session.tlsWizardUsesDynamicIP && !status.checks.root_a_ok {
+      missing.append("A/AAAA for \(domainText.isEmpty ? "@" : domainText)")
+    }
+    if !status.checks.smtp_a_ok {
+      missing.append("A/AAAA or CNAME for \(smtpHost)")
+    }
+    if !status.checks.mx_ok {
+      missing.append("MX @ priority 10 -> \(smtpHost)")
+    }
+    return missing
+  }
+
+  private var domainState: SetupStepState {
+    session.snapshot.settings.domain_configured ? .complete : .active
+  }
+
+  private var dnsState: SetupStepState {
+    guard session.snapshot.settings.domain_configured else { return .locked }
+    return session.tlsWizardDNSReady ? .complete : .active
+  }
+
+  private var toolsState: SetupStepState {
+    guard session.snapshot.settings.domain_configured && session.tlsWizardDNSReady else { return .locked }
+    return session.tlsWizardStatus?.checks.certbot_installed == true ? .complete : .active
+  }
+
+  private var certificateState: SetupStepState {
+    guard session.snapshot.settings.domain_configured && session.tlsWizardDNSReady else { return .locked }
+    return session.snapshot.settings.ssl_ready ? .complete : .active
+  }
+
   var body: some View {
     Section("TLS Walkthrough") {
-      VStack(alignment: .leading, spacing: 2) {
+      VStack(alignment: .leading, spacing: 6) {
         RemoteSetupStep(
           number: 1,
-          title: "Domain",
-          detail: session.settingsDomainDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Set the receiving domain." : "Domain set to \(session.settingsDomainDraft).",
-          state: session.snapshot.settings.domain_configured ? .complete : .active
+          title: "Domain Is Set",
+          detail: domainText.isEmpty ? "Set the receiving domain before checking DNS." : "Using domain \(domainText).",
+          state: domainState
         ) {
           HStack(spacing: 8) {
             Button { session.saveEmailDomain() } label: {
@@ -6623,23 +6745,169 @@ private struct TLSSetupWalkthroughView: View {
             .fixedSize()
           }
         }
+
         RemoteSetupStep(
           number: 2,
-          title: "Certificate",
+          title: "Configure DNS Records",
+          detail: session.tlsWizardDNSReady ? "Required DNS records were detected." : "Add the mail host record first, then add MX with a hostname target, not an IP.",
+          state: dnsState
+        ) {
+          VStack(alignment: .leading, spacing: 8) {
+            Picker("IP address mode", selection: $session.tlsWizardIPMode) {
+              Text("Stable IP").tag("stable")
+              Text("Dynamic IP (DDNS)").tag("dynamic")
+            }
+            .pickerStyle(.segmented)
+            .fixedSize()
+            .onChange(of: session.tlsWizardIPMode) { _ in
+              session.refreshTLSWizardStatus()
+            }
+            HStack(spacing: 8) {
+              Button { session.refreshTLSWizardStatus() } label: {
+                Label(session.isRefreshingTLSWizard ? "Checking DNS" : "Refresh Checks", systemImage: "arrow.clockwise")
+              }
+              .fixedSize()
+              .disabled(!session.snapshot.settings.domain_configured || session.isRefreshingTLSWizard || session.isBusy)
+              Text(dnsHelpText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+              ForEach(dnsRecords) { record in
+                TLSDNSRecordRow(record: record, domain: domainText)
+              }
+            }
+            if !missingDNS.isEmpty {
+              Text("Waiting on: \(missingDNS.joined(separator: "; ")).")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            if !session.tlsWizardError.isEmpty {
+              Text(session.tlsWizardError)
+                .font(.caption)
+                .foregroundStyle(.red)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+          }
+        }
+
+        RemoteSetupStep(
+          number: 3,
+          title: "Prepare TLS Tooling",
+          detail: toolsDetail,
+          state: toolsState
+        ) {
+          Text(session.tlsWizardUsesDynamicIP ? "Dynamic mode expects your DDNS updater to keep \(smtpHost) current." : "Stable mode expects \(smtpHost) to resolve to the active mail server.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+
+        RemoteSetupStep(
+          number: 4,
+          title: "Run TLS Setup",
           detail: session.snapshot.settings.ssl_ready ? "TLS certificate is ready." : "Provision TLS after DNS points at the active mail server.",
-          state: session.snapshot.settings.ssl_ready ? .complete : (session.snapshot.settings.domain_configured ? .active : .locked)
+          state: certificateState
         ) {
           HStack(spacing: 8) {
             Button { session.setupTLSForCurrentServer() } label: {
               Label("Set Up TLS", systemImage: "lock.shield")
             }
             .fixedSize()
-            .disabled(!session.snapshot.settings.domain_configured || session.isBusy)
+            .disabled(!session.snapshot.settings.domain_configured || !session.tlsWizardDNSReady || session.snapshot.settings.ssl_ready || session.isBusy)
             Text(session.snapshot.settings.ssl_ready ? "Ready" : "Not ready")
               .font(.caption)
               .foregroundStyle(session.snapshot.settings.ssl_ready ? .green : .secondary)
           }
         }
+      }
+      .task {
+        if session.snapshot.settings.domain_configured && session.tlsWizardStatus == nil {
+          session.refreshTLSWizardStatus()
+        }
+      }
+    }
+  }
+
+  private var dnsHelpText: String {
+    if session.tlsWizardUsesDynamicIP {
+      return "Use dynamic mode when the server IP changes. The SMTP host may be CNAME or A/AAAA; MX still points to \(smtpHost)."
+    }
+    return "Use stable mode when the server IP stays fixed. Add A/AAAA for the root and SMTP host; MX points to \(smtpHost)."
+  }
+
+  private var toolsDetail: String {
+    if session.tlsWizardStatus?.checks.certbot_installed == true {
+      return "Certbot is installed. Setup can continue."
+    }
+    return "Certbot and supporting tools will be installed automatically during setup."
+  }
+
+  private var dnsRecords: [TLSDNSRecord] {
+    guard let status = session.tlsWizardStatus else {
+      if session.tlsWizardUsesDynamicIP {
+        return [
+          TLSDNSRecord(type: "A", name: domainText.isEmpty ? "@" : domainText, value: "(optional: current public IP)", priority: nil),
+          TLSDNSRecord(type: "CNAME", name: smtpHost, value: "your-ddns-hostname.example.net", priority: nil),
+          TLSDNSRecord(type: "MX", name: domainText.isEmpty ? "@" : domainText, value: smtpHost, priority: 10)
+        ]
+      }
+      return [
+        TLSDNSRecord(type: "A", name: domainText.isEmpty ? "@" : domainText, value: "(server public IP)", priority: nil),
+        TLSDNSRecord(type: "A", name: smtpHost, value: "(server public IP)", priority: nil),
+        TLSDNSRecord(type: "MX", name: domainText.isEmpty ? "@" : domainText, value: smtpHost, priority: 10)
+      ]
+    }
+    if session.tlsWizardUsesDynamicIP {
+      return [
+        TLSDNSRecord(type: "A", name: domainText.isEmpty ? "@" : domainText, value: "(optional: current public IP)", priority: nil),
+        TLSDNSRecord(type: "CNAME", name: smtpHost, value: "your-ddns-hostname.example.net", priority: nil),
+        TLSDNSRecord(type: "MX", name: domainText.isEmpty ? "@" : domainText, value: smtpHost, priority: 10)
+      ]
+    }
+    return status.suggested_records.isEmpty ? [
+      TLSDNSRecord(type: "A", name: domainText.isEmpty ? "@" : domainText, value: status.expected_ip.isEmpty ? "(server public IP)" : status.expected_ip, priority: nil),
+      TLSDNSRecord(type: "A", name: smtpHost, value: status.expected_ip.isEmpty ? "(server public IP)" : status.expected_ip, priority: nil),
+      TLSDNSRecord(type: "MX", name: domainText.isEmpty ? "@" : domainText, value: smtpHost, priority: 10)
+    ] : status.suggested_records
+  }
+}
+
+private struct TLSDNSRecordRow: View {
+  let record: TLSDNSRecord
+  let domain: String
+
+  private var displayName: String {
+    let trimmed = record.name.trimmingCharacters(in: .whitespacesAndNewlines)
+    return !domain.isEmpty && trimmed == domain ? "@" : trimmed
+  }
+
+  private var recordText: String {
+    let type = record.type.uppercased()
+    if type == "MX" {
+      return "MX  \(displayName)  \(record.priority ?? 10) \(record.value)"
+    }
+    return "\(type)  \(displayName)  \(record.value)"
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text(recordText)
+        .font(.system(.caption, design: .monospaced))
+        .textSelection(.enabled)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
+      if record.type.uppercased() == "MX" {
+        Text("MX target must be a hostname. DNS forms often split this into Host/Name \(displayName), Priority \(record.priority ?? 10), Target/Value \(record.value).")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
       }
     }
   }
