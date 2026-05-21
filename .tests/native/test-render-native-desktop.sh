@@ -114,6 +114,8 @@ swift_uses_native_desktop_idiom() {
   grep -q 'actionItem("Preferences...", action: "open_settings", key: ",", modifiers: \\[.command\\])' generated/macos/Sources/App/App.swift
   ! grep -q 'actionItem("Settings...", action: "open_settings"' generated/macos/Sources/App/App.swift
   grep -q 'settingsWindow.title = "Preferences"' generated/macos/Sources/App/App.swift
+  grep -q 'g_menu_append(app_menu, "Preferences", "app.open-settings")' generated/linux/src/main.c
+  ! grep -q 'g_menu_append(app_menu, "Settings", "app.open-settings")' generated/linux/src/main.c
   grep -q 'TabView {' generated/macos/Sources/App/App.swift
   grep -q 'Label("General", systemImage: "gearshape")' generated/macos/Sources/App/App.swift
   grep -q 'Label("Appearance", systemImage: "paintpalette")' generated/macos/Sources/App/App.swift

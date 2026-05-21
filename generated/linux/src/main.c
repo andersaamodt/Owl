@@ -764,7 +764,7 @@ static void setup_actions(GtkApplication *app, AppContext *context) {
 static void setup_menus(GtkApplication *app) {
   GMenu *menubar = g_menu_new();
   GMenu *app_menu = g_menu_new();
-  g_menu_append(app_menu, "Settings", "app.open-settings");
+  g_menu_append(app_menu, "Preferences", "app.open-settings");
   g_menu_append(app_menu, "Quit", "app.quit-app");
   g_menu_append_submenu(menubar, "Owl", G_MENU_MODEL(app_menu));
 
