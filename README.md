@@ -83,5 +83,5 @@ details.
 
 ## License
 
-Owl is dual-licensed under `OWL 3.0 OR AGPL-3.0-or-later`. AGPL use includes
+Owl is dual-licensed under `OWL 3.1 OR AGPL-3.0-or-later`. AGPL use includes
 the additional terms in `WIZARDRY_ADDENDUM.md`.

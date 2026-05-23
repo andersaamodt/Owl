@@ -14,5 +14,5 @@ The bridge endpoint can be backed by [scripts/owl-mobile-backend-bridge.sh](../s
 which dispatches the same allowlisted Owl backend actions used by the desktop app.
 
 - Development context: native-mobile
-- License: dual `OWL 3.0 OR AGPL-3.0-or-later`; AGPL use includes the
+- License: dual `OWL 3.1 OR AGPL-3.0-or-later`; AGPL use includes the
   additional terms in ../WIZARDRY_ADDENDUM.md.
